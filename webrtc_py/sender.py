@@ -8,7 +8,12 @@ import fractions
 class CustomVideoStreamTrack(VideoStreamTrack):
     def __init__(self, path):
         super().__init__()
+        width = 3840
+        height = 2160
         self.cap = cv2.VideoCapture(path)
+        self.cap.set(3, width)
+        self.cap.set(4, height)
+
         self.frame_count = 0
 
     async def recv(self):

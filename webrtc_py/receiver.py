@@ -22,6 +22,8 @@ class VideoReceiver:
                 if isinstance(frame, VideoFrame):
                     print(f"Frame type: VideoFrame, pts:, {frame.pts}, time_base: {frame.time_base}")
                     frame = frame.to_ndarray(format="bgr24")
+                    # frame in 3840x2160 resolution, convert in 1280x720
+                    frame = cv2.resize(frame, (1280, 720))
                 elif isinstance(frame, np.ndarray):
                     print(f"Frame type: numpy array")
                 else:
