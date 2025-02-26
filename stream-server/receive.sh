@@ -1,0 +1,1 @@
+ffplay rtmp://localhost/live/video1
