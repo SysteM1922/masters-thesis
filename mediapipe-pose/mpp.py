@@ -1,13 +1,13 @@
 import asyncio
 import cv2
 import numpy as np
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc import RTCPeerConnection
 from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
 import mediapipe as mp
 
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose()
+pose = mp_pose.Pose(model_complexity=0, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 mp_drawing = mp.solutions.drawing_utils
 
 processing = False
@@ -31,6 +31,7 @@ class VideoReceiver:
             try:
                 frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                 if processing:
+                    print("Skipping frame")
                     continue
 
                 if isinstance(frame, VideoFrame):
@@ -92,6 +93,6 @@ if __name__ == "__main__":
     video_receiver = VideoReceiver()
 
     pc = RTCPeerConnection()
-    signaling = TcpSocketSignaling("192.168.1.100", 9999)
+    signaling = TcpSocketSignaling("localhost", 9999)
     receiver = VideoReceiver()
     asyncio.run(run(pc, signaling))
