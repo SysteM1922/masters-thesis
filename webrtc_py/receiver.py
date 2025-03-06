@@ -82,6 +82,6 @@ if __name__ == "__main__":
     video_receiver = VideoReceiver()
 
     pc = RTCPeerConnection()
-    signaling = TcpSocketSignaling("localhost", 9999)
+    signaling = TcpSocketSignaling("192.168.1.100", 9999)
     receiver = VideoReceiver()
     asyncio.run(run(pc, signaling))
