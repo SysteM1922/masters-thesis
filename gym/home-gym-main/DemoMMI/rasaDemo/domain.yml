@@ -1,0 +1,61 @@
+version: '3.1'
+intents:
+- greet
+- goodbye
+- affirm
+- deny
+- go_to_training_plans
+- go_to_profile
+- go_to_newsession
+- go_to_mainpage
+- choose_training_plan
+- start_plan
+- stop_plan
+- finish_plan
+- next_exercise
+- show_conquistas
+- show_progresso
+- leave_call
+- mute_call
+- unmute_call
+- turn_video_off
+- turn_video_on
+- logout
+- show_informacoes
+- start_session
+- invite_to_session
+entities:
+- nome_plano
+- nome_sessao
+slots:
+  nome_plano:
+    type: text
+    influence_conversation: true
+    mappings:
+    - type: from_entity
+      entity: nome_plano
+responses:
+  utter_greet:
+  - text: Olá, como posso ajudar? Pode perguntar caso não saiba as funcionalidades disponíveis.
+  utter_done:
+  - text: Okay! Está marcado {event} às {hour}!
+  utter_cancel:
+  - text: Okay! Está cancelado!
+  utter_goodbye:
+  - text: Adeus!
+  - text: Lembre-se, estou sempre à sua disposição!
+  utter_default:
+  - text: Desculpe, não percebi. Pode repetir?
+  utter_joke:
+  - text: Qual é o contrário de paixão? Mãe teto.
+  - text: Por que é que o polícia não usa sabão? Porque prefere deter gente.
+  - text: Por que é que o panado se divorciou? Porque a mulher não servia panada.
+  - text: Qual é a diferença entre o cavalo e o palhaço? Um gosta de palha crua e o outro de palhaçada.
+  - text: Qual é a diferença entre um padre e um Mercedes? O padre reza e o Mercedes Benz
+actions:
+- action_greet_user
+- utter_goodbye
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

@@ -1,0 +1,368 @@
+version: "3.1"
+nlu:
+- intent: greet
+  examples: |
+    - Oi Jim
+    - Bom dia, Jim
+    - Boa tarde, Jim
+    - Boa noite, Jim
+    - Olá Jim
+    - Olá Jim
+
+    
+- intent: goodbye
+  examples: |
+    - Xau, Jim
+    - Adeus, Jim
+    - Até logo, Jim
+    - Boa noite, Jim
+    - Até amanhã, Jim
+
+- intent: affirm
+  examples: |
+    - Sim
+    - Claro
+    - Parece-me bem
+    - Correto
+    - Okay
+    - Ok
+    - sim
+
+- intent: deny
+  examples: |
+    - Não
+    - Nope
+    - Nunca
+    - Acho que não
+    - Não gosto assim
+    - Nem por isso
+
+- intent: go_to_training_plans  
+  examples: |
+    - Vai para os planos de treino, por favor
+    - Podes ir para os planos de treino
+    - Mostra-me os planos de treino
+    - Abre os planos de treino
+    - Planos de treino
+    - Mostra os meus treinos disponíveis
+    - Mostra-me os meus planos de treino
+    - Planos
+    - Quero fazer um treino
+    - Estou com vontade fazer um treino
+    - Apresenta-me os treinos disponíveis
+    - Apetece-me fazer um treino
+    - Apetece-me treinar
+    - Estou com vontade de fazer um treino
+    - Estou com vontade fazer exercício
+    - Quero fazer exercício
+
+- intent: go_to_profile  
+  examples: |
+    - Vai para o perfil, por favor
+    - Podes ir para o perfil?
+    - Mostra-me o perfil
+    - Abre o perfil
+    - Ir para o perfil
+    - Perfil
+    - Quero ir para o perfil
+    - Quero ver o meu perfil
+    - Ver o meu perfil
+    - Ver perfil
+
+- intent: go_to_newsession
+  examples: |
+    - Vai para amigos e nova sessão, por favor
+    - Podes ir para amigos e nova sessão?
+    - Mostra-me a página amigos e nova sessão
+    - Abre uma nova sessão
+    - Começa nova sessão
+    - Nova sessão
+    - Quero fazer exercício em conjunto
+    - Quero treinar em conjunto
+    - Videochamada
+    - Quero ver os meus amigos e treinar em conjunto
+    - Amigos e Nova sessão
+    - Abre amigos e nova sessão
+
+
+- intent: go_to_mainpage  
+  examples: |
+    - Vai para o menu inicial, por favor
+    - Vai para o menu inicial
+    - Podes ir para o menu?
+    - Mostra-me o menu inicial
+    - Abre o menu inicial
+    - Ir para o menu inicial
+    - Volta para o menu
+    - Volta para o menu inicial
+    - Menu inicial
+    - Menu
+    - regressa ao menu
+    - regressa ao menu inicial
+    - Vai para o menu
+    
+    
+- intent: choose_training_plan  
+  examples: |
+    - Vai para o [plano 1](nome_plano), por favor
+    - Podes ir para o [plano 1](nome_plano)?
+    - Mostra-me o [plano 1](nome_plano)
+    - Abre o [plano 1](nome_plano)
+    - Ir para o [plano 1](nome_plano)
+    - Selecionar [plano 1](nome_plano)
+    - [plano 1](nome_plano)
+    - Quero ver mais sobre o [plano 1](nome_plano)
+    - Vai para o [plano 2](nome_plano), por favor
+    - Podes ir para o [plano 2](nome_plano)?
+    - Mostra-me o [plano 2](nome_plano)
+    - Abre o [plano 2](nome_plano)
+    - Ir para o [plano 2](nome_plano)
+    - Selecionar [plano 2](nome_plano)
+    - [plano 2](nome_plano)
+    - Quero ver mais sobre o [plano 2](nome_plano)
+    - Vai para o [plano 3](nome_plano), por favor
+    - Podes ir para o [plano 3](nome_plano)?
+    - Mostra-me o [plano 3](nome_plano)
+    - Abre o [plano 3](nome_plano)
+    - Ir para o [plano 3](nome_plano)
+    - Selecionar [plano 3](nome_plano)
+    - [plano 3](nome_plano)
+    - Quero ver mais sobre o [plano 3](nome_plano)
+    - Vai para o [plano 4](nome_plano), por favor
+    - Podes ir para o [plano 4](nome_plano)?
+    - Mostra-me o [plano 4](nome_plano)
+    - Abre o [plano 4](nome_plano)
+    - Ir para o [plano 4](nome_plano)
+    - Selecionar [plano 4](nome_plano)
+    - [plano 4](nome_plano)
+    - Quero ver mais sobre o [plano 4](nome_plano)
+    - Vai para o [plano 5](nome_plano), por favor
+    - Podes ir para o [plano 5](nome_plano)?
+    - Mostra-me o [plano 5](nome_plano)
+    - Abre o [plano 5](nome_plano)
+    - Ir para o [plano 5](nome_plano)
+    - Selecionar [plano 5](nome_plano)
+    - [plano 5](nome_plano)
+    - Quero ver mais sobre o [plano 5](nome_plano)
+    - Vai para o [plano 6](nome_plano), por favor
+    - Podes ir para o [plano 6](nome_plano)?
+    - Mostra-me o [plano 6](nome_plano)
+    - Abre o [plano 6](nome_plano)
+    - Ir para o [plano 6](nome_plano)
+    - Selecionar [plano 6](nome_plano)
+    - [plano 6](nome_plano)
+    - Quero ver mais sobre o [plano 6](nome_plano)
+
+
+
+- intent: start_plan
+  examples: |
+    - Inicia o treino 
+    - Inicia
+    - Inicia o plano de treino
+    - Inicia o vídeo
+    - Começa o plano
+    - Começa o treino
+    - Começa o vídeo
+    - Começa
+    - Continua o plano
+    - Continua o treino
+    - Continua o plano de treino
+    - Continua
+    - Continua o vídeo
+    - Iniciar treino
+    - Iniciar plano 
+    - Iniciar plano de treino
+    - Iniciar vídeo
+    
+     
+- intent: stop_plan
+  examples: |
+    - Para o treino 
+    - Para
+    - Para o plano
+    - Para o plano de treino
+    - Para o vídeo
+    - Pausa o treino
+    - Pausa o vídeo
+    - Pausa o plano
+    - Pausa
+    
+- intent: finish_plan
+  examples: |
+    - Termina o treino 
+    - Acabar treino
+    - Terminar
+    - Fechar 
+    - Terminar treino
+    - Finalizar treino
+    - Sair
+    - Sair do treino
+    - Finaizar
+    - Encerrar
+    - Encerrar treino
+    - Sai
+
+
+- intent: next_exercise
+  examples: |
+    - Próximo exercício, por favor
+    - Avançar para o próximo
+    - Vamos para o próximo exercício
+    - Seguinte, por favor
+    - Passar para o próximo exercício
+    - Continuar para o próximo
+    - Avançar
+    - Seguinte
+    - Seguir em frente
+    - Próximo desafio
+    - Próximo
+    - Avança para o próximo exercício
+    - Mostrar o próximo exercício
+    - Mostrar o exercício seguinte
+
+- intent: show_progresso
+  examples: |
+    - Mostra-me o meu progresso
+    - Progresso
+    - Abre o progresso
+    - Abre o meu progresso
+    - Como está o meu progresso?
+    - Meu progresso
+    - Quero ver o meu progresso
+    - Iniciar progresso
+    - Ver progresso
+    - Visualizar progresso
+    - Ver o meu progresso
+    - Abrir progresso
+    - Mostra o progresso que fiz
+    - Mostra o progresso que tenho feito
+
+- intent: show_conquistas
+  examples: |
+    - Mostra-me as minhas conquistas
+    - Conquistas
+    - Abre as conquistas
+    - Abre as minhas conquistas
+    - Que conquistas ganhei?
+    - Que badges ganhei?
+    - Mostra-me as minhas badges
+    - Iniciar conquistas
+    - Ver conquistas
+    - Visualizar conquistas
+    - Abrir as conquistas que fiz
+    - Abrir as minhas conquistas
+    - Mostra as conquistas que tenho feito
+    - Minhas conquistas
+    - Meus prémios
+    - Quero ver os meus prémios
+    - Prémios
+    - Que emblemas ganhei
+    - Quero ver os meus emblemas
+    - Mostra-me os meus emblemas
+
+
+- intent: show_informacoes
+  examples: |
+    - Mostra-me as minhas informações
+    - Sobre mim
+    - Abre informações
+    - Abre as minhas informações
+    - Como estão as minhas informações?
+    - Minhas informações
+    - Quero ver mais informações sobre mim
+    - Iniciar informações
+    - Ver informações
+    - Visualizar informações
+    - Ver as minhas informações
+    - Abrir informações
+    - Mostra mais informações
+    - Mostra informações
+    - Quero saber mais sobre mim
+    - Mostra-me os meus dados
+    - Quero saber o meu peso
+    - Quero ver a minha altura
+    - Quero saber mais sobre mim
+    - Diz-me o meu peso
+    - Diz-me a minha altura
+    - Diz-me a minha idade
+    - Diz-me o meu IMC
+    - Quero saber o meu IMC
+    - Diz-me o meu índice de massa corporal
+    - Quero saber o meu índice de massa corporal
+
+
+
+- intent: leave_call
+  examples: |
+    - Sai da chamada
+    - Desliga a chamada
+    - Termina a chamada
+    - Desligar
+    - Sair
+    - Sair da chamada
+
+- intent: mute_call
+  examples: |
+    - Desliga o microfone
+    - Mute
+    - Dá mute
+    - Desativa o microfone
+
+- intent: unmute_call
+  examples: |
+    - Liga o microfone
+    - Tira o mute
+    - Liga o micro
+    - Ativa o microfone
+
+- intent: turn_video_off
+  examples: |
+    - Desliga o vídeo
+    - Tira a minha câmera
+    - Desativa a câmera
+    - Desativa a minha câmera   
+    - Desativa o vídeo
+    - Desativa o meu vídeo  
+
+- intent: turn_video_on
+  examples: |
+    - Liga o vídeo
+    - Ativa a minha câmera
+    - Ativa o vídeo
+    - Ativa o meu vídeo
+    - Ativar vídeo
+
+
+- intent: logout  
+  examples: |
+    - Terminar sessão
+    - Termina sessão
+    - Sair
+    - Fechar sessão
+    - Fechar conta
+    - Sair da minha conta
+    - Dá logout
+
+
+- intent: start_session 
+  examples: |
+    - Começa a sessão
+    - Inicia a sessão
+    - Começar sessão
+    - Iniciar treino em conjunto
+    - Inicia o treino em conjunto
+
+- intent: invite_to_session 
+  examples: |
+    - Envia um convite
+    - Convidar amigos
+    - Quero convidar amigos
+    - Convidar Jorge123
+    - Envia um convite ao Jorge123 para se juntar à minha sessão
+
+
+
+
+
+   

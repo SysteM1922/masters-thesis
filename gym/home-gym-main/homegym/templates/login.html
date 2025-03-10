@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Gym</title>
+    <!-- STYLES.CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename='css/registerPage.css')}}">
+    <!-- ICONS -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+    </header>
+    <div class="main-area">
+        <!-- HEADER 
+        <div class="circles">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>-->
+        <!-- login section -->
+        <div class="profileContainer">
+            <div class="maintitle">
+                <h1>HOME GYM</h1>
+                <h3>Escolha o seu perfil</h3>
+            </div>
+            <div class="container">
+            {% for user in users %}
+            <div class="user-card" onclick="redirectToLogin({{ loop.index }})" style="background-image: url('{{ url_for('static', filename=user.image_path) }}');">              <div class="card-content" >
+                    <h3>{{ user.username }}</h3>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+     <!--
+      <div class="otherUser-btn">
+            <p>Começar</p>
+      </div>-->
+           
+
+    <script>
+        function redirectToLogin(userId) {
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ userId: userId })
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "/";
+                } else {
+                    alert('Login failed');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

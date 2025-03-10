@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link href="static/css/newsession_initialpage.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
+    <title>HomeGym</title>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@latest/dist/svg.min.js"></script>
+    <script src="static/js/mmi.js"></script>
+    <script src="static/js/globals.js"></script>
+    <script src="static/js/jquery-3.6.4.min.js"></script>
+    <script src="static/js/webtoolkit.utf8.js"></script>
+    <script src="static/js/datetime.js"></script>
+    <script src="static/js/newsession.js"></script>
+    <script src='https://meet.jit.si/external_api.js'></script>
+    <script src="static/js/geral.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    
+
+
+    <script type="module">
+
+        //var mmiCli_Out_add = "wss://"+host+":8005/IM/USER1/";
+        var mmiCli_Out_add = "wss://"+host+":8005/IM/USER1/";
+        var mmiCli_Out = null;
+        mmiCli_Out = new MMIClientSocket(mmiCli_Out_add + "APP");
+        mmiCli_Out.onMessage.on(im1MessageHandler);
+        mmiCli_Out.onOpen.on(socketOpenHandler);
+        mmiCli_Out.openSocket();
+        let userID;
+        
+
+        
+        
+
+        function socketOpenHandler(event) {
+          console.log("---------------openSocketHandler---------------")
+      
+          if(mmiCli_Out.socket.readyState !== WebSocket.OPEN)
+          {
+              return;
+          }
+        }
+        const socket = io('https://100.90.238.30:5004');
+    
+        fetch('/getUserId')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                userID = data; 
+                console.log('User ID:', userID); 
+                socket.emit('handle_connect', { 'id': userID });  
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+            }); 
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        }); 
+        socket.on('receive_message', (data) => {
+            console.log('Received message:',data);
+            if (data['message'] == 'start_session') {
+                let room = data['room'];
+                window.location.href = '/novasessao/'+ room;
+            }
+            else if (data['message'] == 'User has joined the room') {
+                let name = data['friend_name'];
+                joinedroom_popup(name);
+            }
+        });
+        socket.on('receive_invite', (data) => {
+            let room = data['room'];
+            let friend_name = data['friend_name'];
+            invitereceived_popup(room, friend_name);
+            socket.emit('handle_invite', {'room': room, 'friend_name': friend_name});
+        });
+        function sendInvite(message, friend_name) {
+            socket.emit('send_invite', {'message': message,'friend_name': friend_name, 'userID': userID});
+        }
+        function sendMessagetoRoom(message) {
+            socket.emit('send_message', {'message': message});
+        }
+
+
+
+
+        function im1MessageHandler(data) {
+
+            console.log("--------------im1MessageHandler---------------");
+
+            if(data != null && data!="RENEW" && data!="OK") {
+                console.log(data);
+                var content = $(data).find("emma\\:interpretation").first().text().trim();
+                if (typeof content == 'string') {
+                    try {
+                        // Try to parse XML
+                        console.log(content);
+                        let message = JSON.parse(content);
+                        if(message.hasOwnProperty('nlu') && message.nlu.intent == 'go_to_mainpage') {
+                            window.location.href = '/';
+
+                        }
+                        else if(message.hasOwnProperty('nlu') && message.nlu.intent == 'start_session') {
+                            sendMessagetoRoom('start_session');
+                        }
+                        else if(message.hasOwnProperty('nlu') && message.nlu.intent == 'invite_to_session') {
+                            sendInvite('Convite para te juntares à minha sessão', 'Jorge123');
+                        }
+                        
+                    } catch (e) { console.log(e); }
+                }
+            }
+            const interval = 5; // Interval in seconds
+            runEveryXSeconds(interval);
+            showLevel();
+            showStreak();
+    }
+
+    async function runEveryXSeconds(intervalInSeconds) {
+    while (true) {
+        await new Promise(resolve => setTimeout(resolve, intervalInSeconds * 1000));
+        loadOnlineFriends(); // Call the function
+    }
+    }
+
+
+    /*
+    var mmiCli_1 = null;
+    mmiCli_1 = new MMIClient(null, "https://"+host+":8000/IM/USER1/APPSPEECH");
+    sendToVoice("Bem-vindo ao seu Perfil.");
+    function sendToVoice(texto){
+        //let speak = "&lt;speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.w3.org/2001/10/synthesis http://www.w3.org/TR/speech-synthesis/synthesis.xsd\" xml:lang=\"pt-PT\"&gt;&lt;p&gt;" + "quadrado" + "&lt;/p&gt;&lt;/speak&gt";
+        let speak = "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.w3.org/2001/10/synthesis http://www.w3.org/TR/speech-synthesis/synthesis.xsd\" xml:lang=\"pt-PT\"><p>"+texto+"</p></speak>";
+        var result = speak;
+        mmiCli_1.sendToIM(new LifeCycleEvent("APPSPEECH", "IM", "text-1", "ctx-1").
+            doStartRequest(new EMMA("text-", "text", "command", 1, 0).
+                setValue(JSON.stringify(result))));
+    }
+    */
+    </script>
+    <div class="main-area">
+        <div class="circles">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+    
+        <div class="container">
+            <div class="popup">
+                <span id="popup-message"></span>
+            </div> 
+            <div class="profile">
+                <div class="welcome">
+                    <div class="container2" style="background-image: url('{{image_path}}');"></div>
+                    <div>
+                        <h2 class="name">{{name}}</h2>
+                        <div class="streak_level_group">
+                            <div id="level"></div>  
+                            <div id="streak"></div>
+                        </div>
+                    </div>
+                </div>
+                <p id="datetime" class="datetime-container">
+                    <span class="time"></span>
+                    <span class="date"></span>
+                </p>
+            </div>
+                        
+            <div id="content"> 
+                
+                <div class="main-group">
+                    <div class="dashboard-content">
+                        <div class="info_sq_2">
+                            <div class="title_sq">A SUA SESSÃO ATUAL</div>
+                            <p>Diga Convidar + Username para convidar um amigo para a sua sessão</p>
+                            <div id="session_friends"></div>
+
+                        </div>
+                        <div class="info_sq_1">
+                            <div class="title_sq">MEUS AMIGOS</div>
+                            <p>AMIGOS ONLINE</p>
+                            <div id="friendsonline"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   
+
+</body>
+</html>

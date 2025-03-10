@@ -1,0 +1,861 @@
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300&family=Montserrat:wght@700&family=Poppins:wght@400;500;600;700&display=swap');
+
+* {
+    font-family: "Sans-serif", "Poppins", "Montserrat", "Josefin Sans", sans-serif;
+    padding: 0;
+    margin: 0;
+}
+
+@font-face {
+    font-family: "FONTTEXT";
+    src: url(../fonts/JosefinSans-ExtraLight.ttf);
+}
+
+body {
+    padding: 0 7em;
+    background-color: white;
+    font-size: clamp(18px, 1vw, 50px);
+}
+
+h1 {
+    color: black;
+    font-size: 50px;
+    font-weight: 100;
+    text-align: center;
+    font-size: clamp(18px, 1vw, 50px);
+}
+
+h2 {
+    font-weight: 800;
+    font-size: 42px;
+}
+
+h3 {
+    font-weight: 600;
+    font-size: 38px;
+    color: black;
+}
+
+h4 {
+    font-weight: 300;
+    font-size: 30px;
+    color: black;
+}
+
+p {
+    margin-bottom: 0;
+}
+
+.planhead {
+    font-weight: 600;
+    font-size: 50px;
+    color: black;
+    text-align: center;
+    top: 5%;
+
+}
+
+p {
+    color: black;
+    z-index: 2;
+    font-weight: 600;
+}
+
+.menu {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.flex-container {
+    display: flex;
+    border-radius: 10px;
+    /*box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);*/
+    /*outline: solid 4px #92E3A9;*/
+    animation-name: animate-pop;
+    animation-timing-function: cubic-bezier(0.26, 0.53, 0.74, 1.48);
+    animation-duration: 2s;
+}
+
+@keyframes animate-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.5, 0.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1, 1);
+    }
+}
+
+.animate-pop {
+    animation-name: animate-pop;
+    animation-timing-function: cubic-bezier(0.26, 0.53, 0.74, 1.48);
+    animation-duration: 2s;
+}
+
+@keyframes animate-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.5, 0.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1, 1);
+    }
+}
+
+
+.box2 {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    border-radius: 5px;
+    /*background-color: #92E3A9;*/
+    height: 80px;
+    color: #92E3A9;
+    font-weight: 500;
+}
+
+.box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 30%;
+    border-radius: 5px;
+
+    height: 80px;
+}
+
+.box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 20px;
+}
+
+
+
+.videoContainer {
+    background-color: white;
+    color: black;
+    border-radius: 20px;
+    padding: 20px;
+    width: 18%;
+    height: 90%;
+    position: absolute;
+    top: 50%;
+    left: 91%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    justify-content: flex-start;
+    padding-top: 10px;
+}
+
+.videoContainer * {
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    overflow-wrap: break-word;
+    /* Modern browsers */
+}
+
+
+#conquistas-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#conquistas-next {
+    margin-top: 7%;
+}
+
+.badges-gained {
+    margin-top: 2px;
+    width: 60px;
+    height: 60px;
+    background-color: gray;
+    border-radius: 50%;
+
+}
+
+.badges-next {
+    margin-top: 2px;
+    width: 60px;
+    height: 60px;
+    background-color: lightgrey;
+    border-radius: 50%;
+
+}
+
+.videoContainer .content {
+    height: 100%;
+    margin: 10%;
+}
+
+.videoContainer>.content h3 {
+    margin-top: 5%;
+}
+
+#timerContainer {
+    position: absolute;
+    top: 70%;
+    left: 91%;
+    border-radius: 10px;
+    padding: 5px;
+    transform: translateX(-50%);
+    /* This will create a white container */
+    min-width: 190px;
+    /* This will ensure the container does not shrink below this width */
+    min-height: 130px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-size: 75%;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: -1;
+}
+
+
+#timer {
+    font-size: 55px;
+    font-weight: 650;
+    color: black;
+    text-align: center;
+    z-index: 9999;
+}
+
+.word {
+    margin-bottom: 20px;
+}
+
+.endtext {
+    padding-top: 5px;
+    padding-bottom: 10px;
+    font-family: 'FONTTEXT';
+    font-weight: normal;
+    font-size: 2em;
+    border-radius: 5px;
+    text-align: center;
+    ;
+}
+
+
+.endtext h1 {
+    display: block;
+    font-family: "FONTTEXT";
+    font-size: 30px;
+}
+
+.endtext h2 {
+    display: block;
+}
+
+.videoContainer>.content #counter {
+    font-weight: bolder;
+}
+
+.videoContainer>.content #descricao {
+    font-weight: 400;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+
+
+.ExImage {
+    height: 20vh;
+    width: 25vw;
+    margin: 0px;
+    color: black;
+    border-radius: 15px;
+    display: flex;
+    position: relative;
+    align-items: center;
+    flex-direction: column;
+}
+
+.ExImage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 15px;
+}
+
+.ExName {
+    font-size: 32px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    text-align: center;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); 
+}
+
+.ExType {
+    font-family: "FONTTEXT";
+}
+
+.container3 .content {
+    margin-top: auto;
+    text-align: center;
+    width: 100%;
+    position: relative;
+}
+
+.bold {
+    font-weight: bold;
+    margin-left: 140px;
+}
+
+
+
+
+.elapsedTime-badges {
+    display: flex;
+    /* This makes the child elements lay out in a row */
+    justify-content: space-around;
+    /* This puts maximum space between the child elements */
+    align-items: center;
+    /* This centers the child elements vertically */
+}
+
+
+
+
+
+#elapsedTime {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 34px;
+    padding: 10px;
+    z-index: 2;
+    border-radius: 10px;
+    text-align: center;
+}
+
+
+
+
+#elapsedTime h1 {
+    display: block;
+    font-family: "FONTTEXT";
+    font-size: 25px;
+    font-weight: lighter;
+}
+
+.Experience {
+    font-weight: bold;
+    font-size: 25px;
+    margin-top: 6px;
+    display: flex;
+    justify-content: center;
+}
+
+#elapsedTime p {
+    color: #92E3A9;
+}
+
+#badges {
+    text-align: center;
+    font-size: 34px;
+    padding: 10px;
+    z-index: 2;
+    text-align: center;
+    border-radius: 10px;
+    /* rounded corners */
+    animation: 1s appear ease-in-out;
+    animation-name: animate-pop;
+    animation-timing-function: cubic-bezier(0.26, 0.53, 0.74, 1.48);
+    animation-duration: 2s;
+}
+
+@keyframes animate-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.5, 0.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1, 1);
+    }
+}
+
+
+
+.animated-content {
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.animated-content.loaded {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.Info {
+    aspect-ratio: 1/1;
+    height: 25vh;
+    width: 100%;
+    color: white;
+    display: flex;
+    flex-direction: row;
+    z-index: 1;
+}
+
+.text {
+    flex: 1;
+    max-width: calc(100% - 110px);
+    margin-right: 1rem;
+}
+
+.text h3 {
+    max-width: 400px;
+}
+
+
+.IMGcontainer img {
+    height: 144px;
+    width: 144px;
+    aspect-ratio: 1/1;
+    border-radius: 20px;
+    margin-right: 20px;
+}
+
+.meusplanosimg {
+    width: 15vw;
+    height: 25vh;
+    object-fit: cover;
+    border-radius: 30px 30px 30px 30px;
+}
+
+
+
+.horizontal-line {
+    border-top: 1px solid #000;
+    width: 25%;
+    margin: 15px 0;
+}
+
+.text p {
+    font-size: 28px;
+    font-weight: normal;
+}
+
+
+.PlanName {
+    font-size: 32px;
+    font-weight: bold;
+
+}
+
+
+
+.PlanInfo {
+    text-align: left;
+    margin-right: 20px;
+    margin-top: 10%;
+}
+
+.PlanNumber {
+    margin-top: 0px;
+    font-size: 22px;
+    font-family: "FONTTEXT";
+    font-weight: lighter;
+}
+
+.datetime-container {
+    order: 3;
+    flex-direction: column;
+    align-items: flex-start;
+    align-items: right;
+    font-size: 30px;
+    font-weight: 100;
+    text-align: right;
+
+}
+
+
+.maindiv {
+    margin: 50px 0px 25px 0px;
+    justify-content: space-between;
+    display: flex;
+    align-items: center;
+    color: black;
+}
+
+
+
+
+.description p {
+    font-weight: normal;
+    display: inline;
+}
+
+.description .d1 {
+    font-weight: normal;
+}
+
+.duration p {
+    display: inline;
+}
+
+.dif p {
+    display: inline;
+}
+
+.rec p {
+    display: inline;
+}
+
+.type p {
+    display: inline;
+}
+
+.Diff p {
+    display: inline;
+}
+
+.duration .subtitle {
+    font-weight: normal;
+}
+
+.difrec .subtitle {
+    font-weight: normal;
+}
+
+.type .subtitle {
+    font-weight: normal;
+}
+
+.details {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.TypeandTime {
+    margin-right: 15px;
+    background-color: #92E3A9;
+    padding: 13px;
+    border-radius: 5px;
+}
+
+.difrec {
+    margin-right: 15px;
+    background-color: #92E3A9;
+    padding: 13px;
+    border-radius: 5px;
+}
+
+.Exercicios {
+    font-size: 30px;
+    font-weight: bold;
+    margin-top: 2%;
+    font-family: "FONTTEXT";
+}
+
+.lowContent {
+    margin-top: 20px;
+}
+
+.button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 12px;
+    gap: 8px;
+    height: 5vh;
+    width: 15vw;
+    border: none;
+    color: black;
+    background: #92E3A9;
+    border-radius: 10px;
+}
+
+.fas fa-microphone {
+    font-size: 20px;
+    color: black;
+    margin-right: 50px;
+
+}
+
+.lable {
+    line-height: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+#microphone {
+    position: absolute;
+    z-index: 1000;
+    top: 10%;
+    left: 50%;
+
+}
+
+.footer {
+    display: flex;
+    margin-top: 2.5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-content {
+    display: flex;
+    align-items: center;
+}
+
+.footer-content p {
+    margin-left: 5px;
+}
+
+.footer-content2 {
+    display: flex;
+    align-items: center;
+    margin-left: 2px;
+}
+
+
+.footer2 {
+    display: flex;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.arrow-icon {
+    transform: rotateY(180deg);
+}
+
+.achievement {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    margin-right: 10px;
+    background-size: cover;
+    background-position: center;
+}
+
+.title,
+.achievements-container {
+    width: 100%;
+
+}
+
+.achievements-container {
+    display: flex;
+    position: relative;
+}
+
+.streaktext {
+    font-weight: bold;
+    font-size: 20px;
+    color: black;
+    margin-left: 15px;
+}
+
+.leveltext {
+    font-weight: bold;
+    font-size: 20px;
+    color: black;
+}
+
+.streak_level_group {
+    display: flex;
+    margin-left: 60px;
+    margin-bottom: 20px;
+
+}
+
+.leveltext img {
+    margin-bottom: 4px;
+}
+
+@keyframes scale {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05) rotate(10deg);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.rest {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.stopwatch-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    height: 40vh;
+}
+
+.descanso {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    font-weight: 100;
+    transform: translate(-50%, -50%);
+    color: black;
+    font-size: 70px;
+    z-index: 1;
+}
+
+.stopwatch-container img {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 0;
+    height: 280px;
+    width: 280px;
+}
+
+.highlight {
+    color: #92E3A9;
+    font-weight: bold;
+}
+
+.count {
+    margin-bottom: 5px;
+    font-weight: 100;
+}
+
+.Alert {
+    text-align: center;
+    padding: 8px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.rest_sq {
+    width: 420px;
+    height: 370px;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    /* Add this to center horizontally */
+    align-items: center;
+    /* Add this to center vertically */
+    text-align: center;
+    background-image: url('../img/workoutplan.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+}
+
+.title_sq {
+    font-size: 25px;
+    font-weight: bold;
+    color: white;
+}
+
+
+.NameCont {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+.finished {
+    text-align: center;
+
+}
+
+.finished h4 {
+    font-family: "FONTTEXT";
+}
+
+#levelprog-text {
+    left: 50%;
+    transform: translateX(-50%);
+    color: #333;
+    font-size: 50px;
+    font-weight: bold;
+}
+
+#level-indicators {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+#current-level,
+#next-level {
+    font-size: 30px;
+    color: #333;
+    font-weight: bold;
+}
+
+#progress-bar {
+    margin-top: 20px;
+    width: 100%;
+    height: 30px;
+    background-color: rgba(121, 118, 118, 0.2);
+    border-radius: 15px;
+    margin-bottom: 10px;
+}
+
+#progress {
+    width: 0%;
+    height: 100%;
+    background-color: #92E3A9;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+    /* Apply the animation */
+}
+
+/* Define the animation */
+
+
+.meet-container {
+    position: fixed;
+    top: 0.5cm;
+    left: 2cm;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+}
+
+.titleend {
+    font-size: 25px;
+}
+
+.dn {
+    display: flex;
+    flex-direction: row;
+
+}
