@@ -168,7 +168,7 @@ def send_message(data):
 
 #--------------------------------funcs http request ao server homegym----------------------------------
 def get_online_friends(userID):
-    response = requests.get("https://192.168.1.70:5000/getOnlineFriends/"+str(userID), verify= False) #certificado n esta a funcionar 
+    response = requests.get("https://localhost:5000/getOnlineFriends/"+str(userID), verify= False) #certificado n esta a funcionar 
 
     if response != []:
         return response.json()
@@ -176,7 +176,7 @@ def get_online_friends(userID):
         return None
     
 def get_username(id):
-    response = requests.get("https://192.168.1.70:5000/getUsername/"+str(id), verify= False)
+    response = requests.get("https://localhost:5000/getUsername/"+str(id), verify= False)
 
     if response != []:
         return response.json()
