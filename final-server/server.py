@@ -21,7 +21,6 @@ class VideoReceiver:
                 results = pose.process(image)
 
                 if results.pose_landmarks:
-                    # Extract landmarks to be json serializable
                     landmarks = results.pose_landmarks
                 else:
                     landmarks = None
@@ -37,13 +36,13 @@ class VideoReceiver:
                     print("Data channel is not open")
             except Exception as e:
                 print("Error processing frame:", e)
-
             
     async def handle_track(self, track):
         timeouts = 0
         while True:
             try:
                 if self.lock.locked():
+                    print("Video receiver is locked")
                     continue
                 frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                 if isinstance(frame, VideoFrame):
@@ -65,7 +64,6 @@ async def run(ip_adress, port):
         try:
             signaling = TcpSocketSignaling(ip_adress, port)
             await signaling.connect()
-            print("Waiting for connection...")
 
             pc = RTCPeerConnection()
             video_receiver = VideoReceiver()

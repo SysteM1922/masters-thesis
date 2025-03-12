@@ -6,6 +6,7 @@ from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
 import mediapipe as mp
 import cv2
+import time
 
 mp_drawing = mp.solutions.drawing_utils
 
@@ -19,6 +20,7 @@ class VideoTrack(VideoStreamTrack):
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.frame_count = 0
         self.frames = []
+        self.lock = asyncio.Lock()
 
     async def recv(self):
         self.frame_count += 1
@@ -35,6 +37,29 @@ class VideoTrack(VideoStreamTrack):
         video_frame.pts = self.frame_count
         video_frame.time_base = fractions.Fraction(1, 30)
         return video_frame
+    
+    async def process_frame(self, message):
+        if self.lock.locked():
+            print("Video track is locked")
+            return
+        async with self.lock:
+            try:
+                data = pickle.loads(message)
+                frame_count = data.get("frame_count", 0)
+                if frame_count == 0:
+                    return
+                landmarks = data.get("landmarks", None)
+                while self.frames:
+                    frame, pts = self.frames.pop(0)
+                    if pts == frame_count:
+                        if landmarks:
+                            mp_drawing.draw_landmarks(frame, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
+                        cv2.imshow("MediaPipe Pose", frame)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
+                        break
+            except Exception as e:
+                print("Error processing message:", e)
     
 async def run(ip_address, port):
     signaling = TcpSocketSignaling(ip_address, port)
@@ -55,25 +80,7 @@ async def run(ip_address, port):
 
         @data_channel.on("message")
         def on_message(message):
-            try:
-                data = pickle.loads(message)
-                frame_count = data.get("frame_count", 0)
-                if frame_count == 0:
-                    return
-                landmarks = data.get("landmarks", None)
-                
-                while video_track.frames:
-                    frame, pts = video_track.frames.pop(0)
-                    if pts == frame_count:
-                        if landmarks:
-                            mp_drawing.draw_landmarks(frame, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
-                        cv2.imshow("MediaPipe Pose", frame)
-                        if cv2.waitKey(1) & 0xFF == ord('q'):
-                            break
-                        break
-
-            except Exception as e:
-                print("Error processing message:", e)
+            asyncio.create_task(video_track.process_frame(message))
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
