@@ -1,0 +1,860 @@
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300&family=Montserrat:wght@700&family=Poppins:wght@400;500;600;700&display=swap');
+
+* {
+    font-family: "Sans-serif", "Poppins", "Montserrat", "Josefin Sans", sans-serif;
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    padding: 0 7em;
+    background-color: white;
+    font-size: 18px;
+}
+
+h1 {
+    color: black;
+    font-size: 50px;
+    font-weight: 100;
+    text-align: center;
+}
+
+h2 {
+    font-weight: 800;
+    font-size: 42px;
+}
+
+h3 {
+    font-weight: 600;
+    color: white;
+}
+
+
+p {
+    color: black;
+    z-index: 2;
+    font-weight: 600;
+}
+
+.circles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+@keyframes animate {
+    0% {
+        opacity: 1;
+        border-radius: 0;
+        transform: translateY(0) rotate(0deg);
+    }
+
+    100% {
+        opacity: 0%;
+        border: 50%;
+        transform: translateY(-1000px) rotate(720deg);
+    }
+}
+
+.leveltext {
+    font-weight: bold;
+    color: black;
+}
+
+.leveltext img {
+    margin-bottom: 5px;
+}
+
+.circles div {
+    position: absolute;
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-radius: 60%;
+    background: rgba(42, 37, 37, 0.2);
+    bottom: -150px;
+    animation: animate 25s linear infinite;
+}
+
+.circles div:nth-child(1) {
+    left: 25%;
+    width: 80px;
+    height: 80px;
+    animation-delay: 0s;
+}
+
+.circles div:nth-child(2) {
+    left: 10%;
+    width: 30px;
+    height: 30px;
+    animation-delay: 2s;
+    animation-duration: 12s;
+}
+
+.circles div:nth-child(3) {
+    left: 70%;
+    width: 30px;
+    height: 30px;
+    animation-delay: 4s;
+}
+
+.circles div:nth-child(4) {
+    left: 40%;
+    width: 60px;
+    height: 60px;
+    animation-delay: 0s;
+    animation-duration: 18s;
+}
+
+.circles div:nth-child(5) {
+    left: 65%;
+    width: 30px;
+    height: 30px;
+    animation-delay: 0s;
+}
+
+.circles div:nth-child(6) {
+    left: 75%;
+    width: 110px;
+    height: 110px;
+    animation-delay: 3s;
+}
+
+.circles div:nth-child(7) {
+    left: 35%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 7s;
+}
+
+.circles div:nth-child(8) {
+    left: 50%;
+    width: 25px;
+    height: 25px;
+    animation-delay: 15s;
+    animation-duration: 45s;
+}
+
+.circles div:nth-child(9) {
+    left: 20%;
+    width: 30px;
+    height: 30px;
+    animation-delay: 2s;
+    animation-duration: 35s;
+}
+
+.circles div:nth-child(10) {
+    left: 85%;
+    width: 150px;
+    height: 150px;
+    animation-delay: 0s;
+    animation-duration: 11s;
+}
+
+
+.menu {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.containers {
+    width: 70%;
+    height: 70%;
+    margin: 10px;
+    color: white;
+    border-radius: 15px;
+    display: flex;
+    position: relative;
+}
+
+
+@media (min-width: 992px) {
+    .containers {
+        width: 380px;
+        height: 188px;
+    }
+
+    .leveltext {
+        font-size: 20px;
+    }
+}
+
+.containers .content {
+    width: 100%;
+    height: 100%;
+}
+
+.containers .content .meusplanosimg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 15px;
+}
+
+.animated-content {
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.animated-content.loaded {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+
+
+.text-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    text-align: center;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); 
+}
+
+.text-overlay h3 {
+    color: rgb(255, 255, 255);
+}
+
+.text-overlay p {
+    color: rgb(255, 255, 255);
+    font-size: 1rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); 
+}
+
+.container2 {
+    height: 100px;
+    width: 100px;
+    color: white;
+    border-radius: 30px;
+    margin-right: 20px;
+    background-size: cover;
+    background-position: center;
+}
+
+.welcome h2 {
+    color: black;
+    margin-top: 5px;
+}
+
+.profile {
+    margin: 50px 0;
+    justify-content: space-between;
+    display: flex;
+    align-items: center;
+    color: black;
+}
+
+.streaktext {
+    font-weight: bold;
+    font-size: 25px;
+    color: black;
+    margin-left: 20px;
+}
+
+.leveltext {
+    font-weight: bold;
+    font-size: 25px;
+    color: black;
+    margin-left: 5px;
+}
+
+.streak_level_group {
+    display: flex;
+
+}
+
+.profile .welcome {
+    display: flex;
+}
+
+.datetime-container {
+    order: 3;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 30px;
+    font-weight: 100;
+    text-align: end;
+    width: 245px;
+    height: 100px;
+}
+
+.bold {
+    font-weight: bold;
+    margin-left: 100px;
+}
+
+.date {
+    margin-left: 30px;
+}
+
+#timer {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    font-size: 50px;
+    padding: 10px;
+    transform: translate(-50%, -50%);
+    color: green
+}
+
+@media(min-width: 3500px) {
+
+    .menu {
+        width: 100%;
+        height: 300px;
+    }
+
+
+    .containers {
+        width: 25vw;
+        height: 20vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+
+    .containers .content .meusplanosimg {
+        border-radius: 5%;
+    }
+}
+
+@media (min-width: 1800px) {
+
+    /* 80% zoom */
+    .menu {
+        width: 100%;
+        height: 300px;
+    }
+
+    .leveltext {
+        font-size: 25px;
+    }
+
+    .containers {
+        width: 23vw;
+        height: 25vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+
+    .text-overlay p {
+        font-size: 1.2rem;
+    }
+
+    h3 {
+        font-size: 35px;
+    }
+
+    h2 {
+        font-size: 20px;
+    }
+
+    .profile {
+        margin: 10vh 0;
+    }
+
+    .datetime-container {
+        font-size: 40px;
+    }
+
+    .bold {
+        margin-left: 215px;
+    }
+
+    .date {
+        margin-left: 70px;
+    }
+
+
+    .container2 {
+        height: 150px;
+        width: 150px;
+        border-radius: 10%;
+    }
+
+    h1 {
+        font-size: 50px;
+    }
+
+    h2 {
+        font-size: 50px;
+    }
+
+    .containerLeft .content .gym {
+        border-radius: 60px;
+    }
+
+    .containerRight .content .novasessao {
+        border-radius: 60px;
+    }
+
+    .containerMiddle .content .workoutplan {
+        border-radius: 60px;
+    }
+
+    .circles div {
+        position: absolute;
+        display: block;
+        width: 20px;
+        height: 20px;
+        border-radius: 40%;
+        background: rgba(42, 37, 37, 0.2);
+        bottom: -350px;
+        animation: animate 25s linear infinite;
+    }
+
+    .circles div:nth-child(1) {
+        left: 25%;
+        width: 100px;
+        /* Reduced size */
+        height: 100px;
+        /* Reduced size */
+        animation-delay: 0s;
+    }
+
+    .circles div:nth-child(2) {
+        left: 10%;
+        width: 150px;
+        /* Reduced size */
+        height: 150px;
+        /* Reduced size */
+        animation-delay: 2s;
+        animation-duration: 12s;
+    }
+
+    .circles div:nth-child(3) {
+        left: 70%;
+        width: 150px;
+        /* Reduced size */
+        height: 150px;
+        /* Reduced size */
+        animation-delay: 4s;
+    }
+
+    .circles div:nth-child(4) {
+        left: 40%;
+        width: 300px;
+        /* Reduced size */
+        height: 300px;
+        /* Reduced size */
+        animation-delay: 0s;
+        animation-duration: 18s;
+    }
+
+    .circles div:nth-child(5) {
+        left: 65%;
+        width: 150px;
+        /* Reduced size */
+        height: 150px;
+        /* Reduced size */
+        animation-delay: 0s;
+    }
+
+    .circles div:nth-child(6) {
+        left: 75%;
+        width: 155px;
+        /* Reduced size */
+        height: 105px;
+        /* Reduced size */
+        animation-delay: 3s;
+    }
+
+    .circles div:nth-child(7) {
+        left: 35%;
+        width: 175px;
+        /* Reduced size */
+        height: 175px;
+        /* Reduced size */
+        animation-delay: 7s;
+    }
+
+    .circles div:nth-child(8) {
+        left: 50%;
+        width: 125px;
+        /* Reduced size */
+        height: 125px;
+        /* Reduced size */
+        animation-delay: 15s;
+        animation-duration: 45s;
+    }
+
+    .circles div:nth-child(9) {
+        left: 20%;
+        width: 300px;
+        /* Reduced size */
+        height: 200px;
+        /* Reduced size */
+        animation-delay: 2s;
+        animation-duration: 35s;
+    }
+
+    .circles div:nth-child(10) {
+        left: 85%;
+        width: 300px;
+        /* Reduced size */
+        height: 300px;
+        /* Reduced size */
+        animation-delay: 0s;
+        animation-duration: 11s;
+    }
+}
+
+@media (min-width: 2000px) {
+
+    /* 75% zoom */
+    .text-overlay p {
+        font-size: 1.5rem;
+    }
+
+    h3 {
+        font-size: 35px;
+    }
+
+    h1 {
+        font-size: 60px;
+    }
+
+    .leveltext {
+        font-size: 27px;
+    }
+}
+
+@media (min-width: 2300px) {
+
+    /* 60% zoom */
+    .leveltext {
+        font-size: 30px;
+    }
+
+    h3 {
+        font-size: 38px;
+    }
+
+    h1 {
+        font-size: 40px;
+    }
+
+    h2 {
+        font: 60px
+    }
+
+    .text-overlay p {
+        font-size: 1.7rem;
+    }
+
+    .containers {
+        width: 23vw;
+        height: 23vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+}
+
+@media (min-width: 2600px) {
+    .leveltext {
+        font-size: 40px;
+    }
+
+    h2 {
+        font-size: 70px;
+        /* 50%zoom */
+    }
+
+    .datetime-container {
+        font-size: 50px;
+    }
+
+
+
+    .bold {
+        margin-left: 240px;
+    }
+
+    h3 {
+        font-size: 60px;
+    }
+
+    .container2 {
+        height: 200px;
+        width: 200px;
+        border-radius: 10%;
+    }
+
+    .text-overlay p {
+        font-size: 1.8rem;
+    }
+
+    .containers {
+        width: 26vw;
+        height: 25vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+}
+
+
+
+
+@media (min-width: 3500px) {
+
+    .leveltext {
+        font-size: 60px;
+    }
+
+    .leveltext img {}
+
+    h3 {
+        font-size: 90px;
+    }
+
+    .profile {
+        margin: 10vh 0;
+    }
+
+    .datetime-container {
+        font-size: 80px;
+    }
+
+    .bold {
+        margin-left: 350px;
+    }
+
+    .container2 {
+        height: 350px;
+        width: 350px;
+        border-radius: 60px;
+    }
+
+    h1 {
+        font-size: 100px;
+    }
+
+    h2 {
+        font-size: 120px;
+    }
+
+    .containerLeft .content .gym {
+        border-radius: 60px;
+    }
+
+    .containerRight .content .novasessao {
+        border-radius: 60px;
+    }
+
+    .containerMiddle .content .workoutplan {
+        border-radius: 60px;
+    }
+
+    .circles div {
+        position: absolute;
+        display: block;
+        width: 20px;
+        height: 20px;
+        border-radius: 40%;
+        background: rgba(42, 37, 37, 0.2);
+        bottom: -350px;
+        animation: animate 25s linear infinite;
+    }
+
+    .circles div:nth-child(1) {
+        left: 25%;
+        width: 200px;
+        height: 200px;
+        animation-delay: 0s;
+    }
+
+    .circles div:nth-child(2) {
+        left: 10%;
+        width: 300px;
+        height: 300px;
+        animation-delay: 2s;
+        animation-duration: 12s;
+    }
+
+    .circles div:nth-child(3) {
+        left: 70%;
+        width: 300px;
+        height: 300px;
+        animation-delay: 4s;
+    }
+
+    .circles div:nth-child(4) {
+        left: 40%;
+        width: 600px;
+        height: 600px;
+        animation-delay: 0s;
+        animation-duration: 18s;
+    }
+
+    .circles div:nth-child(5) {
+        left: 65%;
+        width: 300px;
+        height: 300px;
+        animation-delay: 0s;
+    }
+
+    .circles div:nth-child(6) {
+        left: 75%;
+        width: 310px;
+        height: 210px;
+        animation-delay: 3s;
+    }
+
+    .circles div:nth-child(7) {
+        left: 35%;
+        width: 350px;
+        height: 350px;
+        animation-delay: 7s;
+    }
+
+    .circles div:nth-child(8) {
+        left: 50%;
+        width: 250px;
+        height: 250px;
+        animation-delay: 15s;
+        animation-duration: 45s;
+    }
+
+    .circles div:nth-child(9) {
+        left: 20%;
+        width: 600px;
+        height: 400px;
+        animation-delay: 2s;
+        animation-duration: 35s;
+    }
+
+    .circles div:nth-child(10) {
+        left: 85%;
+        width: 600px;
+        height: 600px;
+        animation-delay: 0s;
+        animation-duration: 11s;
+    }
+
+    .text-overlay p {
+        font-size: 3rem;
+    }
+
+    .containers {
+        width: 26vw;
+        height: 26vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+}
+
+@media (min-width: 5000px) {
+
+    .text-overlay p {
+        font-size: 4rem;
+    }
+
+    .leveltext {
+        font-weight: bold;
+        font-size: 25px;
+        color: black;
+        margin-left: 5px;
+    }
+
+    .containers {
+        width: 27vw;
+        height: 26vh;
+        margin: 10px;
+        color: white;
+        border-radius: 30px;
+        display: flex;
+        position: relative;
+    }
+
+    .container2 {
+        height: 500px;
+        width: 500px;
+        border-radius: 60px;
+    }
+
+    h3 {
+        font-size: 120px;
+    }
+
+    .datetime-container {
+        font-size: 110px;
+    }
+
+    .bold {
+        margin-left: 475px;
+    }
+
+    h2 {
+        font-size: 180px;
+    }
+
+}
+
+.arrow-icon {
+    transform: rotateY(180deg);
+}
+
+.footer-content {
+    display: flex;
+    align-items: center;
+}
+
+.footer-content p {
+    margin-left: 5px; 
+    margin-top: 20px;
+}
+
+
+
+.leveltext {
+    font-weight: bold;
+    font-size: 25px;
+    color: black;
+    margin-left: 5px;
+}
+
+.leveltext img {
+    margin-bottom: -2px;
+    margin-left: 3px;
+}
+
+
+.streaktext img {
+    margin-bottom: -2px;
+    margin-left: 1px;
+}
+
+.streaktext {
+    font-weight: bold;
+    font-size: 25px;
+    color: black;
+    margin-left: 20px;
+}
+
+.streak_level_group {
+    display: flex;
+
+}

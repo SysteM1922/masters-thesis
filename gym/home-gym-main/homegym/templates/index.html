@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Home Gym</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='css/menu.css')}}" />
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@latest/dist/svg.min.js"></script>
+    <script src="static/js/mmi.js"></script>
+    <script src="static/js/globals.js"></script>
+    <script src="static/js/jquery-3.6.4.min.js"></script>
+    <script src="static/js/webtoolkit.utf8.js"></script>
+    <script src="static/js/datetime.js"></script>
+    <script src="static/js/geral.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+
+    <script type="module">
+        var mmiCli_Out_add = "wss://" + host + ":8005/IM/USER1/";
+        var mmiCli_Out = null;
+        mmiCli_Out = new MMIClientSocket(mmiCli_Out_add + "APP");
+        mmiCli_Out.onMessage.on(im1MessageHandler);
+        mmiCli_Out.onOpen.on(socketOpenHandler);
+        mmiCli_Out.openSocket();
+
+        function socketOpenHandler(event) {
+            console.log("---------------openSocketHandler---------------");
+
+            if (mmiCli_Out.socket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+        }
+
+        function im1MessageHandler(data) {
+            console.log("--------------im1MessageHandler---------------");
+
+            if (data != null && data != "RENEW" && data != "OK") {
+                console.log(data);
+                var content = $(data)
+                    .find("emma\\:interpretation")
+                    .first()
+                    .text()
+                    .trim();
+                if (typeof content == "string") {
+                    try {
+                        // Try to parse XML
+                        console.log(content);
+                        let message = JSON.parse(content);
+                        if (
+                            message.hasOwnProperty("nlu") &&
+                            message.nlu.intent == "go_to_training_plans"
+                        ) {
+                            animateDiv('containerMiddle');
+                            setTimeout(function() {
+                                window.location.href = "/meusplanos";
+                            }, 1000);
+                        } else if (
+                            message.hasOwnProperty("nlu") &&
+                            message.nlu.intent == "go_to_profile"
+                        ) {
+                            animateDiv('containerLeft');
+                            setTimeout(function() {
+                                window.location.href = "/meuperfil";
+                            }, 1000);
+                        } else if (
+                            message.hasOwnProperty("nlu") &&
+                            message.nlu.intent == "go_to_newsession"
+                        ) {
+                            animateDiv('containerRight');
+                            setTimeout(function() {
+                                window.location.href = "/novasessao";
+                            }, 1000);
+                        } else if (
+                            message.hasOwnProperty("nlu") &&
+                            message.nlu.intent == "logout"
+                        ) {
+                            window.location.href = "/logout";
+
+                        }else if(message.hasOwnProperty("nlu") && message.nlu.intent == "mic_on") {
+                            micON();
+                        }else if(message.hasOwnProperty("nlu") && message.nlu.intent == "mic_off") {
+                            micOFF();
+                        }else if(message.hasOwnProperty("nlu") && message.nlu.intent != null) {
+                            //intent not recognized
+                            micOFF();
+                        }
+
+                        
+
+                    } catch (e) {
+                        console.log(e);
+                    }
+                }
+            } else {
+                loadContent("templates/MenuInicial.html");
+                showLevel();
+                showStreak();
+
+                var mmiCli_1 = null;
+                mmiCli_1 = new MMIClient(null, "https://"+host+":8000/IM/USER1/APPSPEECH");
+                sendToVoice("Bem-vindo de volta. Escolha uma opção para começar.");
+                function sendToVoice(texto){
+                    //let speak = "&lt;speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.w3.org/2001/10/synthesis http://www.w3.org/TR/speech-synthesis/synthesis.xsd\" xml:lang=\"pt-PT\"&gt;&lt;p&gt;" + "quadrado" + "&lt;/p&gt;&lt;/speak&gt";
+                    let speak = "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.w3.org/2001/10/synthesis http://www.w3.org/TR/speech-synthesis/synthesis.xsd\" xml:lang=\"pt-PT\"><p>"+texto+"</p></speak>";
+                    var result = speak;
+                    mmiCli_1.sendToIM(new LifeCycleEvent("APPSPEECH", "IM", "text-1", "ctx-1").
+                        doStartRequest(new EMMA("text-", "text", "command", 1, 0).
+                            setValue(JSON.stringify(result))));
+                }
+            }
+        }
+
+        function loadContent(htmlFilePath) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", htmlFilePath, true);
+
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    document.getElementById("content").innerHTML = xhr.responseText;
+                } else {
+                    console.error("Failed to load content");
+                }
+            };
+
+            xhr.onerror = function () {
+                console.error("Network error occurred");
+            };
+
+            xhr.send();
+        }
+    </script>
+
+    <div class="profile">
+        <div class="welcome">
+            <div class="container2" style="background-image: url('{{image_path}}');"></div>
+            <div class="text">
+                <h2>{{name}}</h2>
+                <div class="streak_level_group">
+                    <div id="level"></div> 
+                    <div id="streak"></div>
+                </div>
+            </div>
+        </div>
+        <div id="mic">
+            <svg class="mic" id="mic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:70px; height:70px;">
+                <path fill="#000000" d="M12,1A4,4 0 0,1 16,5V11A4,4 0 0,1 12,15A4,4 0 0,1 8,11V5A4,4 0 0,1 12,1M12,19A7,7 0 0,0 19,12H22A10,10 0 0,1 12,22A10,10 0 0,1 2,12H5A7,7 0 0,0 12,19Z" />
+            </svg>
+        </div>
+        <p id="datetime" class="datetime-container">
+            <span class="time"></span>
+            <span class="date"></span>
+        </p>
+    </div>
+    <div id="content">
+        <!-- Content will be loaded here -->
+    </div>
+</body>
+</html>

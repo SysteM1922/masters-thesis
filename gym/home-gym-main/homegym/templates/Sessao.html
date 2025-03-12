@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="{{url_for('static', filename='css/plano.css')}}"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title>HomeGym</title>
+  </head>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@latest/dist/svg.min.js"></script>
+    <script src="../static/js/mmi.js"></script>
+    <script src="../static/js/globals.js"></script>
+    <script src="../static/js/jquery-3.6.4.min.js"></script>
+    <script src="../static/js/webtoolkit.utf8.js"></script>
+    <script src="../static/js/menuplanos.js"></script>
+    <script src="../static/js/sharedPlan.js"></script>
+    <script src="../static/js/datetime.js"></script>
+    <script src="../static/js/geral.js"></script>
+    <script src="../static/js/newsession.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <script src='https://meet.jit.si/external_api.js'></script>
+    
+
+    <script type="module">
+        let userID;
+        let count = -1;
+        var shouldContinue = true;
+        var planStart = false;
+        let startTime = 0;
+        let exDuration = 0;
+        let planNumber = 13;
+        let video = false;
+        let audio = false;
+        console.log(planNumber);
+        let planName;
+        getPlanName_2(planNumber)
+        .then(result => {
+            planName = result;
+        console.log(planName); 
+    });
+        var mmiCli_Out_add = "wss://"+host+":8005/IM/USER1/";
+        var mmiCli_Out = null;
+        mmiCli_Out = new MMIClientSocket(mmiCli_Out_add + "APP");
+        mmiCli_Out.onMessage.on(im1MessageHandler);
+        mmiCli_Out.onOpen.on(socketOpenHandler);
+        mmiCli_Out.openSocket();
+      
+
+        function socketOpenHandler(event) {
+            console.log("---------------openSocketHandler---------------")
+        
+            if(mmiCli_Out.socket.readyState !== WebSocket.OPEN)
+            {
+                return;
+            }
+        }
+
+        const socket = io('https://localhost:5004');
+    
+        fetch('/getUserId')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                userID = data; 
+                socket.emit('handle_connect', { 'id': userID });
+                console.log('Connected to server');  
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+            });
+            
+            
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        }); 
+
+        socket.on('receive_message', (data) => {
+            console.log('Received message:',data);
+            if (data['message'] == 'start_plan') {
+                //code
+                planStart = true;
+                startTime = Date.now();
+                
+                loadPlanHead_2(planNumber)
+                    .then(() => {
+                        count+=1;
+                        changeZIndex("1000");
+                        addtimerimage();
+                        return loadExercise_2(planNumber, count);
+                    })
+                    .then(() => getPlanDuration_2(planNumber))
+                    .then(duration => {
+                        exDuration = duration / 3; // Split the duration into three equal parts
+                        return runForTime(exDuration);
+                    })
+                    .then(result => {
+                        console.log(result.message); // 'Operation completed'
+                        //console.log(result.incompleteEx); // false
+                        clearDivs();
+                        removetimerimage();
+                        changeZIndex("0");
+                        resting();
+                    })
+                    .catch(error => {
+                        console.log('Timer was stopped')
+                        if (error.incompleteEx) {
+                            //console.log(error.incompleteEx); // true
+                        }
+                    });
+            }
+            else if (data['message'] == 'finish_plan') {
+                shouldContinue = false;
+                let elapsedTime = getElapsedTime();
+                planStart = false
+                setTimeout(() => {  //esperar pelo fim do outro timer
+                    clearDivs();
+                    removetimerimage();
+                    changeZIndex("0");
+                    micOFF();
+                    moveMicrophone('10%', '50%')
+                    if (count == 2) { //only counts if went through all exercises
+                        document.getElementById('exercise').innerHTML = '<div class="endtext">Parabéns! Finalizou <br><strong>' + planName + '</strong></div><div>';
+                        document.getElementById('elapsedTime').innerHTML = '<div class="titleend">Tempo total de treino:</div><p class="animate-pop"style="font-size: 70px;">' + formatTime(elapsedTime) + '</p>';
+                        document.getElementById('Experience').innerHTML = "<div class='Experience'>Experiência Ganha: </div>";
+                        sendFinishPlan_2(elapsedTime, planNumber) //send to db
+                            .then(() => {
+                                showAwardedBadges(); //show badges if awarded
+                            })
+                            .then(() => {
+                                return new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 seconds
+                            })
+                            .then(() => {
+                                showLevel();
+                                showStreak();
+                            })
+                            .then(() => {
+                                return new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 2 seconds
+                            })
+                            .then(() => {
+                                console.log("showing progress");
+                                showLevelProgress();
+                                getplanxp(planNumber);
+                            })
+                            .catch((error) => {
+                                console.error('Error:', error);
+                            });
+                    }else {
+                        document.getElementById('exercise').innerHTML = '<div class="endtext"><h1>Não Finalizou o </h1> <h2>' +' ' + planName +'</h2> </div>';
+                        document.getElementById('elapsedTime').innerHTML = "<h1> Para ganhar recompensas</h1> <h1>tente novamente</h1>";
+                        document.getElementById('Experience').innerHTML = "<div class='Experience'>Experiência Ganha: 0</div>";
+                        showLevelProgress();
+                    
+                        // Schedule the code to run after the current call stack has cleared
+                        setTimeout(function() {
+                            var elapsedTimebadges = document.getElementsByClassName('elapsedTime-badges');
+                            for (var i = 0; i < elapsedTimebadges.length; i++) {
+                                elapsedTimebadges[i].style.display = 'flex'; // Make the element a flex container
+                                elapsedTimebadges[i].style.flexDirection = 'column'; // Set the flex direction to column
+                            }
+                        }, 0);
+                    }
+        
+                }, 1000);
+            }
+            else if (data['message'] == 'next_exercise') {
+                //code
+                shouldContinue = false;
+                setTimeout(() => {  //esperar pelo fim do outro timer
+                    loadPlanHead_2(planNumber)
+                        .then(() => {
+                            count+=1;
+                            console.log(count);
+                            shouldContinue = true;
+                            changeZIndex("1000");
+                            addtimerimage();
+                            return loadExercise_2(planNumber,count);
+                        })
+                        .then(() => runForTime(exDuration))
+                        .then(result => {
+                            console.log(result.message); // 'Operation completed'
+                            //console.log(result.incompleteEx); // false
+                            clearDivs();
+                            removetimerimage();
+                            changeZIndex("0");
+                            resting();
+                        })
+                        .catch(error => {
+                            console.log('Timer was stopped')
+                            if (error.incompleteEx) {
+                                //console.log(error.incompleteEx); // true
+                            }
+                        });
+                }, 1000); // Delay for 1 second
+            }
+            
+        });
+
+        socket.on('receive_invite', (data) => {
+            console.log('Received Invite',data);
+            let room = data['room'];
+            let friend_name = data['friend_name'];
+            socket.emit('handle_invite', {'room': room, 'friend_name': friend_name});
+        });
+
+        function sendInvite(message, friend_name) {
+            socket.emit('send_invite', {'message': message,'friend_name': friend_name, 'userID': userID});
+        }
+
+        function sendMessagetoRoom(message) {
+            socket.emit('send_message', {'message': message});
+        }
+        
+
+        function im1MessageHandler(data) {
+            console.log("--------------im1MessageHandler---------------");
+
+            if(data != null && data!="RENEW" && data!="OK") {
+                console.log(data);
+                var content = $(data).find("emma\\:interpretation").first().text().trim();
+                if (typeof content == 'string') {
+                try {
+                    let message = JSON.parse(content);
+                    if(message.hasOwnProperty('nlu') && (message.nlu.intent == 'finish_plan' || (message.nlu.intent == 'next_exercise' && count == 2)) && planStart == true) {  //terminar plano
+                        sendMessagetoRoom('finish_plan');
+                    }
+                    else if(message.hasOwnProperty('nlu') && message.nlu.intent == 'start_plan' && count == -1 && planStart == false) { //começar plano
+                        sendMessagetoRoom('start_plan');
+                    }
+                    else if(message.hasOwnProperty('nlu') && message.nlu.intent == 'next_exercise' && count<2 && planStart == true) { //avançar exercicio
+                        sendMessagetoRoom('next_exercise');
+                    }
+                    else if (message.hasOwnProperty('nlu') && message.nlu.intent == 'leave_call' && api) {
+                            window.location.href = '/novasessao'; 
+                    }
+                    else if (message.hasOwnProperty('nlu') && message.nlu.intent == 'turn_video_on' && api && video == false) {
+                        api.executeCommand('toggleVideo');
+                        video = true;
+                    }
+                    else if (message.hasOwnProperty('nlu') && message.nlu.intent == 'turn_video_off' && api && video == true) {
+                        api.executeCommand('toggleVideo');
+                        video = false;
+                    }
+                    else if (message.hasOwnProperty('nlu') && message.nlu.intent == 'mute_call' && api && audio == true) {
+                        api.executeCommand('toggleAudio');
+                        audio = false;
+                    }
+                    else if (message.hasOwnProperty('nlu') && message.nlu.intent == 'unmute_call' && api && audio == false) {
+                        api.executeCommand('toggleAudio');
+                        audio = true;
+                    }
+                    else if(message.hasOwnProperty('nlu') && (message.nlu.intent == 'go_to_training_plans' || message.nlu.intent == 'go_to_mainpage') && planStart == false){   //por condição caso já esteja a meio de um plano
+                        if(message.nlu.intent == 'go_to_training_plans')
+                            window.location.href = "/meusplanos";
+                        else if(message.nlu.intent == 'go_to_mainpage')
+                            window.location.href = "/";
+                    }
+                    else if(message.hasOwnProperty("nlu") && message.nlu.intent == "mic_on") {
+                        micON();
+                    }else if(message.hasOwnProperty("nlu") && message.nlu.intent == "mic_off") {
+                        micOFF();
+                    }else if(message.hasOwnProperty("nlu") && message.nlu.intent != null) {
+                        //intent not recognized
+                        micOFF();
+                    }
+                
+                }
+                catch (e) { console.log(e); }
+                }
+            }
+            else {
+                loadPlanInfo_2(planNumber)
+                .then(() => {
+                    return new Promise((resolve) => setTimeout(resolve, 1000));
+                })
+                .then(() => {
+                    showLevel();
+                    showStreak();
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+
+            }
+        }
+
+        //video call
+
+        let sessionname = getSessionName();
+
+        const domain = 'meet.jit.si';
+        const options = {
+        roomName: sessionname,
+        width: 400,
+        height: 400,
+        parentNode: document.querySelector('#meet'),
+        lang: 'pt',
+        configOverwrite: { 
+            prejoinPageEnabled: false,
+            startWithAudioMuted: true,
+            startWithVideoMuted: true,
+        },
+        };
+    
+        const api = new JitsiMeetExternalAPI(domain, options);
+
+
+
+
+
+        function clearDivs() {
+            document.getElementById('timer').innerHTML = "";
+            document.getElementById('exercise').innerHTML = "";
+            document.getElementById('videoFrame').src = "";
+            document.getElementById('elapsedTime').innerHTML = "";
+            document.getElementById('Experience').innerHTML = "";
+
+        }
+
+        //this functions need to be here
+        function getElapsedTime() {
+            let elapTime = Date.now() - startTime;
+            return elapTime;
+        }
+
+        function resting() {
+            moveMicrophone('10%', '50%');
+            
+            var container = $('#exercise')
+            container.empty();
+            if (count < 2) {
+                document.getElementById('exercise').innerHTML = `
+                <div class="rest">
+                    <div class="stopwatch-container"> 
+                        <h4 class="descanso">Descanso</h4>
+                        <img src="../static/img/watch1.png" />
+                    </div>
+                    <div class="Alert">
+                        <h4>Exercício ${count+1} terminado!<br> Diga <span class="highlight">"Avançar"</span> para começar o próximo exercício</h4>
+                    </div>
+                </div>`;
+            }
+            else {
+                document.getElementById('exercise').innerHTML = `
+                <div class="rest">
+                    <div class="stopwatch-container">
+                        <h4 class="descanso">Descanso</h4>
+                        <img src="../static/img/watch1.png" alt="Stopwatch">
+                    </div>
+                    <div class="Alert">
+                        <h4>Treino terminado!<br> Diga <span class="highlight">"Avançar"</span> para ver as estatísticas.</h4>
+                    </div>
+                </div>`;
+            }
+        }
+
+        function runForTime(seconds) {
+            return new Promise((resolve, reject) => {
+                let incompleteEx = false;
+                let timerElement = document.getElementById('timer');
+                let timeLeft = seconds;
+                updateTimerDisplay(timeLeft);
+
+                function tick() {
+                    timeLeft--;
+                    updateTimerDisplay(timeLeft);
+
+                    if (timeLeft > 0) {
+                        if (shouldContinue) {
+                            setTimeout(tick, 1000);
+                        } else {
+                            incompleteEx = true;
+                            reject({message: 'Operation was cancelled', incompleteEx: incompleteEx});
+                        }
+                    } else {
+                        if (shouldContinue) {
+                            resolve({message: 'Operation completed', incompleteEx: incompleteEx});
+                        } else {
+                            reject({message: 'Operation was cancelled', incompleteEx: incompleteEx});
+                        }
+                    }
+                }
+
+                function updateTimerDisplay(timeLeft) {
+                    var minutes = Math.floor(timeLeft / 60);
+                    var seconds = timeLeft % 60;
+                    timerElement.textContent = minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+                }
+
+                if (shouldContinue) {
+                    setTimeout(tick, 1000);
+                } else {
+                    incompleteEx = true;
+                    reject({message: 'Operation was cancelled', incompleteEx: incompleteEx});
+                }
+            });
+}
+
+    </script>
+
+    <div id="meet" class="meet-container"></div>
+    <div id="main">
+    <div id="content"></div>
+    <div id="timerContainer">
+        <div id="timer"></div>
+    </div>
+    <div id="exercise"></div>
+    <iframe id="videoFrame" frameborder="0" style="position: fixed; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%; z-index: 99;" allow="autoplay; fullscreen"></iframe>
+        <div id="endcontainer">
+            <div class="elapsedTime-badges">
+                <div id="elapsedTime"></div>
+                <div id="badges"></div>
+                
+            </div>
+            <div id="Experience"></div>
+            <div id="pgbar"></div>
+        </div>
+    </div>
+  </body>
+</html>

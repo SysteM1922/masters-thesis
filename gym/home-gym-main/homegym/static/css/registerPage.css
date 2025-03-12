@@ -1,0 +1,254 @@
+/* animations.css */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes gradientBackground {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+
+.circles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@keyframes animate {
+  0% {
+    opacity: 1;
+    border-radius: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0%;
+    border: 50%;
+    transform: translateY(-1000px) rotate(720deg);
+  }
+}
+
+.circles div {
+  position: absolute;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 40%;
+  background: rgba(2, 95, 14, 0.2);
+  bottom: -150px;
+  animation: animate 25s linear infinite;
+}
+
+.circles div:nth-child(1) {
+  left: 25%;
+  width: 80px;
+  height: 80px;
+  animation-delay: 0s;
+}
+
+.circles div:nth-child(2) {
+  left: 10%;
+  width: 30px;
+  height: 30px;
+  animation-delay: 2s;
+  animation-duration: 12s;
+}
+
+.circles div:nth-child(3) {
+  left: 70%;
+  width: 30px;
+  height: 30px;
+  animation-delay: 4s;
+}
+
+.circles div:nth-child(4) {
+  left: 40%;
+  width: 60px;
+  height: 60px;
+  animation-delay: 0s;
+  animation-duration: 18s;
+}
+
+.circles div:nth-child(5) {
+  left: 65%;
+  width: 30px;
+  height: 30px;
+  animation-delay: 0s;
+}
+
+.circles div:nth-child(6) {
+  left: 75%;
+  width: 110px;
+  height: 110px;
+  animation-delay: 3s;
+}
+
+.circles div:nth-child(7) {
+  left: 35%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 7s;
+}
+
+.circles div:nth-child(8) {
+  left: 50%;
+  width: 25px;
+  height: 25px;
+  animation-delay: 15s;
+  animation-duration: 45s;
+}
+
+.circles div:nth-child(9) {
+  left: 20%;
+  width: 30px;
+  height: 30px;
+  animation-delay: 2s;
+  animation-duration: 35s;
+}
+
+.circles div:nth-child(10) {
+  left: 85%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 0s;
+  animation-duration: 11s;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Josefin Sans, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  box-sizing: border-box;
+  background-color: white;
+}
+
+.container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+}
+
+.user-card {
+  width: 300px;
+  height: 300px;
+  background-color: #fff;
+  border-radius: 5px;
+  margin: 50px;
+  overflow: visible;
+  cursor: pointer;
+  position: relative;
+
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.3s ease;
+  padding-bottom: 50px; 
+  border-radius: 8%;
+  border: 3px solid #363E43;
+}
+
+.card-content {
+  color: #fff;
+  background-color : #363E43;
+  position: absolute;
+  bottom: -25%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-weight: bolder;
+  font-size: 120%;
+  border-radius: 30px;
+  box-shadow: 0px 5px 15px rgba(213, 202, 202, 0.5);
+
+}
+
+.user-card:hover {
+  transform: translateY(-10px);
+}
+
+.login-text {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  /* adjust as needed */
+}
+
+.h1 {
+  font-size: 50px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.profileContainer {
+  border-radius: 10px;
+  padding-bottom: 1.5rem;
+}
+
+.profileContainer p {
+  font-size: 1.5rem;
+  font-family: Josefin Sans, sans-serif;
+  margin-top: 30px;
+  text-align: center;
+}
+
+.otherUser-btn {
+  background-color: #363E43;
+  border-radius: 10px;
+  color: white;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-family: Josefin Sans, sans-serif;
+  margin-top: 30px;
+  cursor: pointer;
+  border: none;
+  text-align: center;
+  display: block;
+  width: 90%;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.maintitle{
+  text-align: center;
+}
+
+.maintitle h1{
+  font-size: 3rem;
+  font-weight: bold;
+  font-family: Josefin Sans, sans-serif;
+  text-align: center;
+}
+
+.maintitle h3{
+  font-size: 1.5rem;
+  font-family: Josefin Sans, sans-serif;
+  text-align: center;
+}
