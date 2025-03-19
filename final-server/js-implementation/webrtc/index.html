@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebRTC Video Chat</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .video-container {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      margin-bottom: 20px;
+    }
+
+    #localVideo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      visibility: hidden;
+    }
+
+    #output_canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #buttons,
+    #inputs {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    #buttons button {
+      margin: 0 5px;
+      padding: 8px 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <div class="video-container">
+      <video id="localVideo" width="1280" height="720"></video>
+      <canvas class="output_canvas" id="output_canvas" width="1280" height="720"></canvas>
+    </div>
+    <div id="buttons">
+      <button id="callButton">Call</button>
+      <button id="answerButton">Answer</button>
+      <button id="hangupButton">Hang Up</button>
+    </div>
+    <div id="inputs">
+      <input id="callInput" placeholder="Enter the callee's id" />
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
