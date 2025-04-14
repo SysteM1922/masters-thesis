@@ -78,7 +78,7 @@ callButton.onclick = async () => {
         });
     };
 
-    const callDoc = firestore.collection('calls').doc();
+    const callDoc = firestore.collection('calls').doc("0AIuiYXSsLOat95KqiOB");
     const offerCandidates = callDoc.collection('offerCandidates');
     const answerCandidates = callDoc.collection('answerCandidates');
 

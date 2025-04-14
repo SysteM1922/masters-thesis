@@ -5,6 +5,12 @@ from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
 import mediapipe as mp
 import pickle
+import time
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://10.255.40.73:27017/")
+db = client["gym"]
+colection = db["exercise_data"]
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
@@ -16,23 +22,58 @@ class VideoReceiver:
     def __init__(self):
         self.data_channel = None
         self.lock = asyncio.Lock()
+        self.start_timer_to_send_to_db = 0
+        self.data_to_send_to_db = []
+
+    async def send_to_db(self, data, frame_nr):
+
+        if data:
+            data = {
+                "pose_landmarks": [
+                    {
+                        "point_index": idx,
+                        "x": landmark.x,
+                        "y": landmark.y,
+                        "z": landmark.z,
+                        "visibility": landmark.visibility
+                    } for idx, landmark in enumerate(data.landmark)
+                ],
+                "frame_nr": frame_nr,
+            }
+            self.data_to_send_to_db.append(data)
+
+        if self.start_timer_to_send_to_db == 0:
+            self.start_timer_to_send_to_db = time.time()
+        if time.time() - self.start_timer_to_send_to_db > 5:
+            if self.data_to_send_to_db:
+                data = {
+                    "timestamp": time.time(),
+                    "landmarks": self.data_to_send_to_db,
+                }
+                colection.insert_one(data)
+            self.data_to_send_to_db = []
+            self.start_timer_to_send_to_db = time.time()
 
     async def process_frame(self, frame):
         async with self.lock:
             try: 
                 image = frame.to_ndarray(format="bgr24")
+                perf_time = time.perf_counter()
                 results = pose.process(image)
+                print(time.perf_counter() - perf_time, "s")
 
                 if results.pose_landmarks:
                     landmarks = results.pose_landmarks
                 else:
                     landmarks = None
 
+                asyncio.create_task(self.send_to_db(landmarks, frame.pts))
+
                 data = pickle.dumps({
                     "landmarks": landmarks,
                     "frame_count": frame.pts
                 })
-                
+
                 if self.data_channel and self.data_channel.readyState == "open":
                     self.data_channel.send(data)
                 else:

@@ -34,25 +34,23 @@ pose.onResults((results) => {
     tempCanvas.width = results.image.width;
     tempCanvas.height = results.image.height;
     tempCtx.drawImage(results.image, 0, 0);
-    
+
     // Store a true copy of the results with the frozen image
     const currentResults = {
         ...results,
         image: tempCanvas
     };
-    
-    setTimeout(() => {
-        outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-        outputCanvasCtx.drawImage(
-            currentResults.image, 0, 0, outputCanvas.width, outputCanvas.height
-        );
 
-        if (currentResults.poseLandmarks) {
-            const landmarks = currentResults.poseLandmarks;
-            drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS);
-            drawingUtils.drawLandmarks(landmarks);
-        }
-    }, 1000);
+    outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+    outputCanvasCtx.drawImage(
+        currentResults.image, 0, 0, outputCanvas.width, outputCanvas.height
+    );
+
+    if (currentResults.poseLandmarks) {
+        const landmarks = currentResults.poseLandmarks;
+        drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS);
+        drawingUtils.drawLandmarks(landmarks);
+    }
 });
 
 const camera = new Camera(webcamElement, {

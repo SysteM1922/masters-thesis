@@ -16,15 +16,21 @@ class VideoTrack(VideoStreamTrack):
         width = 1280
         height = 720
         self.cap = cv2.VideoCapture(path)
+        #self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.frame_count = 0
         self.frames = []
+        self.times = []
         self.lock = asyncio.Lock()
+        self.fps = 0
+        self.start_time = time.time()
 
     async def recv(self):
         self.frame_count += 1
+        self.cap.read()
         ret, frame = self.cap.read()
+
         if not ret:
             print("Failed to read frame from camera")
             return None
@@ -36,14 +42,22 @@ class VideoTrack(VideoStreamTrack):
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
         video_frame.time_base = fractions.Fraction(1, 30)
+        self.times.append(time.perf_counter())
         return video_frame
     
     async def process_frame(self, message):
+        self.fps+=1
+        if (time.time() - self.start_time > 1):
+            print(self.fps, "fps")
+            self.fps = 0
+            self.start_time = time.time()
+
         if self.lock.locked():
             print("Video track is locked")
             return
         async with self.lock:
             try:
+                #print(time.perf_counter() - self.times.pop(0), "s")
                 data = pickle.loads(message)
                 frame_count = data.get("frame_count", 0)
                 if frame_count == 0:
