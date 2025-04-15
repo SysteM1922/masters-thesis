@@ -22,13 +22,11 @@ class VideoTrack(VideoStreamTrack):
         self.frame_count = 0
         self.frames = []
         self.times = []
-        self.lock = asyncio.Lock()
-        self.fps = 0
-        self.start_time = time.time()
+        #self.fps = 0
+        #self.start_time = time.time()
 
     async def recv(self):
         self.frame_count += 1
-        self.cap.read()
         ret, frame = self.cap.read()
 
         if not ret:
@@ -46,34 +44,30 @@ class VideoTrack(VideoStreamTrack):
         return video_frame
     
     async def process_frame(self, message):
-        self.fps+=1
-        if (time.time() - self.start_time > 1):
-            print(self.fps, "fps")
-            self.fps = 0
-            self.start_time = time.time()
+        #self.fps+=1
+        #if (time.time() - self.start_time > 1):
+            #print(self.fps, "fps")
+            #self.fps = 0
+            #self.start_time = time.time()
 
-        if self.lock.locked():
-            print("Video track is locked")
-            return
-        async with self.lock:
-            try:
-                #print(time.perf_counter() - self.times.pop(0), "s")
-                data = pickle.loads(message)
-                frame_count = data.get("frame_count", 0)
-                if frame_count == 0:
-                    return
-                landmarks = data.get("landmarks", None)
-                while self.frames:
-                    frame, pts = self.frames.pop(0)
-                    if pts == frame_count:
-                        if landmarks:
-                            mp_drawing.draw_landmarks(frame, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
-                        cv2.imshow("MediaPipe Pose", frame)
-                        if cv2.waitKey(1) & 0xFF == ord('q'):
-                            break
+        try:
+            data = pickle.loads(message)
+            frame_count = data.get("frame_count", 0)
+            print(time.perf_counter() - self.times[frame_count // 3000], "s")
+            if frame_count == 0:
+                return
+            landmarks = data.get("landmarks", None)
+            while self.frames:
+                frame, pts = self.frames.pop(0)
+                if pts == frame_count:
+                    if landmarks:
+                        mp_drawing.draw_landmarks(frame, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
+                    cv2.imshow("MediaPipe Pose", frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-            except Exception as e:
-                print("Error processing message:", e)
+                    break
+        except Exception as e:
+            print("Error processing message:", e)
     
 async def run(ip_address, port):
     signaling = TcpSocketSignaling(ip_address, port)
@@ -102,7 +96,6 @@ async def run(ip_address, port):
             if pc.connectionState == "connected":
                 print("WebRTC connected")
 
-        # send offer
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         await signaling.send(pc.localDescription)

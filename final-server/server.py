@@ -1,4 +1,3 @@
-import asyncio
 import json
 from aiortc import RTCPeerConnection, RTCDataChannel, RTCSessionDescription
 from aiortc.contrib.signaling import TcpSocketSignaling
@@ -6,11 +5,16 @@ from av import VideoFrame
 import mediapipe as mp
 import pickle
 import time
+import asyncio
+import threading
 from pymongo import MongoClient
 
 client = MongoClient("mongodb://10.255.40.73:27017/")
 db = client["gym"]
 colection = db["exercise_data"]
+last_frame = None
+data_channel = None
+pose_thread = True
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
@@ -18,10 +22,56 @@ pose = mp_pose.Pose(
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5)
 
+def async_to_sync(coro):
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+async def handle_results(results, frame_pts):
+    if results.pose_landmarks:
+        landmarks = results.pose_landmarks
+    else:
+        landmarks = None
+
+    #asyncio.create_task(self.send_to_db(landmarks, frame_pts))
+
+    data = pickle.dumps({
+        "landmarks": landmarks,
+        "frame_count": frame_pts
+    })
+
+    try:
+        data_channel.send(data)
+    except Exception as e:
+        if not data_channel or data_channel.readyState != "open":
+            print("Data channel is not open")
+        else:
+            print("Error sending data:", e)
+
+def process_frame():
+    global last_frame, pose_thread
+    while pose_thread:
+        frame = last_frame
+        if not frame:
+            # If no frame is available, wait for a short time before checking again
+            time.sleep(0.01)
+            continue
+        last_frame = None
+        try:
+            image = frame.to_ndarray(format="bgr24")
+            perf_time = time.perf_counter()
+            results = pose.process(image)
+            print(time.perf_counter() - perf_time, "s")
+            async_to_sync(handle_results(results, frame.pts))
+        except Exception as e:
+            print("Error processing frame:", e)
+            continue
+        
+
 class VideoReceiver:
     def __init__(self):
-        self.data_channel = None
-        self.lock = asyncio.Lock()
         self.start_timer_to_send_to_db = 0
         self.data_to_send_to_db = []
 
@@ -53,44 +103,16 @@ class VideoReceiver:
                 colection.insert_one(data)
             self.data_to_send_to_db = []
             self.start_timer_to_send_to_db = time.time()
-
-    async def process_frame(self, frame):
-        async with self.lock:
-            try: 
-                image = frame.to_ndarray(format="bgr24")
-                perf_time = time.perf_counter()
-                results = pose.process(image)
-                print(time.perf_counter() - perf_time, "s")
-
-                if results.pose_landmarks:
-                    landmarks = results.pose_landmarks
-                else:
-                    landmarks = None
-
-                asyncio.create_task(self.send_to_db(landmarks, frame.pts))
-
-                data = pickle.dumps({
-                    "landmarks": landmarks,
-                    "frame_count": frame.pts
-                })
-
-                if self.data_channel and self.data_channel.readyState == "open":
-                    self.data_channel.send(data)
-                else:
-                    print("Data channel is not open")
-            except Exception as e:
-                print("Error processing frame:", e)
             
     async def handle_track(self, track):
+        global last_frame, pose_thread
+        threading.Thread(target=process_frame).start()
         timeouts = 0
         while True:
             try:
-                if self.lock.locked():
-                    print("Video receiver is locked")
-                    continue
                 frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                 if isinstance(frame, VideoFrame):
-                    await self.process_frame(frame)
+                    last_frame = frame
                 else:
                     print(f"Frame type: {type(frame)}")
                 timeouts = 0
@@ -101,7 +123,8 @@ class VideoReceiver:
                     break
             except Exception as e:
                 print("Error receiving frame:", e)
-                break
+        
+        pose_thread = False
 
 async def run(ip_adress, port):
     while True:
@@ -115,23 +138,28 @@ async def run(ip_adress, port):
             @pc.on("datachannel")
             def on_datachannel(channel):
                 print("Data channel opened")
-                video_receiver.data_channel = channel
+                global data_channel
+                data_channel = channel
 
-                @channel.on("stop")
+                @data_channel.on("stop")
                 def on_stop():
                     print("Data channel closed")
-                    channel.close()
+                    data_channel.close()
 
             @pc.on("track")
             def on_track(track):
                 print("Track received")
-                asyncio.ensure_future(video_receiver.handle_track(track))
+                asyncio.create_task(video_receiver.handle_track(track))
 
             @pc.on("connectionstatechange")
             async def on_connectionstatechange():
                 print("Connection state is", pc.connectionState)
                 if pc.connectionState == "connected":
                     print("WebRTC connected")
+                elif pc.connectionState == "closed":
+                    print("WebRTC closed")
+                    await pc.close()
+                    await signaling.close()
 
             # receive offer
             offer = await signaling.receive()
@@ -160,4 +188,8 @@ async def run(ip_adress, port):
 if __name__ == "__main__":
     ip_adress = "localhost"
     port = 9999
-    asyncio.run(run(ip_adress, port))
+    try:
+        asyncio.run(run(ip_adress, port))
+    except KeyboardInterrupt:
+        print("Exiting...")
+        pose_thread = False
