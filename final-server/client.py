@@ -118,7 +118,7 @@ async def run(ip_address, port):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    ip_address = "localhost"
+    ip_address = "0.0.0.0"
     port = 9999
     try:
         asyncio.run(run(ip_address, port))
