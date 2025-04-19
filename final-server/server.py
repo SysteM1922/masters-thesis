@@ -123,6 +123,9 @@ class VideoReceiver:
                     break
             except Exception as e:
                 print("Error receiving frame:", e)
+                timeouts += 1
+                if timeouts > 4:
+                    break
         
         pose_thread = False
 
