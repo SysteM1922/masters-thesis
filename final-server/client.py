@@ -7,6 +7,7 @@ from av import VideoFrame
 import mediapipe as mp
 import cv2
 import time
+import utils
 
 mp_drawing = mp.solutions.drawing_utils
 
@@ -61,7 +62,17 @@ class VideoTrack(VideoStreamTrack):
                 frame, pts = self.frames.pop(0)
                 if pts == frame_count:
                     if landmarks:
-                        mp_drawing.draw_landmarks(frame, landmarks, mp.solutions.pose.POSE_CONNECTIONS)
+                        mp_drawing.draw_landmarks(
+                            image=frame,
+                            landmark_list=landmarks,
+                            connections=mp.solutions.pose.POSE_CONNECTIONS,
+                        )
+                        mp_drawing.draw_landmarks(
+                            image=frame,
+                            landmark_list=landmarks,
+                            connections=utils._ARMS_AND_HANDS_CONNECTIONS,
+                            connection_drawing_spec=utils._GREEN_STYLE,
+                        )
                     cv2.imshow("MediaPipe Pose", frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
