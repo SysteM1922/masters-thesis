@@ -18,8 +18,8 @@ pose_thread = True
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
-    model_complexity=0,
-    min_detection_confidence=0.5,
+    model_complexity=1,
+    min_detection_confidence=0.9,
     min_tracking_confidence=0.5)
 
 def async_to_sync(coro):
