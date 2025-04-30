@@ -1,9 +1,10 @@
 from mediapipe.python.solutions.pose import PoseLandmark
 from mediapipe.python.solutions.drawing_utils import DrawingSpec
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
+import math
 
 _GREEN = (48, 255, 48)
-_RED = (255, 0, 0)
+_RED = (0, 0, 255)
 _WHITE = (255, 255, 255)
 
 _POSE_CONNECTIONS = frozenset([(0, 1), (1, 2), (2, 3), (3, 7), (0, 4), (4, 5),
@@ -130,7 +131,7 @@ def get_colored_style(right_arm: DrawingSpec = None, left_arm: DrawingSpec = Non
         A mapping from each pose landmark to its default drawing spec.
     """
 
-    colored_style = _DEFAULT_POSE_LANDMARK_DRAWSPEC
+    colored_style = _DEFAULT_POSE_LANDMARK_DRAWSPEC.copy()
 
     if right_arm:
         for connection in _LEFT_ARM_AND_HAND_CONNECTIONS:
@@ -154,4 +155,60 @@ def get_colored_style(right_arm: DrawingSpec = None, left_arm: DrawingSpec = Non
 
     return colored_style
 
+
+def get_angle_4_points(p1, p2, p3, p4):
+    """Calculate the angle between two vectors defined by four points.
+
+    Args:
+        p1: The first point of the first vector.
+        p2: The second point of the first vector.
+        p3: The first point of the second vector.
+        p4: The second point of the second vector.
+
+    Returns:
+        The angle in degrees between the two vectors.
+    """
+    v1 = (p2.x - p1.x, p2.y - p1.y)
+    v2 = (p4.x - p3.x, p4.y - p3.y)
+
+    dot_product = v1[0] * v2[0] + v1[1] * v2[1]
+    magnitude_v1 = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
+    magnitude_v2 = math.sqrt(v2[0] ** 2 + v2[1] ** 2)
+
+    if magnitude_v1 == 0 or magnitude_v2 == 0:
+        return 0
+
+    cos_theta = dot_product / (magnitude_v1 * magnitude_v2)
+    angle = math.acos(cos_theta)
+
+    return math.degrees(angle) if not math.isnan(angle) else None
+
+def get_angle_3_points(p1, p2, p3):
+    """Calculate the angle between two vectors defined by three points.
+
+    Args:
+        p1: The first point of the first vector.
+        p2: The point where the two vectors meet.
+        p3: The first point of the second vector.
+
+    Returns:
+        The angle in degrees between the two vectors.
+    """
     
+    return get_angle_4_points(p1, p2, p3, p2)
+
+def get_angle_2_points_x_axis(p1, p2):
+    """Calculate the angle between a vector defined by two points and the x-axis.
+
+    Args:
+        p1: The first point of the vector.
+        p2: The second point of the vector.
+
+    Returns:
+        The angle in degrees between the vector and the x-axis.
+    """
+    
+    dx = p2.x - p1.x
+    dy = p2.y - p1.y
+    angle = math.atan2(dy, dx)
+    return math.degrees(angle) if not math.isnan(angle) else None

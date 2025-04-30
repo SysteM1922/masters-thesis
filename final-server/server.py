@@ -63,7 +63,7 @@ def process_frame():
             image = frame.to_ndarray(format="bgr24")
             perf_time = time.perf_counter()
             results = pose.process(image)
-            print(time.perf_counter() - perf_time, "s")
+            #print(time.perf_counter() - perf_time, "s")
             async_to_sync(handle_results(results, frame.pts))
         except Exception as e:
             print("Error processing frame:", e)
