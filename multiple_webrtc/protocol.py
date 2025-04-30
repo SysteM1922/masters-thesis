@@ -1,2 +1,1 @@
-
-class Protocol:
+#class Protocol:
