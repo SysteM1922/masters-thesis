@@ -1,15 +1,13 @@
-import asyncio
-import fractions
-import pickle
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from aiortc.contrib.signaling import TcpSocketSignaling
-from av import VideoFrame
 import mediapipe as mp
 import cv2
-import time
 import utils
 
 mp_drawing = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose(
+    model_complexity=1,
+    min_detection_confidence=0.9,
+    min_tracking_confidence=0.5)
 
 class Joint:
     def __init__(self, joint):
@@ -63,7 +61,7 @@ def left_arm_angle(left_shoulder, left_elbow, left_wrist):
     if left_shoulder.visibility > 0.5 and left_elbow.visibility > 0.5 and left_wrist.visibility > 0.5:
         left_arm_angle = utils.get_angle_2_points_x_axis(left_shoulder, left_wrist)
         left_elbow_angle = utils.get_angle_3_points(left_shoulder, left_elbow, left_wrist)
-
+        
         if left_arm_angle < 10 and left_elbow_angle > 140:
             left_arm = True
         elif left_arm_angle > 60:
@@ -102,9 +100,16 @@ def spine_straight(right_shoulder, left_shoulder, right_hip, left_hip):
     spine = None
     if right_shoulder.visibility > 0.5 and left_shoulder.visibility > 0.5 and right_hip.visibility > 0.5 and left_hip.visibility > 0.5:
         angle_shoulder_hip = utils.get_angle_4_points(right_shoulder, left_shoulder, right_hip, left_hip)
-        angle_left_shoulder_hip = abs(utils.get_angle_3_points(left_shoulder, right_shoulder, right_hip) % 90)
-        angle_right_shoulder_hip = abs(utils.get_angle_3_points(right_shoulder, left_shoulder, left_hip) % 90)
-        if angle_shoulder_hip < 7 and angle_left_shoulder_hip - angle_right_shoulder_hip < 15:
+        new_left_shoulder = Joint(left_shoulder)
+        new_left_shoulder.x = -left_shoulder.x
+        new_right_shoulder = Joint(right_shoulder)
+        new_right_shoulder.x = -right_shoulder.x
+        new_right_hip = Joint(right_hip)
+        new_right_hip.x = -right_hip.x
+        angle_left_shoulder_hip = utils.get_angle_3_points(new_left_shoulder, new_right_shoulder, new_right_hip)
+        angle_right_shoulder_hip = utils.get_angle_3_points(right_shoulder, left_shoulder, left_hip)
+        
+        if angle_shoulder_hip < 7 and angle_left_shoulder_hip - angle_right_shoulder_hip < 10:
             spine = True
         else:
             spine = False
@@ -171,8 +176,8 @@ def arms_exercise(landmarks):
         if arms_exercise_state_repetition < 5:
             arms_exercise_state_repetition += 1
 
-    right_arm_style = utils.GREEN_STYLE if right_arm_state else utils.RED_STYLE
-    left_arm_style = utils.GREEN_STYLE if left_arm_state else utils.RED_STYLE
+    right_arm_style = utils.GREEN_STYLE if left_arm_state else utils.RED_STYLE
+    left_arm_style = utils.GREEN_STYLE if right_arm_state else utils.RED_STYLE
     torso_style = utils.GREEN_STYLE if spine_state else utils.RED_STYLE
     
     styled_connections = utils.get_colored_style(
@@ -182,143 +187,40 @@ def arms_exercise(landmarks):
     )
     return styled_connections
 
-class VideoTrack(VideoStreamTrack):
-    def __init__(self, path):
-        super().__init__()
-        width = 1280
-        height = 720
-        self.cap = cv2.VideoCapture(path)
-        #self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self.frame_count = 0
-        self.frames = []
-        self.times = []
-        #self.fps = 0
-        #self.start_time = time.time()
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FPS, 30)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    async def recv(self):
-        self.frame_count += 1
-        ret, frame = self.cap.read()
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("Failed to read frame from camera")
+        break
 
-        if not ret:
-            print("Failed to read frame from camera")
-            return None
+    image = cv2.flip(frame, 1)
+    results = pose.process(image)
 
-        frame = cv2.flip(frame, 1)
-        self.frames.append(tuple((frame, self.frame_count * 3000)))
-        frame = cv2.resize(frame, (640, 480))
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
-        video_frame.pts = self.frame_count
-        video_frame.time_base = fractions.Fraction(1, 30)
-        self.times.append(time.perf_counter())
-        return video_frame
-    
-    async def process_frame(self, message):
-        global arms_exercise_reps
-        #self.fps+=1
-        #if (time.time() - self.start_time > 1):
-            #print(self.fps, "fps")
-            #self.fps = 0
-            #self.start_time = time.time()
+    if results.pose_landmarks:
+        landmarks = results.pose_landmarks
+        styled_connections = arms_exercise(landmarks)
 
-        try:
-            data = pickle.loads(message)
-            frame_count = data.get("frame_count", 0)
-            print(time.perf_counter() - self.times[frame_count // 3000], "s")
-            if frame_count == 0:
-                return
-            landmarks = data.get("landmarks", None)
-            while self.frames:
-                frame, pts = self.frames.pop(0)
-                if pts == frame_count:
-                    if landmarks:
-                        styled_connections = arms_exercise(landmarks)
-                        if styled_connections:
-                            mp_drawing.draw_landmarks(
-                                image=frame,
-                                landmark_list=landmarks,
-                                connections=utils._POSE_CONNECTIONS,
-                                connection_drawing_spec=styled_connections,
-                            )
-                        else:
-                            mp_drawing.draw_landmarks(
-                                image=frame,
-                                landmark_list=landmarks,
-                                connections=utils._POSE_CONNECTIONS,
-                            )
-                    cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                    cv2.imshow("MediaPipe Pose", frame)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
-                    break
-        except Exception as e:
-            print("Error processing message:", e)
-    
-async def run(ip_address, port):
-    signaling = TcpSocketSignaling(ip_address, port)
-    pc = RTCPeerConnection()
-    video_track = VideoTrack(0)
-    pc.addTrack(video_track)
-    print("Added video track")
+        if styled_connections:
+            mp_drawing.draw_landmarks(
+                image=image,
+                landmark_list=landmarks,
+                connections=utils._POSE_CONNECTIONS,
+                connection_drawing_spec=styled_connections,
+            )
+        else:
+            mp_drawing.draw_landmarks(
+                image=image,
+                landmark_list=landmarks,
+                connections=utils._POSE_CONNECTIONS,
+            )
 
-    try:
-        await signaling.connect()
-        print("Connected to server")
+    cv2.putText(image, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+    cv2.imshow("MediaPipe Pose", image)
 
-        data_channel = pc.createDataChannel("data")
-
-        @data_channel.on("open")
-        def on_open():
-            print("Data channel is open")
-
-        @data_channel.on("message")
-        def on_message(message):
-            asyncio.create_task(video_track.process_frame(message))
-
-        @pc.on("connectionstatechange")
-        async def on_connectionstatechange():
-            print("Connection state is", pc.connectionState)
-            if pc.connectionState == "connected":
-                print("WebRTC connected")
-
-        offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        await signaling.send(pc.localDescription)
-
-        while True:
-            obj = await signaling.receive()
-            if isinstance(obj, RTCSessionDescription):
-                await pc.setRemoteDescription(obj)
-                print("Received offer")
-                break
-            elif obj is None:
-                print("Received None")
-                break
-
-        # Run until the connection is closed or user interrupts
-        while True:
-            await asyncio.sleep(1)
-            if pc.connectionState == "closed":
-                break
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        
-        print("Closing connection")
-        
-        await signaling.close()
-        await pc.close()
-        
-    except Exception as e:
-        print(e)
-
-    cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    ip_address = "0.0.0.0"
-    port = 9999
-    try:
-        asyncio.run(run(ip_address, port))
-    except KeyboardInterrupt:
-        print("Exiting...")
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break

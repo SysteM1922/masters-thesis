@@ -22,20 +22,12 @@ pose = mp_pose.Pose(
     min_detection_confidence=0.9,
     min_tracking_confidence=0.5)
 
-def async_to_sync(coro):
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
 async def handle_results(results, frame_pts):
+    global data_channel
     if results.pose_landmarks:
         landmarks = results.pose_landmarks
     else:
         landmarks = None
-
-    #asyncio.create_task(self.send_to_db(landmarks, frame_pts))
 
     data = pickle.dumps({
         "landmarks": landmarks,
@@ -43,12 +35,11 @@ async def handle_results(results, frame_pts):
     })
 
     try:
-        data_channel.send(data)
+        # Check if data_channel exists and is open before sending
+        if data_channel and data_channel.readyState == "open":
+            data_channel.send(data)
     except Exception as e:
-        if not data_channel or data_channel.readyState != "open":
-            print("Data channel is not open")
-        else:
-            print("Error sending data:", e)
+        print(f"Error sending data: {e}")
 
 def process_frame():
     global last_frame, pose_thread
@@ -61,10 +52,10 @@ def process_frame():
         last_frame = None
         try:
             image = frame.to_ndarray(format="bgr24")
-            perf_time = time.perf_counter()
+            #perf_time = time.perf_counter()
             results = pose.process(image)
             #print(time.perf_counter() - perf_time, "s")
-            async_to_sync(handle_results(results, frame.pts))
+            result = asyncio.run(handle_results(results, frame.pts))
         except Exception as e:
             print("Error processing frame:", e)
             continue
@@ -79,15 +70,7 @@ class VideoReceiver:
 
         if data:
             data = {
-                "pose_landmarks": [
-                    {
-                        "point_index": idx,
-                        "x": landmark.x,
-                        "y": landmark.y,
-                        "z": landmark.z,
-                        "visibility": landmark.visibility
-                    } for idx, landmark in enumerate(data.landmark)
-                ],
+                "pose_landmarks": data.landmark,
                 "frame_nr": frame_nr,
             }
             self.data_to_send_to_db.append(data)
@@ -106,30 +89,37 @@ class VideoReceiver:
             
     async def handle_track(self, track):
         global last_frame, pose_thread
-        threading.Thread(target=process_frame).start()
-        timeouts = 0
-        while True:
-            try:
-                frame = await asyncio.wait_for(track.recv(), timeout=5.0)
-                if isinstance(frame, VideoFrame):
-                    last_frame = frame
-                else:
-                    print(f"Frame type: {type(frame)}")
-                timeouts = 0
-            except asyncio.TimeoutError:
-                print("Timeout")
-                timeouts += 1
-                if timeouts > 4:
-                    break
-            except Exception as e:
-                print("Error receiving frame:", e)
-                timeouts += 1
-                if timeouts > 4:
-                    break
+        process_thread = threading.Thread(target=process_frame)
+        process_thread.daemon = True  # Make thread daemon so it terminates when main thread exits
+        process_thread.start()
         
-        pose_thread = False
+        timeouts = 0
+        try:
+            while True:
+                try:
+                    if not pose_thread:
+                        break
+                        
+                    frame = await asyncio.wait_for(track.recv(), timeout=5.0)
+                    if isinstance(frame, VideoFrame):
+                        last_frame = frame
+                    else:
+                        print(f"Frame type: {type(frame)}")
+                    timeouts = 0
+                except asyncio.TimeoutError:
+                    print("Timeout")
+                    timeouts += 1
+                    if timeouts > 4:
+                        break
+                except Exception as e:
+                    print(f"Error receiving frame: {e}")
+                    break
+        finally:
+            pose_thread = False
+            print("Track handler terminated")
 
 async def run(ip_adress, port):
+    global pose_thread, data_channel
     while True:
         try:
             signaling = TcpSocketSignaling(ip_adress, port)
@@ -138,16 +128,28 @@ async def run(ip_adress, port):
             pc = RTCPeerConnection()
             video_receiver = VideoReceiver()
             
+            # Reset global state for new connection
+            pose_thread = True
+            data_channel = None
+            
             @pc.on("datachannel")
             def on_datachannel(channel):
                 print("Data channel opened")
                 global data_channel
                 data_channel = channel
 
-                @data_channel.on("stop")
-                def on_stop():
+                @channel.on("close")
+                def on_close():
                     print("Data channel closed")
-                    data_channel.close()
+                    global data_channel
+                    data_channel = None
+                
+                @channel.on("stop")
+                def on_stop():
+                    print("Data channel stopped")
+                    global data_channel
+                    data_channel = None
+                    channel.close()
 
             @pc.on("track")
             def on_track(track):
@@ -159,13 +161,19 @@ async def run(ip_adress, port):
                 print("Connection state is", pc.connectionState)
                 if pc.connectionState == "connected":
                     print("WebRTC connected")
-                elif pc.connectionState == "closed":
-                    print("WebRTC closed")
+                elif pc.connectionState in ["closed", "failed", "disconnected"]:
+                    print("WebRTC connection ended:", pc.connectionState)
+                    global pose_thread
+                    pose_thread = False
                     await pc.close()
                     await signaling.close()
 
             # receive offer
             offer = await signaling.receive()
+            if not offer:
+                print("No offer received")
+                continue
+                
             await pc.setRemoteDescription(offer)
 
             # send answer
@@ -173,20 +181,31 @@ async def run(ip_adress, port):
             await pc.setLocalDescription(answer)
             await signaling.send(pc.localDescription)
 
+            # Process signaling messages
             while True:
-                obj = await signaling.receive()
-                if isinstance(obj, RTCSessionDescription):
-                    await pc.setRemoteDescription(obj)
-                    print("Received offer")
-                elif obj is None:
-                    print("Received None")
+                try:
+                    obj = await signaling.receive()
+                    if isinstance(obj, RTCSessionDescription):
+                        await pc.setRemoteDescription(obj)
+                        print("Received remote description")
+                    elif obj is None:
+                        print("Signaling connection closed")
+                        break
+                except Exception as e:
+                    print(f"Signaling error: {e}")
                     break
+                    
             print("Closing connection")
+            pose_thread = False
+            await pc.close()
+            await signaling.close()
+            
         except ConnectionRefusedError:
-            await asyncio.sleep(2)  # Retry every 2 seconds
+            print("Connection refused, retrying in 2 seconds")
+            await asyncio.sleep(2)
         except Exception as e:
             print(f"An error occurred: {e}")
-            break
+            await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
     ip_adress = "localhost"
@@ -195,4 +214,3 @@ if __name__ == "__main__":
         asyncio.run(run(ip_adress, port))
     except KeyboardInterrupt:
         print("Exiting...")
-        pose_thread = False
