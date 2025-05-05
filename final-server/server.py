@@ -43,7 +43,7 @@ async def handle_results(results, frame_pts):
     try:
         # Check if data_channel exists and is open before sending
         if data_channel and data_channel.readyState == "open":
-            send_times.append((frame_pts, time.time()))
+            send_times.append((frame_pts, utils.get_ntp_time()))
             data_channel.send(data)
     except Exception as e:
         print(f"Error sending data: {e}")
@@ -56,13 +56,13 @@ def process_frame():
             # If no frame is available, wait for a short time before checking again
             time.sleep(0.01)
             continue
-        start_process_times.append((frame.pts, time.time()))
+        start_process_times.append((frame.pts, utils.get_ntp_time()))
         last_frame = None
         try:
             image = frame.to_ndarray(format="bgr24")
             #perf_time = time.perf_counter()
             results = pose.process(image)
-            end_process_times.append((frame.pts, time.time()))
+            end_process_times.append((frame.pts, utils.get_ntp_time()))
             #print(time.perf_counter() - perf_time, "s")
             result = asyncio.run(handle_results(results, frame.pts))
         except Exception as e:
@@ -111,7 +111,7 @@ class VideoReceiver:
                         
                     frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                     if isinstance(frame, VideoFrame):
-                        arrival_times.append((frame.pts, time.time()))
+                        arrival_times.append((frame.pts, utils.get_ntp_time()))
                         last_frame = frame
                     else:
                         print(f"Frame type: {type(frame)}")
@@ -220,7 +220,7 @@ async def run(ip_adress, port):
 if __name__ == "__main__":
     ip_adress = "localhost"
     port = 9999
-    time_offset = utils.ntp_sync()
+    #time_offset = utils.ntp_sync()
     try:
         asyncio.run(run(ip_adress, port))
     except KeyboardInterrupt:
@@ -232,16 +232,16 @@ if __name__ == "__main__":
 
         with open("server_arrival_times.csv", "w") as f:
             for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
+                f.write(f"{arrival_time[0]},{arrival_time[1]}\n")
 
         with open("server_start_process_times.csv", "w") as f:
             for start_process_time in start_process_times:
-                f.write(f"{start_process_time[0]},{time_offset + start_process_time[1]}\n")
+                f.write(f"{start_process_time[0]},{start_process_time[1]}\n")
 
         with open("server_end_process_times.csv", "w") as f:
             for end_process_time in end_process_times:
-                f.write(f"{end_process_time[0]},{time_offset + end_process_time[1]}\n")
+                f.write(f"{end_process_time[0]},{end_process_time[1]}\n")
 
         with open("server_send_times.csv", "w") as f:
             for send_time in send_times:
-                f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
+                f.write(f"{send_time[0]},{send_time[1]}\n")

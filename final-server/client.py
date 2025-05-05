@@ -216,7 +216,7 @@ class VideoTrack(VideoStreamTrack):
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
         video_frame.time_base = fractions.Fraction(1, 30)
-        send_times.append((self.frame_count * 3000 - 3000, time.time()))
+        send_times.append((self.frame_count * 3000 - 3000, utils.get_ntp_time()))
         return video_frame
     
     async def process_frame(self, message):
@@ -230,7 +230,7 @@ class VideoTrack(VideoStreamTrack):
         try:
             data = pickle.loads(message)
             frame_count = data.get("frame_count", 0)
-            arrival_times.append((frame_count, time.time()))
+            arrival_times.append((frame_count, utils.get_ntp_time()))
             if frame_count == 0:
                 return
             landmarks = data.get("landmarks", None)
@@ -322,7 +322,7 @@ async def run(ip_address, port):
 if __name__ == "__main__":
     ip_address = "0.0.0.0"
     port = 9999
-    time_offset = utils.ntp_sync()
+    #time_offset = utils.ntp_sync()
     try:
         asyncio.run(run(ip_address, port))
     except KeyboardInterrupt:
@@ -332,8 +332,8 @@ if __name__ == "__main__":
     finally:
         with open("client_send_times.csv", "w") as f:
             for send_time in send_times:
-                f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
+                f.write(f"{send_time[0]},{send_time[1]}\n")
 
         with open("client_arrival_times.csv", "w") as f:
             for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
+                f.write(f"{arrival_time[0]},{arrival_time[1]}\n")

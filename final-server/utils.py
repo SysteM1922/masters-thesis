@@ -5,13 +5,23 @@ import math
 import datetime
 import ntplib
 
+ntp_client = ntplib.NTPClient()
+
 def ntp_sync():
     try:
-        ntp_client = ntplib.NTPClient()
         response = ntp_client.request('pool.ntp.org', version=3)
         ntp_time = response.offset
         print("NTP Time:", ntp_time)
         return ntp_time
+    except Exception as e:
+        print("NTP synchronization failed:", e)
+        return None
+
+def get_ntp_time():
+    """Get the current time from an NTP server."""
+    try:
+        response = ntp_client.request('pool.ntp.org', version=3)
+        return response.tx_time
     except Exception as e:
         print("NTP synchronization failed:", e)
         return None
