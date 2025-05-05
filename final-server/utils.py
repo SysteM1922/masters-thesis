@@ -2,6 +2,19 @@ from mediapipe.python.solutions.pose import PoseLandmark
 from mediapipe.python.solutions.drawing_utils import DrawingSpec
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
 import math
+import datetime
+import ntplib
+
+def ntp_sync():
+    try:
+        ntp_client = ntplib.NTPClient()
+        response = ntp_client.request('pool.ntp.org', version=3)
+        ntp_time = response.offset
+        print("NTP Time:", ntp_time)
+        return ntp_time
+    except Exception as e:
+        print("NTP synchronization failed:", e)
+        return None
 
 _GREEN = (48, 255, 48)
 _RED = (0, 0, 255)

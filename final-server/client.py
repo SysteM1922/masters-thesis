@@ -9,6 +9,10 @@ import cv2
 import time
 import utils
 
+
+send_times = []
+arrival_times = []
+
 mp_drawing = mp.solutions.drawing_utils
 
 class Joint:
@@ -193,11 +197,11 @@ class VideoTrack(VideoStreamTrack):
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.frame_count = 0
         self.frames = []
-        self.times = []
         #self.fps = 0
         #self.start_time = time.time()
 
     async def recv(self):
+        global send_times
         self.frame_count += 1
         ret, frame = self.cap.read()
 
@@ -212,11 +216,11 @@ class VideoTrack(VideoStreamTrack):
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
         video_frame.time_base = fractions.Fraction(1, 30)
-        self.times.append(time.perf_counter())
+        send_times.append((self.frame_count * 3000 - 3000, time.time()))
         return video_frame
     
     async def process_frame(self, message):
-        global arms_exercise_reps
+        global arms_exercise_reps, arrival_times
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
             #print(self.fps, "fps")
@@ -226,7 +230,7 @@ class VideoTrack(VideoStreamTrack):
         try:
             data = pickle.loads(message)
             frame_count = data.get("frame_count", 0)
-            print(time.perf_counter() - self.times[frame_count // 3000], "s")
+            arrival_times.append((frame_count, time.time()))
             if frame_count == 0:
                 return
             landmarks = data.get("landmarks", None)
@@ -318,7 +322,18 @@ async def run(ip_address, port):
 if __name__ == "__main__":
     ip_address = "0.0.0.0"
     port = 9999
+    time_offset = utils.ntp_sync()
     try:
         asyncio.run(run(ip_address, port))
     except KeyboardInterrupt:
         print("Exiting...")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        with open("client_send_times.csv", "w") as f:
+            for send_time in send_times:
+                f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
+
+        with open("client_arrival_times.csv", "w") as f:
+            for arrival_time in arrival_times:
+                f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
