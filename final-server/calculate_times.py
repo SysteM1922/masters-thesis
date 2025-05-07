@@ -24,12 +24,12 @@ def read_csv(file_path, time_list, frame_index_list):
                 if int(row[0]) in frame_index_list:
                     time_list.append(float(row[1]))
 
-read_csv("client_arrival_times.csv", client_arrival_times, frame_indexes)
-read_csv("server_send_times.csv", server_send_times, frame_indexes)
-read_csv("server_end_process_times.csv", server_end_process_times, frame_indexes)
-read_csv("server_start_process_times.csv", server_start_process_times, frame_indexes)
-read_csv("server_arrival_times.csv", server_arrival_times, frame_indexes)
-read_csv("client_send_times.csv", client_send_times, frame_indexes)
+read_csv("point_f.csv", client_arrival_times, frame_indexes)
+read_csv("point_e.csv", server_send_times, frame_indexes)
+read_csv("point_d.csv", server_end_process_times, frame_indexes)
+read_csv("point_c.csv", server_start_process_times, frame_indexes)
+read_csv("point_b.csv", server_arrival_times, frame_indexes)
+read_csv("point_a.csv", client_send_times, frame_indexes)
 
 with open("times.csv", 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)

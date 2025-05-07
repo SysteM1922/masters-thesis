@@ -218,7 +218,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "localhost"
+    ip_adress = "172.16.10.193"
     port = 9999
     #time_offset = utils.ntp_sync()
     try:
@@ -230,18 +230,18 @@ if __name__ == "__main__":
     finally:
         pose.close()
 
-        with open("server_arrival_times.csv", "w") as f:
+        with open("point_b.csv", "w") as f:
             for arrival_time in arrival_times:
                 f.write(f"{arrival_time[0]},{arrival_time[1]}\n")
 
-        with open("server_start_process_times.csv", "w") as f:
+        with open("point_c.csv", "w") as f:
             for start_process_time in start_process_times:
                 f.write(f"{start_process_time[0]},{start_process_time[1]}\n")
 
-        with open("server_end_process_times.csv", "w") as f:
+        with open("point_d.csv", "w") as f:
             for end_process_time in end_process_times:
                 f.write(f"{end_process_time[0]},{end_process_time[1]}\n")
 
-        with open("server_send_times.csv", "w") as f:
+        with open("point_e.csv", "w") as f:
             for send_time in send_times:
                 f.write(f"{send_time[0]},{send_time[1]}\n")

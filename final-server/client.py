@@ -330,10 +330,10 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        with open("client_send_times.csv", "w") as f:
+        with open("point_a.csv", "w") as f:
             for send_time in send_times:
                 f.write(f"{send_time[0]},{send_time[1]}\n")
 
-        with open("client_arrival_times.csv", "w") as f:
+        with open("point_f.csv", "w") as f:
             for arrival_time in arrival_times:
                 f.write(f"{arrival_time[0]},{arrival_time[1]}\n")
