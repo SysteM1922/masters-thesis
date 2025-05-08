@@ -220,6 +220,7 @@ class VideoTrack(VideoStreamTrack):
         return video_frame
     
     async def process_frame(self, message):
+        arrival_time = time.time()
         global arms_exercise_reps, arrival_times
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
@@ -230,7 +231,7 @@ class VideoTrack(VideoStreamTrack):
         try:
             data = pickle.loads(message)
             frame_count = data.get("frame_count", 0)
-            arrival_times.append((frame_count, time.time()))
+            arrival_times.append((frame_count, arrival_time))
             if frame_count == 0:
                 return
             landmarks = data.get("landmarks", None)
@@ -330,10 +331,10 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        with open("client_send_times.csv", "w") as f:
+        with open("point_a.csv", "w") as f:
             for send_time in send_times:
                 f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
 
-        with open("client_arrival_times.csv", "w") as f:
+        with open("point_f.csv", "w") as f:
             for arrival_time in arrival_times:
                 f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
