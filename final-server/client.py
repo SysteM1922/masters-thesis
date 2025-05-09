@@ -239,6 +239,7 @@ class VideoTrack(VideoStreamTrack):
                 frame, pts = self.frames.pop(0)
                 if pts == frame_count:
                     if landmarks:
+                        """
                         styled_connections = arms_exercise(landmarks)
                         if styled_connections:
                             mp_drawing.draw_landmarks(
@@ -247,8 +248,8 @@ class VideoTrack(VideoStreamTrack):
                                 connections=utils._POSE_CONNECTIONS,
                                 connection_drawing_spec=styled_connections,
                             )
-                        else:
-                            mp_drawing.draw_landmarks(
+                        else:"""
+                        mp_drawing.draw_landmarks(
                                 image=frame,
                                 landmark_list=landmarks,
                                 connections=utils._POSE_CONNECTIONS,
@@ -270,7 +271,7 @@ async def run(ip_address, port):
 
     try:
         await signaling.connect()
-        print("Connected to server")
+        print("Connecting to server")
 
         data_channel = pc.createDataChannel("data")
 
@@ -331,6 +332,14 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
+        # create folder with actual date and time
+        import os
+        from datetime import datetime
+        now = datetime.now()
+        folder_name = now.strftime("%Y-%m-%d_%H-%M-%S")
+        os.makedirs(folder_name, exist_ok=True)
+        os.chdir(folder_name)
+        # save send_times and arrival_times to csv files
         with open("point_a.csv", "w") as f:
             for send_time in send_times:
                 f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
