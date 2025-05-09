@@ -341,8 +341,8 @@ if __name__ == "__main__":
         os.chdir(folder_name)
         # save send_times and arrival_times to csv files
         with open("point_a.csv", "w") as f:
+            f.write("frame_count,raw_send_time,send_time\n")
             for send_time in send_times:
-                f.write("frame_count,raw_send_time,send_time\n")
                 f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
 
         with open("point_f.csv", "w") as f:

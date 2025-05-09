@@ -13,16 +13,18 @@ frame_indexes = []
 def read_csv(file_path, time_list, frame_index_list):
     if len(frame_index_list) == 0:
         with open(file_path, 'r') as csvfile:
+            csvfile.readline()  # Skip the header
             reader = csv.reader(csvfile)
             for row in reader:
                 frame_index_list.append(int(row[0]))
-                time_list.append(float(row[1]))
+                time_list.append(float(row[-1]))
     else:
         with open(file_path, 'r') as csvfile:
+            csvfile.readline()
             reader = csv.reader(csvfile)
             for row in reader:
                 if int(row[0]) in frame_index_list:
-                    time_list.append(float(row[1]))
+                    time_list.append(float(row[-1]))
 
 read_csv("point_f.csv", client_arrival_times, frame_indexes)
 read_csv("point_e.csv", server_send_times, frame_indexes)
