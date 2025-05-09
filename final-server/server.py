@@ -9,6 +9,7 @@ import asyncio
 import threading
 from pymongo import MongoClient
 import utils
+import psutil
 
 client = MongoClient("mongodb://10.255.40.73:27017/")
 db = client["gym"]
@@ -179,6 +180,7 @@ async def run(ip_adress, port):
                     await pc.close()
                     await signaling.close()
 
+            print("Waiting for offer...")
             # receive offer
             offer = await signaling.receive()
             if not offer:
@@ -187,12 +189,14 @@ async def run(ip_adress, port):
                 
             await pc.setRemoteDescription(offer)
 
+            print("Received offer, creating answer...")
             # send answer
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             await signaling.send(pc.localDescription)
 
             # Process signaling messages
+            print("WebRTC connection established")
             while True:
                 try:
                     obj = await signaling.receive()
@@ -219,7 +223,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "172.16.10.193" # Replace with your server's IP address
+    ip_adress = "10.16.9.135" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
@@ -232,17 +236,23 @@ if __name__ == "__main__":
         pose.close()
 
         with open("point_b.csv", "w") as f:
+            f.write("frame_count,raw_arrival_time,arrival_time\n")
             for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
+                f.write(f"{arrival_time[0]},{arrival_time[1]},{time_offset + arrival_time[1]}\n")
 
         with open("point_c.csv", "w") as f:
+            f.write("frame_count,raw_start_process_time,start_process_time\n")
             for start_process_time in start_process_times:
-                f.write(f"{start_process_time[0]},{time_offset + start_process_time[1]}\n")
+                f.write(f"{start_process_time[0]},{start_process_time[1]},{time_offset + start_process_time[1]}\n")
 
         with open("point_d.csv", "w") as f:
+            f.write("frame_count,raw_end_process_time,end_process_time\n")
             for end_process_time in end_process_times:
-                f.write(f"{end_process_time[0]},{time_offset + end_process_time[1]}\n")
+                f.write(f"{end_process_time[0]},{end_process_time[1]},{time_offset + end_process_time[1]}\n")
 
         with open("point_e.csv", "w") as f:
+            f.write("frame_count,raw_send_time,send_time\n")
             for send_time in send_times:
-                f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
+                f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
+        print("Data saved to CSV files")
+        pose.close()

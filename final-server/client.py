@@ -342,8 +342,11 @@ if __name__ == "__main__":
         # save send_times and arrival_times to csv files
         with open("point_a.csv", "w") as f:
             for send_time in send_times:
-                f.write(f"{send_time[0]},{time_offset + send_time[1]}\n")
+                f.write("frame_count,raw_send_time,send_time\n")
+                f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
 
         with open("point_f.csv", "w") as f:
+            f.write("frame_count,raw_arrival_time,arrival_time\n")
             for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{time_offset + arrival_time[1]}\n")
+                f.write(f"{arrival_time[0]},{arrival_time[1]},{time_offset + arrival_time[1]}\n")
+        print("Data saved to CSV files")
