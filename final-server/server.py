@@ -223,7 +223,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "10.16.9.135" # Replace with your server's IP address
+    ip_adress = "localhost" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
