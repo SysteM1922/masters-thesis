@@ -26,6 +26,7 @@ opt_einsum==3.4.0
 packaging==24.2
 pillow==11.1.0
 protobuf==4.25.6
+psutil==7.0.0
 pycparser==2.22
 pyee==12.1.1
 pylibsrtp==0.11.0
