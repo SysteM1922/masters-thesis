@@ -19,7 +19,7 @@ def update_results(result, output_image=None, timestamp=None):
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="pose_landmarker_lite.task",
-    delegate=mp.tasks.BaseOptions.Delegate.CPU,
+    delegate=mp.tasks.BaseOptions.Delegate.GPU,
 )
 
 options = vision.PoseLandmarkerOptions(
