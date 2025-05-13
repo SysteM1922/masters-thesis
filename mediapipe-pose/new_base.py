@@ -3,18 +3,23 @@ import mediapipe as mp
 from mediapipe.tasks.python import vision
 import cv2
 from mediapipe.framework.formats import landmark_pb2 as mp_landmark
+import utils
 
 mp_pose = mp.solutions.pose
 
+mp_drawing = mp.solutions.drawing_utils
+
+time_stamp = 0
 results = None
 
 def update_results(result, output_image=None, timestamp=None):
+    print(time.perf_counter() - time_stamp)
     global results
     results = result
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="pose_landmarker_lite.task",
-    delegate=mp.tasks.BaseOptions.Delegate.GPU,
+    delegate=mp.tasks.BaseOptions.Delegate.CPU,
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -27,8 +32,6 @@ options = vision.PoseLandmarkerOptions(
 
 detector = vision.PoseLandmarker.create_from_options(options)
 
-mp_drawing = mp.solutions.drawing_utils
-
 cap = cv2.VideoCapture(0)
 
 while True:
@@ -39,22 +42,17 @@ while True:
 
     image = cv2.flip(frame, 1)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+    time_stamp = time.perf_counter()
     detector.detect_async(mp_image, timestamp_ms=int(time.time() * 1000))
-    """
-    if results and results.pose_landmarks:
-        landmarks = mp_landmark.NormalizedLandmarkList()
-        for landmark in results.pose_landmarks:
-            landmarks.landmark.extend([
-                mp_landmark.NormalizedLandmark(
-                    x=landmark.x,
-                    y=landmark.y,
-                    z=landmark.z,
-                    visibility=landmark.visibility
-                )
-            ])
-        mp_drawing.draw_landmarks(image, landmarks, mp_pose.POSE_CONNECTIONS)
-        """
+
+    if results is not None and results.pose_landmarks:
+        utils.new_draw_landmarks(image, results.pose_landmarks[0], mp_pose.POSE_CONNECTIONS)
+
     cv2.imshow("frame", image)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+cap.release()
+cv2.destroyAllWindows()
+detector.close()
