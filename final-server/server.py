@@ -3,6 +3,7 @@ from aiortc import RTCPeerConnection, RTCDataChannel, RTCSessionDescription
 from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
 import mediapipe as mp
+from mediapipe.tasks.python import vision
 import pickle
 import time
 import asyncio
@@ -23,16 +24,24 @@ start_process_times = []
 end_process_times = []
 send_times = []
 
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-    model_complexity=1,
-    min_detection_confidence=0.9,
-    min_tracking_confidence=0.5)
+base_options = mp.tasks.BaseOptions(
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+)
+
+options = vision.PoseLandmarkerOptions(
+    base_options=base_options,
+    running_mode=vision.RunningMode.IMAGE,
+    num_poses=1,
+    min_tracking_confidence=0.5,
+)
+
+detector = vision.PoseLandmarker.create_from_options(options)
 
 async def handle_results(results, frame_pts):
     global data_channel, send_times
     if results.pose_landmarks:
-        landmarks = results.pose_landmarks
+        landmarks = results.pose_landmarks[0]
     else:
         landmarks = None
 
@@ -61,10 +70,9 @@ def process_frame():
         last_frame = None
         try:
             image = frame.to_ndarray(format="bgr24")
-            #perf_time = time.perf_counter()
-            results = pose.process(image)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+            results = detector.detect(mp_image)
             end_process_times.append((frame.pts, time.time()))
-            #print(time.perf_counter() - perf_time, "s")
             result = asyncio.run(handle_results(results, frame.pts))
         except Exception as e:
             print("Error processing frame:", e)
@@ -233,7 +241,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        pose.close()
+        detector.close()
+        exit(0)
 
         with open("point_b.csv", "w") as f:
             f.write("frame_count,raw_arrival_time,arrival_time\n")
@@ -255,4 +264,3 @@ if __name__ == "__main__":
             for send_time in send_times:
                 f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
         print("Data saved to CSV files")
-        pose.close()

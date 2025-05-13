@@ -4,7 +4,6 @@ import pickle
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
-import mediapipe as mp
 import cv2
 import time
 import utils
@@ -12,8 +11,6 @@ import utils
 
 send_times = []
 arrival_times = []
-
-mp_drawing = mp.solutions.drawing_utils
 
 class Joint:
     def __init__(self, joint):
@@ -249,7 +246,7 @@ class VideoTrack(VideoStreamTrack):
                                 connection_drawing_spec=styled_connections,
                             )
                         else:"""
-                        mp_drawing.draw_landmarks(
+                        utils.new_draw_landmarks(
                                 image=frame,
                                 landmark_list=landmarks,
                                 connections=utils._POSE_CONNECTIONS,
@@ -332,6 +329,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
+        exit(0)
         # create folder with actual date and time
         import os
         from datetime import datetime

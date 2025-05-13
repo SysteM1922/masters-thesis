@@ -1,11 +1,10 @@
 import time
 import mediapipe as mp
+from mediapipe.python.solutions.pose import POSE_CONNECTIONS
 from mediapipe.tasks.python import vision
 import cv2
 from mediapipe.framework.formats import landmark_pb2 as mp_landmark
 import utils
-
-mp_pose = mp.solutions.pose
 
 mp_drawing = mp.solutions.drawing_utils
 
@@ -21,7 +20,7 @@ def update_results(result, output_image=None, timestamp=None):
     flag = True
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="pose_landmarker_heavy.task", # Path to the model file
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
@@ -52,7 +51,7 @@ while True:
         detector.detect_async(mp_image, timestamp_ms=int(time.time() * 1000))
 
     if results is not None and results.pose_landmarks:
-        utils.new_draw_landmarks(image, results.pose_landmarks[0], mp_pose.POSE_CONNECTIONS)
+        utils.new_draw_landmarks(image, results.pose_landmarks[0], POSE_CONNECTIONS)
         cv2.imshow("frame", image)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
