@@ -33,6 +33,7 @@ options = vision.PoseLandmarkerOptions(
     base_options=base_options,
     running_mode=vision.RunningMode.IMAGE,
     num_poses=1,
+    min_pose_detection_confidence=0.9,
     min_tracking_confidence=0.5,
 )
 
@@ -231,7 +232,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "192.168.1.157" # Replace with your server's IP address
+    ip_adress = "0.0.0.0" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
