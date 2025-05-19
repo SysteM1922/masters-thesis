@@ -25,15 +25,15 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
     running_mode=vision.RunningMode.IMAGE,
     num_poses=1,
-    min_pose_detection_confidence=0.9,
+    min_pose_detection_confidence=0.5,
     min_tracking_confidence=0.5,
 )
 
@@ -232,7 +232,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "0.0.0.0" # Replace with your server's IP address
+    ip_adress = "localhost" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
