@@ -192,7 +192,7 @@ class VideoTrack(VideoStreamTrack):
         #self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self.frame_count = 0
+        self.frame_count = -1
         self.frames = []
         #self.fps = 0
         #self.start_time = time.time()
@@ -207,13 +207,13 @@ class VideoTrack(VideoStreamTrack):
             return None
 
         frame = cv2.flip(frame, 1)
-        self.frames.append(tuple((frame, self.frame_count * 3000)))
+        self.frames.append(tuple((frame, self.frame_count)))
         frame = cv2.resize(frame, (640, 480))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
-        video_frame.time_base = fractions.Fraction(1, 30)
-        send_times.append((self.frame_count * 3000 - 3000, time.time()))
+        video_frame.time_base = fractions.Fraction(1, 90000)
+        send_times.append((self.frame_count, time.time()))
         return video_frame
     
     async def process_frame(self, message):
@@ -227,14 +227,14 @@ class VideoTrack(VideoStreamTrack):
 
         try:
             data = pickle.loads(message)
-            frame_count = data.get("frame_count", 0)
+            frame_count = data.get("frame_count", -1)
             arrival_times.append((frame_count, arrival_time))
-            if frame_count == 0:
+            if frame_count == -1:
                 return
-            landmarks = data.get("landmarks", None)
             while self.frames:
                 frame, pts = self.frames.pop(0)
                 if pts == frame_count:
+                    landmarks = data.get("landmarks", None)
                     if landmarks:
                         """
                         styled_connections = arms_exercise(landmarks)
@@ -251,7 +251,7 @@ class VideoTrack(VideoStreamTrack):
                                 landmark_list=landmarks,
                                 connections=utils._POSE_CONNECTIONS,
                             )
-                    cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                    #cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
                     cv2.imshow("MediaPipe Pose", frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
