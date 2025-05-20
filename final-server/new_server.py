@@ -16,66 +16,63 @@ client = MongoClient("mongodb://10.255.40.73:27017/")
 db = client["gym"]
 colection = db["exercise_data"]
 data_channel = None
-process_flag = True
+
 frame_id = -1
+pose_results = None
+mediapipe_flag = True
+send_results_flag = True
+thread_lock = threading.Lock()
 
 arrival_times = []
 start_process_times = []
 end_process_times = []
 send_times = []
 
+def handle_results(results, output_image=None, timestamp=None):
+    end_time = time.time()
+    global pose_results, start_process_times, end_process_times, frame_id, mediapipe_flag
+    mediapipe_flag = True
+    with thread_lock:
+        if results.pose_landmarks:
+            pose_results = results.pose_landmarks[0]
+        else:
+            pose_results = None
+
+    start_process_times.append((frame_id, timestamp / 1000))
+    end_process_times.append((frame_id, end_time))
+
+
+def send_results_thread():
+    global data_channel, send_times, frame_id, pose_results, send_results_flag
+    while send_results_flag:
+        if pose_results:
+            data = pickle.dumps({
+                "landmarks": pose_results,
+                "frame_count": frame_id
+            })
+            with thread_lock:
+                pose_results = None
+            try:
+                if data_channel and data_channel.readyState == "open":
+                    print("Sending data")
+                    send_times.append((frame_id, time.time()))
+                    data_channel.send(data)
+            except Exception as e:
+                print(f"Error sending data: {e}")
+        #time.sleep(0.1)
+
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
-
-def handle_results(results, output_image=None, timestamp=None):
-    """Non-async version that calls the real handler in the main event loop"""
-    end_process_time = time.time()
-    global data_channel, send_times, start_process_times, end_process_times, process_flag, frame_id
-    
-    # Add results to process times tracking
-    start_process_times.append((frame_id, timestamp))
-    end_process_times.append((frame_id, end_process_time))
-    
-    # Extract landmarks
-    landmarks = None
-    if results.pose_landmarks:
-        landmarks = results.pose_landmarks[0]
-    
-    # Package data
-    data = pickle.dumps({
-        "landmarks": landmarks,
-        "frame_count": frame_id,
-    })
-    
-    # Get the main event loop and schedule sending data
-    loop = asyncio.get_event_loop_policy().get_event_loop()
-    
-    def send_data_in_main_loop():
-        global process_flag
-        try:
-            if data_channel and data_channel.readyState == "open":
-                send_times.append((timestamp, time.time()))
-                asyncio.create_task(data_channel.send(data))
-            process_flag = True
-        except Exception as e:
-            print(f"Error in send_data_in_main_loop: {e}")
-            process_flag = True
-    
-    # Schedule the send operation in the main event loop
-    loop.call_soon_threadsafe(send_data_in_main_loop)
 
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
     running_mode=vision.RunningMode.LIVE_STREAM,
     result_callback=handle_results,
-    num_poses=1,
-    min_tracking_confidence=0.5,
 )
 
 detector = vision.PoseLandmarker.create_from_options(options)
-        
 
 class VideoReceiver:
     def __init__(self):
@@ -104,7 +101,7 @@ class VideoReceiver:
             self.start_timer_to_send_to_db = time.time()
             
     async def handle_track(self, track):
-        global arrival_times, process_flag, frame_id
+        global arrival_times, frame_id, mediapipe_flag, detector
         
         timeouts = 0
         try:
@@ -112,22 +109,22 @@ class VideoReceiver:
                 try:
                     frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                     arrival_time = time.time()
-                    if process_flag:
+                    if mediapipe_flag:
                         if isinstance(frame, VideoFrame):
+                            frame_id = frame.pts
+                            arrival_times.append((frame_id, arrival_time))
                             try:
-                                process_flag = False
-                                frame_id = frame.pts
-                                arrival_times.append((frame_id, arrival_time))
                                 image = frame.to_ndarray(format="bgr24")
                                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
-                                start_process_times.append((frame_id, time.time()))
-                                detector.detect_async(mp_image, timestamp_ms=int(time.time() * 1000))
+                                mediapipe_flag = False
+                                actual_time = int(time.time() * 1000)
+                                detector.detect_async(mp_image, actual_time)
                             except Exception as e:
                                 print("Error processing frame:", e)
                                 continue
                         else:
                             print(f"Frame type: {type(frame)}")
-                    timeouts = 0
+                        timeouts = 0
                 except asyncio.TimeoutError:
                     print("Timeout")
                     timeouts += 1
@@ -138,6 +135,7 @@ class VideoReceiver:
                     break
         finally:
             print("Track handler terminated")
+
 
 async def run(ip_adress, port):
     global data_channel
@@ -172,9 +170,15 @@ async def run(ip_adress, port):
                     channel.close()
 
             @pc.on("track")
-            def on_track(track):
+            async def on_track(track):
+                global send_results_flag
                 print("Track received")
-                asyncio.create_task(video_receiver.handle_track(track))
+                send_thread = threading.Thread(target=send_results_thread)
+                send_thread.daemon = True
+                send_thread.start()
+                await video_receiver.handle_track(track)
+                send_results_flag = False
+                send_thread.join()
 
             @pc.on("connectionstatechange")
             async def on_connectionstatechange():
@@ -228,7 +232,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "192.168.1.157" # Replace with your server's IP address
+    ip_adress = "localhost" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
