@@ -8,6 +8,7 @@ import cv2
 import time
 import utils
 
+FPS = 30
 
 send_times = []
 arrival_times = []
@@ -192,6 +193,8 @@ class VideoTrack(VideoStreamTrack):
         #self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self.cap.set(cv2.CAP_PROP_FPS, FPS)
+        self.frame_count_division_factor = int(90000 / FPS)
         self.frame_count = -1
         self.frames = []
         #self.fps = 0
@@ -212,7 +215,7 @@ class VideoTrack(VideoStreamTrack):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
-        video_frame.time_base = fractions.Fraction(1, 90000)
+        video_frame.time_base = fractions.Fraction(1, FPS)
         send_times.append((self.frame_count, time.time()))
         return video_frame
     
@@ -227,10 +230,11 @@ class VideoTrack(VideoStreamTrack):
 
         try:
             data = pickle.loads(message)
-            frame_count = data.get("frame_count", -1)
-            arrival_times.append((frame_count, arrival_time))
+            frame_count = data.get("frame_count", -2) + 1
+            arrival_times.append((frame_count / self.frame_count_division_factor, arrival_time))
             if frame_count == -1:
                 return
+            frame_count //= self.frame_count_division_factor
             while self.frames:
                 frame, pts = self.frames.pop(0)
                 if pts == frame_count:

@@ -2,6 +2,7 @@ import json
 from aiortc import RTCPeerConnection, RTCDataChannel, RTCSessionDescription
 from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
+import cv2
 import mediapipe as mp
 from mediapipe.tasks.python import vision
 import pickle
@@ -25,7 +26,7 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
