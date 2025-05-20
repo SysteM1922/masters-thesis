@@ -1,7 +1,7 @@
 import json
 from aiortc import RTCPeerConnection, RTCDataChannel, RTCSessionDescription
 from aiortc.contrib.signaling import TcpSocketSignaling
-from av import VideoFrame
+import av
 import cv2
 import mediapipe as mp
 from mediapipe.tasks.python import vision
@@ -26,8 +26,8 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -75,6 +75,7 @@ def process_frame():
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
             results = detector.detect(mp_image)
             end_process_times.append((frame.pts, time.time()))
+            print(end_process_times[-1][1] - start_process_times[-1][1]) 
             result = asyncio.run(handle_results(results, frame.pts))
         except Exception as e:
             print("Error processing frame:", e)
@@ -122,7 +123,7 @@ class VideoReceiver:
                         
                     frame = await asyncio.wait_for(track.recv(), timeout=5.0)
                     arrival_time = time.time()
-                    if isinstance(frame, VideoFrame):
+                    if isinstance(frame, av.VideoFrame):
                         arrival_times.append((frame.pts, arrival_time))
                         last_frame = frame
                     else:
@@ -135,7 +136,6 @@ class VideoReceiver:
                         break
                 except Exception as e:
                     print(f"Error receiving frame: {e}")
-                    break
         finally:
             pose_thread = False
             print("Track handler terminated")
@@ -146,8 +146,10 @@ async def run(ip_adress, port):
         try:
             signaling = TcpSocketSignaling(ip_adress, port)
             await signaling.connect()
-
-            pc = RTCPeerConnection()
+            pc_config = {
+                
+            }
+            pc = RTCPeerConnection(pc_config)
             video_receiver = VideoReceiver()
             
             # Reset global state for new connection
@@ -177,7 +179,6 @@ async def run(ip_adress, port):
             def on_track(track):
                 print("Track received")
                 asyncio.create_task(video_receiver.handle_track(track))
-
             @pc.on("connectionstatechange")
             async def on_connectionstatechange():
                 print("Connection state is", pc.connectionState)
@@ -233,7 +234,7 @@ async def run(ip_adress, port):
             await asyncio.sleep(2)  # Add delay before retry on general errors
 
 if __name__ == "__main__":
-    ip_adress = "localhost" # Replace with your server's IP address
+    ip_adress = "192.168.1.157" # Replace with your server's IP address
     port = 9999
     time_offset = utils.ntp_sync()
     try:
