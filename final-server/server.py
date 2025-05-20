@@ -2,6 +2,7 @@ import json
 from aiortc import RTCPeerConnection, RTCDataChannel, RTCSessionDescription
 from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
+import cv2
 import mediapipe as mp
 import pickle
 import time
@@ -61,6 +62,7 @@ def process_frame():
         last_frame = None
         try:
             image = frame.to_ndarray(format="bgr24")
+            cv2.imwrite("frame.jpg", image)
             #perf_time = time.perf_counter()
             results = pose.process(image)
             end_process_times.append((frame.pts, time.time()))

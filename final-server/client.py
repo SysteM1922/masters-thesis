@@ -254,7 +254,7 @@ class VideoTrack(VideoStreamTrack):
                                 landmark_list=landmarks,
                                 connections=utils._POSE_CONNECTIONS,
                             )
-                    cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                    #cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
                     cv2.imshow("MediaPipe Pose", frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
