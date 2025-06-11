@@ -70,8 +70,8 @@ def run_server():
                 if len(data) == utils.MSG_SIZE:
                     handle_message(data, addr, sock, arrival_time)
                 else:
-                    print(f"Received invalid message size from {addr}: {len(data)} bytes.")
-            except socket.timeout:
+                    print(f"Received invalid message size from {addr}: {len(data)} bytes.")                
+            except socket.error as e:
                 tries_count += 1
                 if tries_count >= utils.MAX_WAIT_TRIES and busy:
                     print("Client did not respond, freeing server for new connections.")
