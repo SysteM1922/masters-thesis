@@ -11,12 +11,12 @@ class PTPMsgType(enum.Enum):
     """
     Enum for message types.
     """
-    PTP_SYNC_REQUEST = 0x00
-    PTP_SYNC_RESPONSE = 0x01
-    PTP_DELAY_REQUEST = 0x02
-    PTP_DELAY_RESPONSE = 0x03
-    PTP_SYNC_COMPLETED = 0x04
-    PTP_BUSY = 0x05
+    PTP_SYNC_REQUEST = 0x01
+    PTP_SYNC_RESPONSE = 0x02
+    PTP_DELAY_REQUEST = 0x03
+    PTP_DELAY_RESPONSE = 0x04
+    PTP_SYNC_COMPLETED = 0x05
+    PTP_BUSY = 0x06
 
 class PTPMessage:
     """
