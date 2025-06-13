@@ -2,7 +2,7 @@ import utils
 import socket
 import time
 
-SERVER_IP = 'localhost'
+SERVER_IP = '192.168.1.201'
 SERVER_PORT = 8888
 
 t1 = None

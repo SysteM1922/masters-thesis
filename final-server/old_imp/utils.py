@@ -227,27 +227,16 @@ def get_angle_2_points_x_axis(p1, p2):
     return math.degrees(angle) if not math.isnan(angle) else None
 
 
-class NewNormalizedLandmarkList:
-    def __init__(self, landmarks = None):
-        self.landmarks = [
-            {
-                "x": landmark.x,
-                "y": landmark.y,
-                "z": landmark.z,
-                "visibility": landmark.visibility,
-                "presence": landmark.presence
-            } for landmark in landmarks
-        ] if landmarks else None
-
 import numpy as np
 import cv2
 from typing import List, Tuple, Optional, Union
 from mediapipe.python.solutions.drawing_utils import _normalized_to_pixel_coordinates, _BGR_CHANNELS, _VISIBILITY_THRESHOLD, _PRESENCE_THRESHOLD, _BGR_CHANNELS, RED_COLOR, WHITE_COLOR
 from typing import Mapping
+from mediapipe.framework.formats import landmark_pb2
 
 def new_draw_landmarks(
     image: np.ndarray,
-    landmark_list: NewNormalizedLandmarkList,
+    landmark_list: list,
     connections: Optional[List[Tuple[int, int]]] = None,
     landmark_drawing_spec: Optional[
         Union[DrawingSpec, Mapping[int, DrawingSpec]]
@@ -287,12 +276,12 @@ def new_draw_landmarks(
   image_rows, image_cols, _ = image.shape
   idx_to_coordinates = {}
   for idx, landmark in enumerate(landmark_list):
-    if (("visibility" in landmark and
-         landmark.get("visibility") < _VISIBILITY_THRESHOLD) or
-        ("presence" in landmark and
-         landmark.get("presence") < _PRESENCE_THRESHOLD)):
+    if ((landmark.visibility and
+         landmark.visibility < _VISIBILITY_THRESHOLD) or
+        (landmark.presence and
+         landmark.presence < _PRESENCE_THRESHOLD)):
       continue
-    landmark_px = _normalized_to_pixel_coordinates(landmark.get("x"), landmark.get("y"),
+    landmark_px = _normalized_to_pixel_coordinates(landmark.x, landmark.y,
                                                    image_cols, image_rows)
     if landmark_px:
       idx_to_coordinates[idx] = landmark_px

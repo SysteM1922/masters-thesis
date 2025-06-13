@@ -1,15 +1,12 @@
 import asyncio
 import fractions
+import pickle
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc.contrib.signaling import TcpSocketSignaling
 from av import VideoFrame
 import cv2
-import json
 import time
 import utils
-import sys
-
-SERVER_IP = "10.255.40.73"
-SERVER_PORT = 9999
 
 FPS = 30
 
@@ -187,75 +184,16 @@ def arms_exercise(landmarks):
     )
     return styled_connections
 
-class TcpSocketSignalingClient:
-    def __init__(self, ip_address, port):
-        self.ip_address = ip_address
-        self.port = port
-        self.reader = None
-        self.writer = None
-
-    async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(
-            self.ip_address, self.port
-        )
-        print(f"Connected to signaling server at {self.ip_address}:{self.port}")
-
-    async def send(self, obj):
-        if self.writer is None:
-            raise ConnectionError("Not connected to signaling server")
-        
-        if hasattr(obj, "sdp"):
-            message = {"type": obj.type, "sdp": obj.sdp}
-        else:
-            message = obj
-
-        data = json.dumps(message).encode() + b'\n'
-        self.writer.write(data)
-        await self.writer.drain()
-
-    async def receive(self):
-        if self.reader is None:
-            return None
-        
-        try:
-            data = await self.reader.readline()
-            if not data:
-                return None
-            
-            message = json.loads(data.decode().strip())
-            if "type" in message and "sdp" in message:
-                return RTCSessionDescription(sdp=message["sdp"], type=message["type"])
-            else:
-                return message
-        except Exception as e:
-            print(f"Error receiving message: {e}")
-            return None
-        
-    async def close(self):
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-            print("Connection closed")
-        else:
-            print("No connection to close")
-
 class VideoTrack(VideoStreamTrack):
     def __init__(self, path):
         super().__init__()
         width = 1280
         height = 720
-        cap = None
-        if sys.platform == "linux":
-            cap = cv2.VideoCapture(path, cv2.CAP_V4L2)
-        elif sys.platform == "win32":
-            cap = cv2.VideoCapture(path, cv2.CAP_DSHOW)
-        else:
-            cap = cv2.VideoCapture(path, cv2.CAP_ANY)
+        self.cap = cv2.VideoCapture(path)
         #self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        cap.set(cv2.CAP_PROP_FPS, FPS)
-        self.cap = cap
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self.cap.set(cv2.CAP_PROP_FPS, FPS)
         self.frame_count_division_factor = int(90000 / FPS)
         self.frame_count = -1
         self.frames = []
@@ -290,40 +228,43 @@ class VideoTrack(VideoStreamTrack):
             #self.fps = 0
             #self.start_time = time.time()
 
-        data = json.loads(message)
-        frame_count = data.get("frame_count", -2) + 1
-        frame_count //= self.frame_count_division_factor
-        arrival_times.append((frame_count, arrival_time))
-        if frame_count == -1:
-            return
-        while self.frames:
-            frame, pts = self.frames.pop(0)
-            if pts == frame_count:
-                landmarks = data.get("landmarks", None)
-                if landmarks:
-                    """
-                    styled_connections = arms_exercise(landmarks)
-                    if styled_connections:
-                        mp_drawing.draw_landmarks(
-                            image=frame,
-                            landmark_list=landmarks,
-                            connections=utils._POSE_CONNECTIONS,
-                            connection_drawing_spec=styled_connections,
-                        )
-                    else:"""
-                    utils.new_draw_landmarks(
-                            image=frame,
-                            landmark_list=landmarks,
-                            connections=utils._POSE_CONNECTIONS,
-                        )
-                #cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                cv2.imshow("MediaPipe Pose", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+        try:
+            data = pickle.loads(message)
+            frame_count = data.get("frame_count", -2) + 1
+            arrival_times.append((frame_count / self.frame_count_division_factor, arrival_time))
+            if frame_count == -1:
+                return
+            frame_count //= self.frame_count_division_factor
+            while self.frames:
+                frame, pts = self.frames.pop(0)
+                if pts == frame_count:
+                    landmarks = data.get("landmarks", None)
+                    if landmarks:
+                        """
+                        styled_connections = arms_exercise(landmarks)
+                        if styled_connections:
+                            mp_drawing.draw_landmarks(
+                                image=frame,
+                                landmark_list=landmarks,
+                                connections=utils._POSE_CONNECTIONS,
+                                connection_drawing_spec=styled_connections,
+                            )
+                        else:"""
+                        utils.new_draw_landmarks(
+                                image=frame,
+                                landmark_list=landmarks,
+                                connections=utils._POSE_CONNECTIONS,
+                            )
+                    #cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                    cv2.imshow("MediaPipe Pose", frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
                     break
-                break
+        except Exception as e:
+            print("Error processing message:", e)
     
 async def run(ip_address, port):
-    signaling = TcpSocketSignalingClient(ip_address, port)
+    signaling = TcpSocketSignaling(ip_address, port)
     pc = RTCPeerConnection()
     video_track = VideoTrack(0)
     pc.addTrack(video_track)
@@ -356,17 +297,12 @@ async def run(ip_address, port):
         while True:
             obj = await signaling.receive()
             if isinstance(obj, RTCSessionDescription):
-                if obj.type == "answer":
-                    await pc.setRemoteDescription(obj)
-                    print("Received answer")
-                    break
-                else:
-                    print(f"Unexpected SDP type: {obj.type}")
+                await pc.setRemoteDescription(obj)
+                print("Received offer")
+                break
             elif obj is None:
-                print("Connection closed by server")
-                return
-            else:
-                print(f"Received unexpected object: {obj}")
+                print("Received None")
+                break
 
         # Run until the connection is closed or user interrupts
         while True:
@@ -387,16 +323,18 @@ async def run(ip_address, port):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    time_offset = 0 #utils.ntp_sync()
+    ip_address = "0.0.0.0"
+    port = 9999
+    time_offset = utils.ntp_sync()
     try:
-        asyncio.run(run(SERVER_IP, SERVER_PORT))
+        asyncio.run(run(ip_address, port))
     except KeyboardInterrupt:
         print("Exiting...")
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        # create folder with actual date and time
         exit(0)
+        # create folder with actual date and time
         import os
         from datetime import datetime
         now = datetime.now()
