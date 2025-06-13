@@ -125,8 +125,8 @@ def run_client() -> bool:
                 print(f"Unexpected message type {msg_type} received after delay response.")
                 break
 
-            if t1 + offset + delay - t2 < 1000000:
-                print(f"Synchronization successful for client. Offset: {offset} ns, Delay: {delay} ns")
+            if t1 + offset + delay - t2 < 1e-6:  # Check if the offset is within 1 ms
+                print(f"Synchronization successful for client. Offset: {offset * 1e-9} seconds, Delay: {delay * 1e-9} seconds")
                 send_completed(sock, addr)
                 return offset
 
