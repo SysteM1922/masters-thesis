@@ -8,7 +8,9 @@ import time
 import utils
 import sys
 
-SERVER_IP = "10.255.40.73"
+#SERVER_IP = "localhost" # Local testing
+#SERVER_IP = "10.255.40.73" # GYM VM
+SERVER_IP = "10.255.32.55" # GPU VM
 SERVER_PORT = 9999
 
 FPS = 30
@@ -348,6 +350,10 @@ async def run(ip_address, port):
             print("Connection state is", pc.connectionState)
             if pc.connectionState == "connected":
                 print("WebRTC connected")
+            elif pc.connectionState  in ["closed", "failed", "disconnected"]:
+                print("WebRTC connection closed or failed")
+                await signaling.close()
+                await pc.close()
 
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
@@ -371,7 +377,7 @@ async def run(ip_address, port):
         # Run until the connection is closed or user interrupts
         while True:
             await asyncio.sleep(1)
-            if pc.connectionState == "closed":
+            if pc.connectionState in ["closed", "failed", "disconnected"]:
                 break
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
