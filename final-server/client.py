@@ -7,6 +7,7 @@ import json
 import time
 import utils
 import sys
+import subprocess
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
@@ -393,7 +394,30 @@ async def run(ip_address, port):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    time_offset = 0 #utils.ntp_sync()
+
+    if sys.platform == "win32":
+        try:
+            subprocess.run(["python", "../clock_sync/client.py"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            print(f"Error running clock sync client: {e}")
+            sys.exit(1)
+    else:
+        try:
+            subprocess.run(["python3", "../clock_sync/client.py"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            print(f"Error running clock sync client: {e}")
+            sys.exit(1)
+
+    time_offset = 0
+
+    with open("offset.txt", "r") as f:
+        try:
+            time_offset = float(f.readline().strip())
+            print(f"Time offset loaded: {time_offset} seconds")
+        except ValueError as e:
+            print(f"Error reading time offset: {e}")
+            sys.exit(1)
+
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
     except KeyboardInterrupt:
