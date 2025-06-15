@@ -5,6 +5,8 @@ from av import VideoFrame
 import cv2
 import json
 import time
+from datetime import datetime
+import tzlocal
 import utils
 import sys
 import subprocess
@@ -12,7 +14,8 @@ from api_interface import TestsAPI
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
-SERVER_IP = "10.255.32.55" # GPU VM
+#SERVER_IP = "10.255.32.55" # GPU VM
+SERVER_IP = "192.168.1.100"
 SERVER_PORT = 9999
 
 FPS = 30
@@ -454,21 +457,24 @@ if __name__ == "__main__":
 
         print("Adding measurements to the test. Please wait...")
 
+        timezone = tzlocal.get_localzone()
+        print(f"System timezone: {timezone}")
+
         TestsAPI.update_test(
             test_id=test_id,
-            start_time=time.time(),
+            start_time=datetime.now(tz=timezone).isoformat(),
             notes="{\"offset\": " + str(time_offset) + ", \"fps\": " + str(FPS) + "}"
         )
 
         for arrival_time in arrival_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=arrival_time[1] + time_offset,
+                timestamp=datetime.fromtimestamp(send_times[arrival_time[0]][1] + time_offset, tz=timezone).isoformat(),
                 point="{\"point_f\": " + str(arrival_time[0]) + "}"
             )
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=send_times[arrival_time[0]][1] + time_offset,
+                timestamp=datetime.fromtimestamp(send_times[arrival_time[0]][1] + time_offset, tz=timezone).isoformat(),
                 point="{\"point_a\": " + str(arrival_time[0]) + "}"
             )
 
