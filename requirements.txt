@@ -35,6 +35,7 @@ pyOpenSSL==25.0.0
 pyparsing==3.2.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
+requests==2.32.4
 scipy==1.15.2
 sentencepiece==0.2.0
 six==1.17.0
