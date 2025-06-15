@@ -8,6 +8,7 @@ import time
 import utils
 import sys
 import subprocess
+from api_interface import TestsAPI
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
@@ -15,6 +16,11 @@ SERVER_IP = "10.255.32.55" # GPU VM
 SERVER_PORT = 9999
 
 FPS = 30
+
+test_id = None
+test_type = "gym"
+houseID = "house01"
+division = "sala"
 
 send_times = []
 arrival_times = []
@@ -332,6 +338,18 @@ async def run(ip_address, port):
     pc.addTrack(video_track)
     print("Added video track")
 
+    def create_test(data_channel):
+        global test_id, houseID, division, test_type, time_offset
+        test_id = TestsAPI.create_test(
+            test_type=test_type,
+            house_id=houseID,
+            division=division
+        )
+
+        data_channel.send(json.dumps({
+            "test_id": test_id
+        }))
+
     try:
         await signaling.connect()
         print("Connecting to server")
@@ -341,6 +359,7 @@ async def run(ip_address, port):
         @data_channel.on("open")
         def on_open():
             print("Data channel is open")
+            create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):
@@ -377,21 +396,27 @@ async def run(ip_address, port):
 
         # Run until the connection is closed or user interrupts
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)  # Keep the event loop running
             if pc.connectionState in ["closed", "failed", "disconnected"]:
                 break
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         
-        print("Closing connection")
-        
-        await signaling.close()
-        await pc.close()
-        
+    
     except Exception as e:
         print(e)
+    
+    finally:
+        print("Closing connection")
+        
+        if signaling.writer:
+            await signaling.close()
+        if pc:
+            await pc.close()
+        if video_track and video_track.cap:
+            video_track.cap.release()
 
-    cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
 
@@ -425,22 +450,28 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        # create folder with actual date and time
-        exit(0)
-        import os
-        from datetime import datetime
-        now = datetime.now()
-        folder_name = now.strftime("%Y-%m-%d_%H-%M-%S")
-        os.makedirs(folder_name, exist_ok=True)
-        os.chdir(folder_name)
-        # save send_times and arrival_times to csv files
-        with open("point_a.csv", "w") as f:
-            f.write("frame_count,raw_send_time,send_time\n")
-            for send_time in send_times:
-                f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
+        #exit(0)
 
-        with open("point_f.csv", "w") as f:
-            f.write("frame_count,raw_arrival_time,arrival_time\n")
-            for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{arrival_time[1]},{time_offset + arrival_time[1]}\n")
-        print("Data saved to CSV files")
+        print("Adding measurements to the test. Please wait...")
+
+        TestsAPI.update_test(
+            test_id=test_id,
+            start_time=time.time(),
+            notes="{\"offset\": " + str(time_offset) + ", \"fps\": " + str(FPS) + "}"
+        )
+
+        for arrival_time in arrival_times:
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=arrival_time[1] + time_offset,
+                point="{\"point_f\": " + str(arrival_time[0]) + "}"
+            )
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=send_times[arrival_time[0]][1] + time_offset,
+                point="{\"point_a\": " + str(arrival_time[0]) + "}"
+            )
+
+        print("Test completed and measurements added.")
+        print(f"Test ID: {test_id}")
+        exit(0)

@@ -8,12 +8,15 @@ import asyncio
 import threading
 from utils import NewNormalizedLandmarkList
 import sys
+from api_interface import TestsAPI
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 IP_ADDRESS = "0.0.0.0"
 PORT = 9999
+
+test_id = None
 
 last_frame = None
 data_channel = None
@@ -25,7 +28,7 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_heavy.task", # Path to the model file
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
@@ -86,27 +89,6 @@ class VideoReceiver:
         self.start_timer_to_send_to_db = 0
         self.data_to_send_to_db = []
 
-    async def send_to_db(self, data, frame_nr):
-
-        if data:
-            data = {
-                "pose_landmarks": data.landmark,
-                "frame_nr": frame_nr,
-            }
-            self.data_to_send_to_db.append(data)
-
-        if self.start_timer_to_send_to_db == 0:
-            self.start_timer_to_send_to_db = time.time()
-        if time.time() - self.start_timer_to_send_to_db > 5:
-            if self.data_to_send_to_db:
-                data = {
-                    "timestamp": time.time(),
-                    "landmarks": self.data_to_send_to_db,
-                }
-                #colection.insert_one(data)
-            self.data_to_send_to_db = []
-            self.start_timer_to_send_to_db = time.time()
-            
     async def handle_track(self, track):
         global last_frame, pose_thread, arrival_times
         process_thread = threading.Thread(target=process_frame)
@@ -132,6 +114,9 @@ class VideoReceiver:
                 timeouts += 1
                 if timeouts > 4:
                     break
+            except Exception as e:
+                print(f"Error receiving frame: {e}")
+                break
 
         pose_thread = False
         print("Track handler terminated")
@@ -233,10 +218,23 @@ async def run(ip_adress, port):
                         data_channel = None
                         channel.close()
 
+                    @channel.on("message")
+                    def on_message(message):
+                        global test_id
+                        print("Message received:", message)
+                        if isinstance(message, str):
+                            try:
+                                data = json.loads(message)
+                                if "test_id" in data:
+                                    test_id = data["test_id"]
+                            except json.JSONDecodeError:
+                                print("Received non-JSON message:", message)
+
                 @pc.on("track")
                 def on_track(track):
                     print("Track received")
                     asyncio.create_task(video_receiver.handle_track(track))
+
                 @pc.on("connectionstatechange")
                 async def on_connectionstatechange():
                     print("Connection state is", pc.connectionState)
@@ -279,50 +277,67 @@ async def run(ip_adress, port):
                         print(f"Signaling error: {e}")
                         break
 
-                print("Closing connection")
                 pose_thread = False
+                
                 await pc.close()
-                await signaling.close()
+                signaling.writer.close()
+                await signaling.writer.wait_closed()
 
                 signaling.writer = None
                 signaling.reader = None
+                break
 
             except Exception as e:
                 print(f"Server error: {e}")
+                break
 
     except KeyboardInterrupt:
         print("Exiting...")
     finally:
+        print("Closing server...")
         server.close()
-        await server.wait_closed()
+        print("Server closed")
+        #await server.wait_closed() # broken according to the documentation
 
 if __name__ == "__main__":
-    time_offset = 0 #utils.ntp_sync()
     try:
         asyncio.run(run(IP_ADDRESS, PORT))
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
         detector.close()
+        #exit(0)
+
+        print("Adding measurements to the test. Please wait...")
+
+        for arrival_time in arrival_times:
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=arrival_time[1],
+                point="{\"point_b\": " + str(arrival_time[0]) + "}"
+            )
+
+        for start_process_time in start_process_times:
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=start_process_time[1],
+                point="{\"point_c\": " + str(start_process_time[0]) + "}"
+            )
+
+        for end_process_time in end_process_times:
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=end_process_time[1],
+                point="{\"point_d\": " + str(end_process_time[0]) + "}"
+            )
+
+        for send_time in send_times:
+            TestsAPI.add_measurement(
+                test_id=test_id,
+                timestamp=send_time[1],
+                point="{\"point_e\": " + str(send_time[0]) + "}"
+            )
+            
+        print("Test completed and measurements added.")
+        print(f"Test ID: {test_id}")
         exit(0)
-
-        with open("point_b.csv", "w") as f:
-            f.write("frame_count,raw_arrival_time,arrival_time\n")
-            for arrival_time in arrival_times:
-                f.write(f"{arrival_time[0]},{arrival_time[1]},{time_offset + arrival_time[1]}\n")
-
-        with open("point_c.csv", "w") as f:
-            f.write("frame_count,raw_start_process_time,start_process_time\n")
-            for start_process_time in start_process_times:
-                f.write(f"{start_process_time[0]},{start_process_time[1]},{time_offset + start_process_time[1]}\n")
-
-        with open("point_d.csv", "w") as f:
-            f.write("frame_count,raw_end_process_time,end_process_time\n")
-            for end_process_time in end_process_times:
-                f.write(f"{end_process_time[0]},{end_process_time[1]},{time_offset + end_process_time[1]}\n")
-
-        with open("point_e.csv", "w") as f:
-            f.write("frame_count,raw_send_time,send_time\n")
-            for send_time in send_times:
-                f.write(f"{send_time[0]},{send_time[1]},{time_offset + send_time[1]}\n")
-        print("Data saved to CSV files")

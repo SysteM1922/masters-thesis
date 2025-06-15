@@ -1,9 +1,18 @@
 import csv
-
+from api_interface import TestsAPI
+import json
+from datetime import datetime
 # read the CSV file and calculate the average time
 
-FPS = 30
-DIVISION_FACTOR = int(90000 / FPS)  # 90000 is the clock rate for RTP
+TEST_ID = "test0003"
+HOUSE_ID = "house01"
+
+test_data = TestsAPI.get_tests(test_id=TEST_ID, house_id=HOUSE_ID)
+
+fps = json.loads(test_data[0]["notes"])["fps"]
+division_factor = int(90000 / fps)  # 90000 is the clock rate for RTP
+
+measurements = test_data[0]["measurements"]
 
 client_send_times = []
 server_arrival_times = []
@@ -11,53 +20,57 @@ server_start_process_times = []
 server_end_process_times = []
 server_send_times = []
 client_arrival_times = []
-frame_indexes = []
 
-def read_csv(file_path, time_list, division_factor=None):
-    global frame_indexes
-    if len(frame_indexes) == 0:
-        with open(file_path, 'r') as csvfile:
-            csvfile.readline()  # Skip the header
-            reader = csv.reader(csvfile)
-            if division_factor:
-                for row in reader:
-                    frame_index = (int(row[0]) + 1) // division_factor
-                    frame_indexes.append(frame_index)
-                    time_list.append(float(row[-1]))
-            else:
-                for row in reader:
-                    frame_indexes.append(int(row[0]))
-                    time_list.append(float(row[-1]))
-    else:
-        with open(file_path, 'r') as csvfile:
-            csvfile.readline()
-            reader = csv.reader(csvfile)
-            if division_factor:
-                for row in reader:
-                    frame_index = (int(row[0]) + 1) // division_factor
-                    if frame_index in frame_indexes:
-                        time_list.append(float(row[-1]))
-            else:
-                for row in reader:
-                    if int(row[0]) in frame_indexes:
-                        time_list.append(float(row[-1]))
+for measurement in measurements:
+    if "point_a" in measurement["point"]:
+        client_send_times.append((json.loads(measurement["point"])["point_a"], datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
+    elif "point_b" in measurement["point"]:
+        server_arrival_times.append(((json.loads(measurement["point"])["point_b"] + 2) // division_factor, datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
+    elif "point_c" in measurement["point"]:
+        server_start_process_times.append(((json.loads(measurement["point"])["point_c"] + 2) // division_factor, datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
+    elif "point_d" in measurement["point"]:
+        server_end_process_times.append(((json.loads(measurement["point"])["point_d"] + 2) // division_factor, datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
+    elif "point_e" in measurement["point"]:
+        server_send_times.append(((json.loads(measurement["point"])["point_e"] + 2) // division_factor, datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
+    elif "point_f" in measurement["point"]:
+        client_arrival_times.append((json.loads(measurement["point"])["point_f"], datetime.fromisoformat(measurement["timestamp"])))  # Convert to milliseconds
 
-read_csv("point_f.csv", client_arrival_times)
-read_csv("point_e.csv", server_send_times, DIVISION_FACTOR)
-read_csv("point_d.csv", server_end_process_times, DIVISION_FACTOR)
-read_csv("point_c.csv", server_start_process_times, DIVISION_FACTOR)
-read_csv("point_b.csv", server_arrival_times, DIVISION_FACTOR)
-read_csv("point_a.csv", client_send_times)
+server_arrival_times = iter(server_arrival_times)
+server_start_process_times = iter(server_start_process_times)
+server_end_process_times = iter(server_end_process_times)
+server_send_times = iter(server_send_times)
+client_arrival_times = iter(client_arrival_times)
 
 with open("times.csv", 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(["Latency", "Frame send time", "Mediapipe Pose processing time", "Results send time"])
-    for i in range(len(frame_indexes)):
+    
+    for client_send_time in client_send_times:
+        current_frame = client_send_time[0]
+        server_arrival_time = next(server_arrival_times)
+        while server_arrival_time[0] < current_frame:
+            server_arrival_time = next(server_arrival_times)
+        server_start_process_time = next(server_start_process_times)
+        while server_start_process_time[0] < current_frame:
+            server_start_process_time = next(server_start_process_times)
+
+        server_end_process_time = next(server_end_process_times)
+        while server_end_process_time[0] < current_frame:
+            server_end_process_time = next(server_end_process_times)
+
+        server_send_time = next(server_send_times)
+        while server_send_time[0] < current_frame:
+            server_send_time = next(server_send_times)
+
+        client_arrival_time = next(client_arrival_times)
+        while client_arrival_time[0] < current_frame:
+            client_arrival_time = next(client_arrival_times)
+
         writer.writerow([
-            client_arrival_times[i] - client_send_times[i],
-            server_arrival_times[i] - client_send_times[i],
-            server_end_process_times[i] - server_start_process_times[i],
-            client_arrival_times[i] - server_send_times[i]
+            (client_arrival_time[1] - client_send_time[1]).total_seconds() * 1000,
+            (server_arrival_time[1] - client_send_time[1]).total_seconds() * 1000,
+            (server_end_process_time[1] - server_start_process_time[1]).total_seconds() * 1000,
+            (client_arrival_time[1] - server_send_time[1]).total_seconds() * 1000
         ])
 
 import matplotlib.pyplot as plt
