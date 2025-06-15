@@ -1,6 +1,5 @@
 import requests
 import urllib3
-from datetime import datetime
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -10,7 +9,7 @@ VERIFY_SSL = False
 class TestsAPI:
 
     @staticmethod
-    def create_test(test_type: str, house_id: str, division: int):
+    def create_test(test_type, house_id, division):
         try:
             response = requests.post(
                 TEST_API_URL,
@@ -28,7 +27,7 @@ class TestsAPI:
             return None
         
     @staticmethod
-    def update_test(test_id: str, notes: str, start_time: datetime):
+    def update_test(test_id, start_time, notes=""):
         try:
             response = requests.patch(
                 TEST_API_URL,
@@ -46,7 +45,7 @@ class TestsAPI:
             return False
         
     @staticmethod
-    def get_tests(test_id: str, house_id: str):
+    def get_tests(test_id, house_id):
         try:
             response = requests.get(
                 TEST_API_URL,
@@ -63,7 +62,7 @@ class TestsAPI:
             return None
     
     @staticmethod    
-    def delete_test(test_id: str):
+    def delete_test(test_id):
         try:
             response = requests.delete(
                 TEST_API_URL,
@@ -77,7 +76,7 @@ class TestsAPI:
             return False
         
     @staticmethod
-    def add_measurement(test_id: str, timestamp: datetime, point: str):
+    def add_measurement(test_id, timestamp, point):
         try:
             response = requests.post(
                 f"{TEST_API_URL}measurement",

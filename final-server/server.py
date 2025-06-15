@@ -4,8 +4,6 @@ import av
 import mediapipe as mp
 from mediapipe.tasks.python import vision
 import time
-from datetime import datetime
-import tzlocal
 import asyncio
 import threading
 from utils import NewNormalizedLandmarkList
@@ -312,33 +310,31 @@ if __name__ == "__main__":
 
         print("Adding measurements to the test. Please wait...")
 
-        timezone = tzlocal.get_localzone()
-
         for arrival_time in arrival_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=datetime.fromtimestamp(arrival_time[1], tz=timezone).isoformat(),
+                timestamp=arrival_time[1],
                 point="{\"point_b\": " + str(arrival_time[0]) + "}"
             )
 
         for start_process_time in start_process_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=datetime.fromtimestamp(start_process_time[1], tz=timezone).isoformat(),
+                timestamp=start_process_time[1],
                 point="{\"point_c\": " + str(start_process_time[0]) + "}"
             )
 
         for end_process_time in end_process_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=datetime.fromtimestamp(end_process_time[1], tz=timezone).isoformat(),
+                timestamp=end_process_time[1],
                 point="{\"point_d\": " + str(end_process_time[0]) + "}"
             )
 
         for send_time in send_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=datetime.fromtimestamp(send_time[1], tz=timezone).isoformat(),
+                timestamp=send_time[1],
                 point="{\"point_e\": " + str(send_time[0]) + "}"
             )
             
