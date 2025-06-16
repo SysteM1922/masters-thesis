@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 # read the CSV file and calculate the average time
 
-TEST_ID = "test0005"
+TEST_ID = "test0003"
 HOUSE_ID = "house01"
 
 test_data = TestsAPI.get_tests(test_id=TEST_ID, house_id=HOUSE_ID)
@@ -92,6 +92,7 @@ def draw_graph(file_path):
     plt.title('Latency and Processing Times')
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig('times_graph.png')
+    #plt.show()
 
 draw_graph("times.csv")
