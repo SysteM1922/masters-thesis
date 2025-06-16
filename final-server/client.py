@@ -423,13 +423,13 @@ if __name__ == "__main__":
 
     if sys.platform == "win32":
         try:
-            subprocess.run(["python", "../clock_sync/client.py"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
             print(f"Error running clock sync client: {e}")
             sys.exit(1)
     else:
         try:
-            subprocess.run(["python3", "../clock_sync/client.py"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["python3", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
             print(f"Error running clock sync client: {e}")
             sys.exit(1)
@@ -457,7 +457,7 @@ if __name__ == "__main__":
 
         TestsAPI.update_test(
             test_id=test_id,
-            start_time=time.time(),
+            start_time=time.time() + time_offset,
             notes="{\"offset\": " + str(time_offset) + ", \"fps\": " + str(FPS) + "}"
         )
 
