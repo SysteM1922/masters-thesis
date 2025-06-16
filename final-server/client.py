@@ -9,6 +9,7 @@ import utils
 import sys
 import subprocess
 from api_interface import TestsAPI
+from copy import deepcopy
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
@@ -33,9 +34,9 @@ def right_arm_angle(right_shoulder: dict, right_elbow: dict, right_wrist: dict):
     global right_arm_state_repetition, right_arm_state
     right_arm = None
     if right_shoulder['visibility'] > 0.5 and right_elbow['visibility'] > 0.5 and right_wrist['visibility'] > 0.5:
-        new_right_shoulder = right_shoulder
+        new_right_shoulder = deepcopy(right_shoulder)
         new_right_shoulder['x'] = -right_shoulder['x']
-        new_right_wrist = right_wrist
+        new_right_wrist = deepcopy(right_wrist)
         new_right_wrist['x'] = -right_wrist['x']
         right_arm_angle = utils.get_angle_2_points_x_axis(new_right_shoulder, new_right_wrist)
         right_elbow_angle = utils.get_angle_3_points(right_shoulder, right_elbow, right_wrist)
@@ -306,7 +307,7 @@ class VideoTrack(VideoStreamTrack):
             if pts == frame_count:
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    styled_connections = arms_exercise(landmarks)
+                    styled_connections = arms_exercise(deepcopy(landmarks))
                     if styled_connections:
                         utils.new_draw_landmarks(
                             image=frame,
