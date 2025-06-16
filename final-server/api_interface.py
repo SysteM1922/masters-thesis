@@ -3,7 +3,9 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-TEST_API_URL = "https://10.255.40.73:8000/v1/tests/"
+#SERVER_IP = "10.255.40.73"
+SERVER_IP = "192.168.1.207"
+TEST_API_URL = f"https://{SERVER_IP}:8000/v1/tests/"
 VERIFY_SSL = False
 
 class TestsAPI:
