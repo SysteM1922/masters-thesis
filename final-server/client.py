@@ -418,7 +418,7 @@ if __name__ == "__main__":
 
     time_offset = 0
 
-    """if sys.platform == "win32":
+    if sys.platform == "win32":
         try:
             subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
@@ -437,7 +437,7 @@ if __name__ == "__main__":
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)"""
+            sys.exit(1)
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
