@@ -6,7 +6,7 @@ from mediapipe.tasks.python import vision
 import time
 import asyncio
 import threading
-from utils import NewNormalizedLandmarkList
+from dataclasses import asdict
 import sys
 from api_interface import TestsAPI
 
@@ -45,12 +45,12 @@ detector = vision.PoseLandmarker.create_from_options(options)
 async def handle_results(results, frame_pts):
     global data_channel, send_times
     if results.pose_landmarks:
-        landmarkslist = NewNormalizedLandmarkList(results.pose_landmarks[0])
+        landmarkslist = [asdict(landmark) for landmark in results.pose_landmarks[0]]
     else:
-        landmarkslist = NewNormalizedLandmarkList()
+        landmarkslist = []
 
     data = json.dumps({
-        "landmarks": landmarkslist.landmarks,
+        "landmarks": landmarkslist,
         "frame_count": frame_pts
     })
 

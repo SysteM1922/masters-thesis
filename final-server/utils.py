@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 from mediapipe.python.solutions.pose import PoseLandmark
 from mediapipe.python.solutions.drawing_utils import DrawingSpec
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
 import math
-import datetime
+from typing import Optional
 import ntplib
+from mediapipe.framework.formats.landmark_pb2 import NormalizedLandmark
 
 def ntp_sync():
     try:
@@ -169,7 +171,7 @@ def get_colored_style(right_arm: DrawingSpec = None, left_arm: DrawingSpec = Non
     return colored_style
 
 
-def get_angle_4_points(p1, p2, p3, p4):
+def get_angle_4_points(p1: dict, p2: dict, p3: dict, p4: dict) -> Optional[float]:
     """Calculate the angle between two vectors defined by four points.
 
     Args:
@@ -181,8 +183,8 @@ def get_angle_4_points(p1, p2, p3, p4):
     Returns:
         The angle in degrees between the two vectors.
     """
-    v1 = (p2.x - p1.x, p2.y - p1.y)
-    v2 = (p4.x - p3.x, p4.y - p3.y)
+    v1 = (p2['x'] - p1['x'], p2['y'] - p1['y'])
+    v2 = (p4['x'] - p3['x'], p4['y'] - p3['y'])
 
     dot_product = v1[0] * v2[0] + v1[1] * v2[1]
     magnitude_v1 = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
@@ -196,7 +198,7 @@ def get_angle_4_points(p1, p2, p3, p4):
 
     return math.degrees(angle) if not math.isnan(angle) else None
 
-def get_angle_3_points(p1, p2, p3):
+def get_angle_3_points(p1: dict, p2: dict, p3: dict) -> Optional[float]:
     """Calculate the angle between two vectors defined by three points.
 
     Args:
@@ -210,7 +212,7 @@ def get_angle_3_points(p1, p2, p3):
     
     return get_angle_4_points(p1, p2, p3, p2)
 
-def get_angle_2_points_x_axis(p1, p2):
+def get_angle_2_points_x_axis(p1: dict, p2: dict) -> Optional[float]:
     """Calculate the angle between a vector defined by two points and the x-axis.
 
     Args:
@@ -220,24 +222,11 @@ def get_angle_2_points_x_axis(p1, p2):
     Returns:
         The angle in degrees between the vector and the x-axis.
     """
-    
-    dx = p2.x - p1.x
-    dy = p2.y - p1.y
+
+    dx = p2['x'] - p1['x']
+    dy = p2['y'] - p1['y']
     angle = math.atan2(dy, dx)
     return math.degrees(angle) if not math.isnan(angle) else None
-
-
-class NewNormalizedLandmarkList:
-    def __init__(self, landmarks = None):
-        self.landmarks = [
-            {
-                "x": landmark.x,
-                "y": landmark.y,
-                "z": landmark.z,
-                "visibility": landmark.visibility,
-                "presence": landmark.presence
-            } for landmark in landmarks
-        ] if landmarks else None
 
 import numpy as np
 import cv2
@@ -247,7 +236,7 @@ from typing import Mapping
 
 def new_draw_landmarks(
     image: np.ndarray,
-    landmark_list: NewNormalizedLandmarkList,
+    landmark_list: Optional[List[dict]] = None,
     connections: Optional[List[Tuple[int, int]]] = None,
     landmark_drawing_spec: Optional[
         Union[DrawingSpec, Mapping[int, DrawingSpec]]
@@ -287,12 +276,12 @@ def new_draw_landmarks(
   image_rows, image_cols, _ = image.shape
   idx_to_coordinates = {}
   for idx, landmark in enumerate(landmark_list):
-    if (("visibility" in landmark and
-         landmark.get("visibility") < _VISIBILITY_THRESHOLD) or
-        ("presence" in landmark and
-         landmark.get("presence") < _PRESENCE_THRESHOLD)):
+    if ((landmark['visibility'] and
+         landmark['visibility'] < _VISIBILITY_THRESHOLD) or
+        (landmark['presence'] and
+         landmark['presence'] < _PRESENCE_THRESHOLD)):
       continue
-    landmark_px = _normalized_to_pixel_coordinates(landmark.get("x"), landmark.get("y"),
+    landmark_px = _normalized_to_pixel_coordinates(landmark['x'], landmark['y'],
                                                    image_cols, image_rows)
     if landmark_px:
       idx_to_coordinates[idx] = landmark_px

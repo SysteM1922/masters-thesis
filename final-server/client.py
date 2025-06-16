@@ -13,7 +13,7 @@ from api_interface import TestsAPI
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
 #SERVER_IP = "10.255.32.55" # GPU VM
-SERVER_IP = "192.168.1.100"
+SERVER_IP = "192.168.1.207"
 SERVER_PORT = 9999
 
 FPS = 30
@@ -26,22 +26,17 @@ division = "sala"
 send_times = []
 arrival_times = []
 
-class Joint:
-    def __init__(self, joint):
-        self.x = joint.x
-        self.y = joint.y
-
 right_arm_state_repetition = 0
 right_arm_state = None
 
-def right_arm_angle(right_shoulder, right_elbow, right_wrist):
+def right_arm_angle(right_shoulder: dict, right_elbow: dict, right_wrist: dict):
     global right_arm_state_repetition, right_arm_state
     right_arm = None
-    if right_shoulder.visibility > 0.5 and right_elbow.visibility > 0.5 and right_wrist.visibility > 0.5:
-        new_right_shoulder = Joint(right_shoulder)
-        new_right_shoulder.x = -right_shoulder.x
-        new_right_wrist = Joint(right_wrist)
-        new_right_wrist.x = -right_wrist.x
+    if right_shoulder['visibility'] > 0.5 and right_elbow['visibility'] > 0.5 and right_wrist['visibility'] > 0.5:
+        new_right_shoulder = right_shoulder
+        new_right_shoulder['x'] = -right_shoulder['x']
+        new_right_wrist = right_wrist
+        new_right_wrist['x'] = -right_wrist['x']
         right_arm_angle = utils.get_angle_2_points_x_axis(new_right_shoulder, new_right_wrist)
         right_elbow_angle = utils.get_angle_3_points(right_shoulder, right_elbow, right_wrist)
 
@@ -75,7 +70,7 @@ def left_arm_angle(left_shoulder, left_elbow, left_wrist):
     global left_arm_state_repetition, left_arm_state
     left_arm = None
 
-    if left_shoulder.visibility > 0.5 and left_elbow.visibility > 0.5 and left_wrist.visibility > 0.5:
+    if left_shoulder['visibility'] > 0.5 and left_elbow['visibility'] > 0.5 and left_wrist['visibility'] > 0.5:
         left_arm_angle = utils.get_angle_2_points_x_axis(left_shoulder, left_wrist)
         left_elbow_angle = utils.get_angle_3_points(left_shoulder, left_elbow, left_wrist)
 
@@ -112,10 +107,10 @@ def arms_angle(right_shoulder, left_shoulder, right_elbow, left_elbow, right_wri
 spine_state_repetition = 0
 spine_state = None
 
-def spine_straight(right_shoulder, left_shoulder, right_hip, left_hip):
+def spine_straight(right_shoulder: dict, left_shoulder: dict, right_hip: dict, left_hip: dict):
     global spine_state_repetition, spine_state
     spine = None
-    if right_shoulder.visibility > 0.5 and left_shoulder.visibility > 0.5 and right_hip.visibility > 0.5 and left_hip.visibility > 0.5:
+    if right_shoulder['visibility'] > 0.5 and left_shoulder['visibility'] > 0.5 and right_hip['visibility'] > 0.5 and left_hip['visibility'] > 0.5:
         angle_shoulder_hip = utils.get_angle_4_points(right_shoulder, left_shoulder, right_hip, left_hip)
         angle_left_shoulder_hip = abs(utils.get_angle_3_points(left_shoulder, right_shoulder, right_hip) % 90)
         angle_right_shoulder_hip = abs(utils.get_angle_3_points(right_shoulder, left_shoulder, left_hip) % 90)
@@ -146,19 +141,19 @@ def arms_exercise(landmarks):
     global arms_exercise_state_repetition, arms_exercise_state, arms_exercise_reps, old_arms_exercise_state
 
     spine_state = spine_straight(
-        landmarks.landmark[12],
-        landmarks.landmark[11],
-        landmarks.landmark[24],
-        landmarks.landmark[23]
+        landmarks[12],
+        landmarks[11],
+        landmarks[24],
+        landmarks[23]
     )
 
     right_arm_state, left_arm_state = arms_angle(
-        landmarks.landmark[12],
-        landmarks.landmark[11],
-        landmarks.landmark[14],
-        landmarks.landmark[13],
-        landmarks.landmark[16],
-        landmarks.landmark[15]
+        landmarks[12],
+        landmarks[11],
+        landmarks[14],
+        landmarks[13],
+        landmarks[16],
+        landmarks[15]
     )
 
     arms_exercise = None
@@ -311,22 +306,21 @@ class VideoTrack(VideoStreamTrack):
             if pts == frame_count:
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    """
                     styled_connections = arms_exercise(landmarks)
                     if styled_connections:
-                        mp_drawing.draw_landmarks(
+                        utils.new_draw_landmarks(
                             image=frame,
                             landmark_list=landmarks,
                             connections=utils._POSE_CONNECTIONS,
                             connection_drawing_spec=styled_connections,
                         )
-                    else:"""
-                    utils.new_draw_landmarks(
+                    else:
+                        utils.new_draw_landmarks(
                             image=frame,
                             landmark_list=landmarks,
                             connections=utils._POSE_CONNECTIONS,
                         )
-                #cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                 cv2.imshow("MediaPipe Pose", frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -421,7 +415,9 @@ async def run(ip_address, port):
 
 if __name__ == "__main__":
 
-    if sys.platform == "win32":
+    time_offset = 0
+
+    """if sys.platform == "win32":
         try:
             subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
@@ -434,15 +430,13 @@ if __name__ == "__main__":
             print(f"Error running clock sync client: {e}")
             sys.exit(1)
 
-    time_offset = 0
-
     with open("offset.txt", "r") as f:
         try:
             time_offset = float(f.readline().strip())
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)
+            sys.exit(1)"""
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
@@ -451,7 +445,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        #exit(0)
+        exit(0)
 
         print("Adding measurements to the test. Please wait...")
 
