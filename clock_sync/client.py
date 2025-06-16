@@ -12,11 +12,29 @@ t4 = None
 
 def create_client_socket():
     """
-    Create a UDP client socket.
+    Create a UDP client socket with timestamping enabled.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(utils.SOCKET_TIMEOUT)  # Set a timeout for the socket operations
+    sock.settimeout(utils.SOCKET_TIMEOUT)
+    
+    # Enable SO_TIMESTAMPING
+    utils.setup_timestamping_socket(sock)
+    
     return sock
+
+def send_with_timestamp(sock: socket.socket, data: bytes, addr: tuple) -> int:
+    """
+    Send data and return send timestamp in nanoseconds.
+    """
+    utils.send_message(sock, data, addr)
+    
+    # Try to get send timestamp from error queue
+    send_timestamp = utils.get_send_timestamp(sock)
+    if send_timestamp is not None:
+        return int(send_timestamp * 1e9)
+    else:
+        # Fallback to current time
+        return utils.get_current_time_ns()
 
 def start_sync(sock: socket.socket, addr: tuple):
     """
@@ -25,28 +43,31 @@ def start_sync(sock: socket.socket, addr: tuple):
     for _ in range(utils.MAX_SYNC_TRIES):
         try:
             request = utils.build_message(utils.PTPMsgType.PTP_SYNC_REQUEST, 0)
-            # print request size in bytes
-            sock.sendto(request, addr)
+            utils.send_message(sock, request, addr)
             print(f"Sent sync request to {addr}")
             
-            data, _ = sock.recvfrom(utils.MSG_SIZE)
-            arrival_time = utils.get_current_time()
+            for _ in range(2):
+                data, _, arrival_time_ns = utils.receive_with_timestamp(sock, utils.MSG_SIZE)
+                msg_type, timestamp = utils.parse_message_raw(data)
 
-            msg_type, timestamp = utils.parse_message_raw(data)
-
-            if msg_type == utils.PTPMsgType.PTP_BUSY.value:
-                print(f"Server is busy, retrying sync request to {addr}...")
-                time.sleep(0.5)  # Wait before retrying
-                continue
-            elif msg_type == utils.PTPMsgType.PTP_SYNC_RESPONSE.value:
-                global t1, t2
-                t1 = timestamp
-                t2 = int(arrival_time * 1e9)
-                print(f"Received sync response, t1={t1}, t2={t2}")
-                return True
-            else:
-                print(f"Unexpected message type {msg_type} received from {addr}.")
-                return False
+                if msg_type == utils.PTPMsgType.PTP_BUSY.value:
+                    print(f"Server is busy, retrying sync request to {addr}...")
+                    time.sleep(0.5)  # Wait before retrying
+                    break
+                elif msg_type == utils.PTPMsgType.PTP_SYNC_RESPONSE.value:
+                    global t2
+                    t2 = arrival_time_ns
+                    print(f"Received sync response from {addr} at t2={t2}")
+                    continue
+                elif msg_type == utils.PTPMsgType.PTP_SYNC_FOLLOW_UP.value:
+                    global t1
+                    t1 = timestamp
+                    print(f"Received sync follow-up from {addr} at t1={t1}")
+                    return True
+                else:
+                    print("Aqui")
+                    print(f"Unexpected message type {msg_type} received from {addr}.")
+                    return False
             
         except socket.timeout:
             print(f"Sync request timed out, retrying...")
@@ -60,8 +81,9 @@ def send_completed(sock: socket.socket, addr: tuple):
     """
     try:
         request = utils.build_message(utils.PTPMsgType.PTP_SYNC_COMPLETED, 0)
-        sock.sendto(request, addr)
+        utils.send_message(sock, request, addr)
         print(f"Sent sync completed message to {addr}")
+        utils.clear_error_queue(sock)  # Clear error queue after sync completion
     except Exception as e:
         print(f"Failed to send sync completed message: {e}")
 
@@ -86,43 +108,44 @@ def run_client(server_ip: str):
     
     for _ in range(utils.MAX_SYNC_TRIES):
         try:
-            request = utils.build_message(utils.PTPMsgType.PTP_DELAY_REQUEST, int(utils.get_current_time() * 1e9))
-            send_time = utils.get_current_time()
-            sock.sendto(request, addr)
+            request = utils.build_message(utils.PTPMsgType.PTP_DELAY_REQUEST, 0)
+            send_time_ns = send_with_timestamp(sock, request, addr)
             print(f"Sent delay request to {addr}")
 
-            data, _ = sock.recvfrom(utils.MSG_SIZE)
-
+            data, _, _ = utils.receive_with_timestamp(sock, utils.MSG_SIZE)
             msg_type, timestamp = utils.parse_message_raw(data)
 
-            if msg_type == utils.PTPMsgType.PTP_DELAY_RESPONSE.value:
-                t3 = int(send_time * 1e9)
-                t4 = timestamp
-                print(f"Received delay response, t3={t3}, t4={t4}")
-                offset = ((t2 - t1) - (t4 - t3)) / 2
-                delay = ((t2 - t1) + (t4 - t3)) / 2
-                offset_list.append(offset)
-                print(f"Offset calculated: {offset} ns")
-            else:
+            if msg_type != utils.PTPMsgType.PTP_DELAY_RESPONSE.value:
                 print(f"Unexpected message type {msg_type} received from {addr}.")
                 break
+            t3 = send_time_ns
+            t4 = timestamp
+            print(f"Received delay response, t3={t3}, t4={t4}")
+            offset = ((t2 - t1) - (t4 - t3)) / 2
+            delay = ((t2 - t1) + (t4 - t3)) / 2
+            offset_list.append(offset)
+            print(f"Offset calculated: {offset} ns")
 
             request = utils.build_message(utils.PTPMsgType.PTP_SYNC_REQUEST, 0)
-            sock.sendto(request, addr)
+            utils.send_message(sock, request, addr)
             print(f"Sent sync request to {addr} after delay response")
             
-            data, _ = sock.recvfrom(utils.MSG_SIZE)
-            arrival_time = utils.get_current_time()
+            data, _, arrival_time_ns = utils.receive_with_timestamp(sock, utils.MSG_SIZE)
+            msg_type, _ = utils.parse_message_raw(data)
 
-            msg_type, timestamp = utils.parse_message_raw(data)
-
-            if msg_type == utils.PTPMsgType.PTP_SYNC_RESPONSE.value:
-                t1 = timestamp
-                t2 = int(arrival_time * 1e9)
-                print(f"Received sync response, t1={t1}, t2={t2}")
-            else:
+            if msg_type != utils.PTPMsgType.PTP_SYNC_RESPONSE.value:
                 print(f"Unexpected message type {msg_type} received after delay response.")
                 break
+            t2 = arrival_time_ns
+
+            data, _, _ = utils.receive_with_timestamp(sock, utils.MSG_SIZE)
+            msg_type, timestamp_ns = utils.parse_message_raw(data)
+
+            if msg_type != utils.PTPMsgType.PTP_SYNC_FOLLOW_UP.value:
+                print(f"Unexpected message type {msg_type} received after sync response.")
+                break
+            t1 = timestamp_ns
+            print(f"Received sync follow-up, t1={t1}")
 
             if t1 + offset + delay - t2 < 1e-6:  # Check if the offset is within 1 ms
                 print(f"Synchronization successful for client. Offset: {offset * 1e-9} seconds, Delay: {delay * 1e-9} seconds")
@@ -153,4 +176,3 @@ if __name__ == "__main__":
         print(f"Client failed to synchronize with the server.")
         with open('offset.txt', 'w') as f:
             f.write("Synchronization failed\n")
-         

@@ -1,3 +1,4 @@
+import time
 import utils
 import socket
 
@@ -9,15 +10,26 @@ actual_client = None
 
 def create_server_socket():
     """
-    Create a UDP server socket.
+    Create a UDP server socket with timestamping enabled.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow reuse of the address
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(utils.SOCKET_TIMEOUT)
+    
+    # Enable SO_TIMESTAMPING
+    utils.setup_timestamping_socket(sock)
+    
     sock.bind((IP, PORT))
     return sock
 
-def handle_message(data: bytes, addr: tuple, sock: socket.socket, arrival_time: float):
+def receive_with_timestamp(sock: socket.socket):
+    """
+    Receive data with kernel timestamp.
+    Returns (data, addr, timestamp_ns) where timestamp_ns is in nanoseconds.
+    """
+    return utils.receive_with_timestamp(sock, utils.MSG_SIZE)
+
+def handle_message(data: bytes, addr: tuple, sock: socket.socket, arrival_time_ns: int):
     """
     Handle incoming messages and send appropriate responses.
     """
@@ -30,7 +42,7 @@ def handle_message(data: bytes, addr: tuple, sock: socket.socket, arrival_time: 
         if busy:
             print(f"Server is busy, sending busy response to {addr}.")
             response = utils.build_message(utils.PTPMsgType.PTP_BUSY, 0)
-            sock.sendto(response, addr)
+            utils.send_message(sock, response, addr)
             return
         else:
             print(f"New client {addr} connected.")
@@ -38,15 +50,22 @@ def handle_message(data: bytes, addr: tuple, sock: socket.socket, arrival_time: 
             busy = True
 
     if msg_type == utils.PTPMsgType.PTP_SYNC_REQUEST.value:
-        response = utils.build_message(utils.PTPMsgType.PTP_SYNC_RESPONSE, int(utils.get_current_time() * 1e9))
-        sock.sendto(response, addr)
+        response = utils.build_message(utils.PTPMsgType.PTP_SYNC_RESPONSE, 0)
+        utils.send_message(sock, response, addr)
         print(f"Sent sync response to {addr}.")
+        
+        timestamp = int(utils.get_send_timestamp(sock) * 1e9)  # Convert to nanoseconds
+
+        response = utils.build_message(utils.PTPMsgType.PTP_SYNC_FOLLOW_UP, timestamp)
+        utils.send_message(sock, response, addr)
+        print(f"Sent sync follow-up to {addr}.")
     elif msg_type == utils.PTPMsgType.PTP_DELAY_REQUEST.value:
-        response = utils.build_message(utils.PTPMsgType.PTP_DELAY_RESPONSE, int(arrival_time * 1e9))
-        sock.sendto(response, addr)
+        response = utils.build_message(utils.PTPMsgType.PTP_DELAY_RESPONSE, arrival_time_ns)
+        utils.send_message(sock, response, addr)
         print(f"Sent delay response to {addr}.")
     elif msg_type == utils.PTPMsgType.PTP_SYNC_COMPLETED.value:
         print(f"Sync completed for client {addr}.")
+        utils.clear_error_queue(sock)  # Clear error queue after sync completion
         busy = False
         actual_client = None
     else:
@@ -55,20 +74,19 @@ def handle_message(data: bytes, addr: tuple, sock: socket.socket, arrival_time: 
 
 def run_server():
     """
-    Run the UDP server to listen for PTP messages.
+    Run the UDP server to listen for PTP messages with kernel timestamping.
     """
     sock = create_server_socket()
-    print(f"Server listening on {IP}:{PORT}")
+    print(f"Server listening on {IP}:{PORT} with SO_TIMESTAMPING enabled")
 
     global busy, actual_client
     try:
         tries_count = 0
         while True:
             try:
-                data, addr = sock.recvfrom(utils.MSG_SIZE)
-                arrival_time = utils.get_current_time()
+                data, addr, arrival_time_ns = receive_with_timestamp(sock)
                 if len(data) == utils.MSG_SIZE:
-                    handle_message(data, addr, sock, arrival_time)
+                    handle_message(data, addr, sock, arrival_time_ns)
                 else:
                     print(f"Received invalid message size from {addr}: {len(data)} bytes.")                
             except socket.error as e:
