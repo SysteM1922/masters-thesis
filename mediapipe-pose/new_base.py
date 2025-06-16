@@ -5,6 +5,7 @@ from mediapipe.tasks.python import vision
 import cv2
 from mediapipe.framework.formats import landmark_pb2 as mp_landmark
 import utils
+import av
 
 mp_drawing = mp.solutions.drawing_utils
 
@@ -21,7 +22,7 @@ def update_results(result, output_image=None, timestamp=None):
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -52,8 +53,8 @@ while True:
 
     if results is not None and results.pose_landmarks:
         utils.new_draw_landmarks(image, results.pose_landmarks[0], POSE_CONNECTIONS)
-        cv2.imshow("frame", image)
-
+    
+    cv2.imshow("frame", image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

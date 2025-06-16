@@ -1,8 +1,6 @@
 import asyncio
 import fractions
 import threading
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from av import VideoFrame
 import cv2
 import json
 import time
@@ -11,6 +9,9 @@ import sys
 import subprocess
 from api_interface import TestsAPI
 from copy import deepcopy
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from av import VideoFrame
+# linux conflit cv2 and av/aiortc
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
@@ -256,10 +257,8 @@ def display_image():
             resume_display.wait()  # Wait until the display is resumed
             cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.imshow("MediaPipe Pose", actual_frame)
-
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 stop_display.set()
-                break
             
     except Exception as e:
         print(f"Error in display thread: {e}")
@@ -380,7 +379,7 @@ async def run(ip_address, port):
         def on_open():
             print("Data channel is open")
             start_display_thread()
-            create_test(data_channel)
+            #create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):

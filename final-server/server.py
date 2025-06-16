@@ -30,7 +30,7 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
