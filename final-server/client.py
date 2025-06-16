@@ -254,7 +254,6 @@ def display_image():
     try:
         while not stop_display.is_set():
             resume_display.wait()  # Wait until the display is resumed
-            
             cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.imshow("MediaPipe Pose", actual_frame)
 
@@ -285,6 +284,7 @@ class VideoTrack(VideoStreamTrack):
         self.frame_count_division_factor = int(90000 / FPS)
         self.frame_count = -1
         self.frames = []
+        self.last_frame_count = -1
         #self.fps = 0
         #self.start_time = time.time()
 
@@ -320,7 +320,7 @@ class VideoTrack(VideoStreamTrack):
         frame_count = data.get("frame_count", -2) + 1
         frame_count //= self.frame_count_division_factor
         arrival_times.append((frame_count, arrival_time))
-        if frame_count == -1:
+        if frame_count == -1 and frame_count > self.last_frame_count:
             return
         while self.frames:
             frame, pts = self.frames.pop(0)
@@ -342,6 +342,7 @@ class VideoTrack(VideoStreamTrack):
                             connections=utils._POSE_CONNECTIONS,
                         )
                 actual_frame = frame
+                self.last_frame_count = frame_count
                 resume_display.set()  # Resume the display thread
                 break
     
@@ -392,8 +393,7 @@ async def run(ip_address, port):
                 print("WebRTC connected")
             elif pc.connectionState  in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection closed or failed")
-                await signaling.close()
-                await pc.close()
+                stop_display.set()
 
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
@@ -415,28 +415,23 @@ async def run(ip_address, port):
                 print(f"Received unexpected object: {obj}")
 
         # Run until the connection is closed or user interrupts
-        while True:
-            await asyncio.sleep(5)  # Keep the event loop running
-            if pc.connectionState in ["closed", "failed", "disconnected"]:
-                break
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        
+        while not stop_display.is_set():
+            await asyncio.sleep(5)
     
     except Exception as e:
         print(e)
+
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received, closing connection")
+        stop_display.set()
     
     finally:
         print("Closing connection")
-        global stop_display
-        stop_display.set()
         
-        if signaling.writer:
-            await signaling.close()
-        if pc:
-            await pc.close()
-        if video_track and video_track.cap:
-            video_track.cap.release()
+        await signaling.close()
+        await pc.close()
+
+        resume_display.set()  # Ensure display thread can exit
 
         cv2.destroyAllWindows()
 
