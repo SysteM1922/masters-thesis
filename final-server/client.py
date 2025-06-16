@@ -379,7 +379,7 @@ async def run(ip_address, port):
         def on_open():
             print("Data channel is open")
             start_display_thread()
-            #create_test(data_channel)
+            create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):
