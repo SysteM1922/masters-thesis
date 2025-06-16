@@ -446,7 +446,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        exit(0)
+        #exit(0)
 
         print("Adding measurements to the test. Please wait...")
 
