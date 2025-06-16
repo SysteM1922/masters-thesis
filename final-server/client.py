@@ -1,5 +1,6 @@
 import asyncio
 import fractions
+import threading
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 import cv2
@@ -13,8 +14,8 @@ from copy import deepcopy
 
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
-#SERVER_IP = "10.255.32.55" # GPU VM
-SERVER_IP = "192.168.1.207"
+SERVER_IP = "10.255.32.55" # GPU VM
+#SERVER_IP = "192.168.1.207"
 SERVER_PORT = 9999
 
 FPS = 30
@@ -27,8 +28,12 @@ division = "sala"
 send_times = []
 arrival_times = []
 
+actual_frame = None
 right_arm_state_repetition = 0
 right_arm_state = None
+
+resume_display = threading.Event()
+stop_display = threading.Event()
 
 def right_arm_angle(right_shoulder: dict, right_elbow: dict, right_wrist: dict):
     global right_arm_state_repetition, right_arm_state
@@ -245,6 +250,21 @@ class TcpSocketSignalingClient:
         else:
             print("No connection to close")
 
+def display_image():
+    try:
+        while not stop_display.is_set():
+            resume_display.wait()  # Wait until the display is resumed
+            
+            cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.imshow("MediaPipe Pose", actual_frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                stop_display.set()
+                break
+            
+    except Exception as e:
+        print(f"Error in display thread: {e}")
+
 class VideoTrack(VideoStreamTrack):
     def __init__(self, path):
         super().__init__()
@@ -289,7 +309,7 @@ class VideoTrack(VideoStreamTrack):
     
     async def process_frame(self, message):
         arrival_time = time.time()
-        global arms_exercise_reps, arrival_times
+        global arms_exercise_reps, arrival_times, actual_frame, resume_display
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
             #print(self.fps, "fps")
@@ -321,10 +341,8 @@ class VideoTrack(VideoStreamTrack):
                             landmark_list=landmarks,
                             connections=utils._POSE_CONNECTIONS,
                         )
-                cv2.putText(frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-                cv2.imshow("MediaPipe Pose", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                actual_frame = frame
+                resume_display.set()  # Resume the display thread
                 break
     
 async def run(ip_address, port):
@@ -346,6 +364,11 @@ async def run(ip_address, port):
             "test_id": test_id
         }))
 
+    def start_display_thread():
+        process_thread = threading.Thread(target=display_image)
+        process_thread.daemon = True
+        process_thread.start()
+
     try:
         await signaling.connect()
         print("Connecting to server")
@@ -355,6 +378,7 @@ async def run(ip_address, port):
         @data_channel.on("open")
         def on_open():
             print("Data channel is open")
+            start_display_thread()
             create_test(data_channel)
 
         @data_channel.on("message")
@@ -404,6 +428,8 @@ async def run(ip_address, port):
     
     finally:
         print("Closing connection")
+        global stop_display
+        stop_display.set()
         
         if signaling.writer:
             await signaling.close()
@@ -418,7 +444,7 @@ if __name__ == "__main__":
 
     time_offset = 0
 
-    if sys.platform == "win32":
+    """if sys.platform == "win32":
         try:
             subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
@@ -429,7 +455,7 @@ if __name__ == "__main__":
             subprocess.run(["python3", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
             print(f"Error running clock sync client: {e}")
-            sys.exit(1)
+            sys.exit(1)"""
 
     with open("offset.txt", "r") as f:
         try:
