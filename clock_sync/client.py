@@ -1,8 +1,8 @@
 import utils
 import socket
 import time
+import argparse
 
-SERVER_IP = '10.255.32.55'
 SERVER_PORT = 8888
 
 t1 = None
@@ -45,7 +45,6 @@ def start_sync(sock: socket.socket, addr: tuple):
                 print(f"Received sync response, t1={t1}, t2={t2}")
                 return True
             else:
-                print("Aqui")
                 print(f"Unexpected message type {msg_type} received from {addr}.")
                 return False
             
@@ -66,12 +65,12 @@ def send_completed(sock: socket.socket, addr: tuple):
     except Exception as e:
         print(f"Failed to send sync completed message: {e}")
 
-def run_client() -> bool:
+def run_client(server_ip: str):
     """
     Run the UDP client to synchronize with the server.
     """
     sock = create_client_socket()
-    addr = (SERVER_IP, SERVER_PORT)
+    addr = (server_ip, SERVER_PORT)
 
     print(f"Client started, attempting to sync with server at {addr}...")
     if not start_sync(sock, addr):
@@ -138,7 +137,11 @@ def run_client() -> bool:
     return sum(offset_list) / len(offset_list) if offset_list else None
 
 if __name__ == "__main__":
-    offset = run_client() # offset is in nanoseconds
+    parser = argparse.ArgumentParser(description="UDP Client for Clock Synchronization")
+    parser.add_argument('--server_ip', type=str, required=True, help='IP address of the server to synchronize with')
+    args = parser.parse_args()
+
+    offset = run_client(args.server_ip) # offset is in nanoseconds
     offset_seconds = offset / 1e9 if offset is not None else None
 
     if offset_seconds is not None:
