@@ -3,8 +3,8 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-#SERVER_IP = "10.255.40.73"
-SERVER_IP = "192.168.1.207"
+SERVER_IP = "10.255.40.73"
+#SERVER_IP = "192.168.1.207"
 TEST_API_URL = f"https://{SERVER_IP}:8000/v1/tests/"
 VERIFY_SSL = False
 
@@ -94,8 +94,3 @@ class TestsAPI:
         except requests.RequestException as e:
             print(f"Error adding measurement to test {test_id}: {e}")
             return False
-
-
-if __name__ == "__main__":
-    test_id = TestsAPI.delete_test("test0003")
-    print(f"Created test with ID: {test_id}")
