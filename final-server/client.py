@@ -380,7 +380,7 @@ async def run(ip_address, port):
         def on_open():
             print("Data channel is open")
             start_display_thread()
-            create_test(data_channel)
+            #create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):
@@ -437,8 +437,6 @@ async def run(ip_address, port):
 
 if __name__ == "__main__":
 
-    time_offset = get_time_offset()
-
     """if sys.platform == "win32":
         try:
             subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -452,13 +450,15 @@ if __name__ == "__main__":
             print(f"Error running clock sync client: {e}")
             sys.exit(1)"""
 
-    with open("offset.txt", "r") as f:
+    """with open("offset.txt", "r") as f:
         try:
             time_offset = float(f.readline().strip())
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)
+            sys.exit(1)"""
+
+    time_offset = get_time_offset()
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
