@@ -17,6 +17,12 @@ def ntp_sync():
     except Exception as e:
         print("NTP synchronization failed:", e)
         return None
+    
+def get_time_offset():
+    with open("/tmp/ntp_offset.txt", "r") as f:
+        while True:
+            f.seek(0)
+            yield float(f.readline().strip())
 
 _GREEN = (48, 255, 48)
 _RED = (0, 0, 255)

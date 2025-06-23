@@ -9,6 +9,7 @@ import threading
 from dataclasses import asdict
 import sys
 from api_interface import TestsAPI
+from utils import get_time_offset
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -286,6 +287,9 @@ async def run(ip_adress, port):
         #await server.wait_closed() # broken according to the documentation
 
 if __name__ == "__main__":
+    
+    time_offset = get_time_offset()
+
     try:
         asyncio.run(run(IP_ADDRESS, PORT))
     except Exception as e:
@@ -299,28 +303,28 @@ if __name__ == "__main__":
         for arrival_time in arrival_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=arrival_time[1],
+                timestamp=arrival_time[1] + time_offset,
                 point="{\"point_b\": " + str(arrival_time[0]) + "}"
             )
 
         for start_process_time in start_process_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=start_process_time[1],
+                timestamp=start_process_time[1] + time_offset,
                 point="{\"point_c\": " + str(start_process_time[0]) + "}"
             )
 
         for end_process_time in end_process_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=end_process_time[1],
+                timestamp=end_process_time[1] + time_offset,
                 point="{\"point_d\": " + str(end_process_time[0]) + "}"
             )
 
         for send_time in send_times:
             TestsAPI.add_measurement(
                 test_id=test_id,
-                timestamp=send_time[1],
+                timestamp=send_time[1] + time_offset,
                 point="{\"point_e\": " + str(send_time[0]) + "}"
             )
             

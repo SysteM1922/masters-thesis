@@ -7,6 +7,7 @@ import time
 import utils
 import sys
 import subprocess
+from utils import get_time_offset
 from api_interface import TestsAPI
 from copy import deepcopy
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
@@ -436,7 +437,7 @@ async def run(ip_address, port):
 
 if __name__ == "__main__":
 
-    time_offset = 0
+    time_offset = get_time_offset()
 
     """if sys.platform == "win32":
         try:
