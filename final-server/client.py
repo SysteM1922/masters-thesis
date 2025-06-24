@@ -380,7 +380,7 @@ async def run(ip_address, port):
         def on_open():
             print("Data channel is open")
             start_display_thread()
-            #create_test(data_channel)
+            create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):
@@ -437,6 +437,8 @@ async def run(ip_address, port):
 
 if __name__ == "__main__":
 
+    time_offset = 0
+
     """if sys.platform == "win32":
         try:
             subprocess.run(["python", "../clock_sync/client.py", "--server_ip", SERVER_IP], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -450,15 +452,13 @@ if __name__ == "__main__":
             print(f"Error running clock sync client: {e}")
             sys.exit(1)"""
 
-    """with open("offset.txt", "r") as f:
+    with open("offset.txt", "r") as f:
         try:
             time_offset = float(f.readline().strip())
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)"""
-
-    time_offset = get_time_offset()
+            sys.exit(1)
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
@@ -478,15 +478,23 @@ if __name__ == "__main__":
         )
 
         for arrival_time in arrival_times:
-            TestsAPI.add_measurement(
+            TestsAPI.add_measurement_bulk(
+                results_list= [
+                    {
+                        "point": "{\"point_f\": " + str(arrival_time[0]) + "}",
+                        "timestamp": arrival_time[1] + time_offset
+                    },
+                ],
                 test_id=test_id,
-                timestamp=arrival_time[1] + time_offset,
-                point="{\"point_f\": " + str(arrival_time[0]) + "}"
             )
-            TestsAPI.add_measurement(
+            TestsAPI.add_measurement_bulk(
+                results_list= [
+                    {
+                        "point": "{\"point_a\": " + str(arrival_time[0]) + "}",
+                        "timestamp": send_times[arrival_time[0]][1] + time_offset
+                    },
+                ],
                 test_id=test_id,
-                timestamp=send_times[arrival_time[0]][1] + time_offset,
-                point="{\"point_a\": " + str(arrival_time[0]) + "}"
             )
 
         print("Test completed and measurements added.")

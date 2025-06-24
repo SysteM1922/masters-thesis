@@ -45,6 +45,7 @@ class TestsAPI:
         except requests.RequestException as e:
             print(f"Error updating test {test_id}: {e}")
             return False
+
         
     @staticmethod
     def get_tests(test_id, house_id):
@@ -86,6 +87,23 @@ class TestsAPI:
                     "test_id": test_id,
                     "timestamp": timestamp,
                     "point": point
+                },
+                verify=VERIFY_SSL
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException as e:
+            print(f"Error adding measurement to test {test_id}: {e}")
+            return False
+        
+    @staticmethod
+    def add_measurement_bulk(test_id, results_list):
+        try:
+            response = requests.post(
+                f"{TEST_API_URL}measurement/bulk",
+                json={
+                    "test_id": test_id,
+                    "measurements": results_list,
                 },
                 verify=VERIFY_SSL
             )
