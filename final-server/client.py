@@ -14,9 +14,10 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 # linux conflit cv2 and av/aiortc
 
+SERVER_IP = "100.123.205.104" # Tailscale IP
 #SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
-SERVER_IP = "10.255.32.55" # GPU VM
+#SERVER_IP = "10.255.32.55" # GPU VM
 #SERVER_IP = "192.168.1.207"
 SERVER_PORT = 9999
 
