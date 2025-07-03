@@ -14,11 +14,11 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 # linux conflit cv2 and av/aiortc
 
-#SERVER_IP = "localhost" # Local testing
+SERVER_IP = "localhost" # Local testing
 #SERVER_IP = "10.255.40.73" # GYM VM
-SERVER_IP = "10.255.32.55" # GPU VM
+#SERVER_IP = "10.255.32.55" # GPU VM
 #SERVER_IP = "192.168.1.207"
-SERVER_PORT = 9999
+SERVER_PORT = 8000
 
 FPS = 30
 
@@ -452,13 +452,13 @@ if __name__ == "__main__":
             print(f"Error running clock sync client: {e}")
             sys.exit(1)"""
 
-    with open("offset.txt", "r") as f:
+    """with open("offset.txt", "r") as f:
         try:
             time_offset = float(f.readline().strip())
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)
+            sys.exit(1)"""
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
