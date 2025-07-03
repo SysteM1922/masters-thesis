@@ -2,36 +2,7 @@ import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
 
-import firebase from 'firebase/compat/app'
-import 'firebase/compat/firestore'
-
-const firebaseConfig = {
-    apiKey: "AIzaSyDk8wyFzY-_0EfONiMFfjdKkA4OJNCRHCw",
-    authDomain: "signaling-server-fca29.firebaseapp.com",
-    projectId: "signaling-server-fca29",
-    storageBucket: "signaling-server-fca29.firebasestorage.app",
-    messagingSenderId: "842750385526",
-    appId: "1:842750385526:web:ab172d6793f4c1b91f2e57",
-    measurementId: "G-0FYPXNT30G"
-};
-
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
-const firestore = firebase.firestore();
-
 createApp(App).mount('#app')
-
-
-const servers = {
-    iceServers: [
-        {
-            urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-        },
-    ],
-    iceCandidatePoolSize: 10,
-};
 
 let pc = new RTCPeerConnection(servers);
 let localStream = null;
@@ -42,9 +13,7 @@ let lastReceivedLandmarks = null;
 
 const webcamVideo = document.getElementById('localVideo');
 const callButton = document.getElementById('callButton');
-const answerButton = document.getElementById('answerButton');
 const hangupButton = document.getElementById('hangupButton');
-const callInput = document.getElementById('callInput');
 
 const outputCanvas = document.getElementById('output_canvas');
 const outputCanvasCtx = outputCanvas.getContext('2d');
