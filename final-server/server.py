@@ -15,7 +15,7 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 IP_ADDRESS = "0.0.0.0"
-PORT = 9999
+PORT = 8000
 
 test_id = None
 
@@ -30,8 +30,8 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -289,7 +289,7 @@ async def run(ip_adress, port):
 
 if __name__ == "__main__":
     
-    time_offset = get_time_offset()
+    time_offset = 0
 
     try:
         asyncio.run(run(IP_ADDRESS, PORT))
