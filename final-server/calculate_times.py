@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 # read the CSV file and calculate the average time
 
-TEST_ID = "test0003"
+TEST_ID = "test0086"
 HOUSE_ID = "house01"
 
 test_data = TestsAPI.get_tests(test_id=TEST_ID, house_id=HOUSE_ID)
@@ -43,7 +43,7 @@ client_arrival_times = iter(client_arrival_times)
 
 with open("times.csv", 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(["Latency", "Frame send time", "Mediapipe Pose processing time", "Results send time"])
+    writer.writerow(["Id", "Latency", "Frame send time", "Mediapipe Pose processing time", "Results send time"])
     
     for client_send_time in client_send_times:
         current_frame = client_send_time[0]
@@ -67,6 +67,7 @@ with open("times.csv", 'w', newline='') as csvfile:
             client_arrival_time = next(client_arrival_times)
 
         writer.writerow([
+            current_frame,
             (client_arrival_time[1] - client_send_time[1]).total_seconds() * 1000,
             (server_arrival_time[1] - client_send_time[1]).total_seconds() * 1000,
             (server_end_process_time[1] - server_start_process_time[1]).total_seconds() * 1000,
@@ -82,10 +83,10 @@ def draw_graph(file_path):
     data = np.genfromtxt(file_path, delimiter=',', skip_header=1)
     x = np.arange(len(data))
 
-    plt.plot(x, data[:, 0], label='Latency')
-    plt.plot(x, data[:, 1], label='Frame send time')
-    plt.plot(x, data[:, 2], label='Mediapipe Pose processing time')
-    plt.plot(x, data[:, 3], label='Results send time')
+    plt.plot(x, data[:, 1], label='Latency')
+    plt.plot(x, data[:, 2], label='Frame send time')
+    plt.plot(x, data[:, 3], label='Mediapipe Pose processing time')
+    plt.plot(x, data[:, 4], label='Results send time')
 
     plt.xlabel('Frame Number')
     plt.ylabel('Time (seconds)')

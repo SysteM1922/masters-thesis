@@ -15,7 +15,7 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 IP_ADDRESS = "0.0.0.0"
-PORT = 9999
+PORT = 8000
 
 test_id = None
 
@@ -30,8 +30,8 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -65,13 +65,14 @@ async def handle_results(results, frame_pts):
 def process_frame():
     while not stop_pose_thread.is_set():
         process_frame_flag.wait()  # Wait until a frame is available
-        start_process_times.append((last_frame.pts, time.time()))
+        last_frame_pts = last_frame.pts
+        start_process_times.append((last_frame_pts, time.time()))
         try:
             image = last_frame.to_ndarray(format="bgr24")
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
             results = detector.detect(mp_image)
-            end_process_times.append((last_frame.pts, time.time()))
-            _ = asyncio.run(handle_results(results, last_frame.pts))
+            end_process_times.append((last_frame_pts, time.time()))
+            _ = asyncio.run(handle_results(results, last_frame_pts))
         except Exception as e:
             print("Error processing frame:", e)
             continue
@@ -288,7 +289,7 @@ async def run(ip_adress, port):
 
 if __name__ == "__main__":
     
-    time_offset = get_time_offset()
+    time_offset = 0
 
     try:
         asyncio.run(run(IP_ADDRESS, PORT))
@@ -300,33 +301,45 @@ if __name__ == "__main__":
 
         print("Adding measurements to the test. Please wait...")
 
-        for arrival_time in arrival_times:
-            TestsAPI.add_measurement(
-                test_id=test_id,
-                timestamp=arrival_time[1] + time_offset,
-                point="{\"point_b\": " + str(arrival_time[0]) + "}"
-            )
+        TestsAPI.add_measurement_bulk(
+            results_list= [
+                {
+                    "point": "{\"point_b\": " + str(arrival_time[0]) + "}",
+                    "timestamp": arrival_time[1] + time_offset
+                } for arrival_time in arrival_times
+            ],
+            test_id=test_id,
+        )
 
-        for start_process_time in start_process_times:
-            TestsAPI.add_measurement(
-                test_id=test_id,
-                timestamp=start_process_time[1] + time_offset,
-                point="{\"point_c\": " + str(start_process_time[0]) + "}"
-            )
+        TestsAPI.add_measurement_bulk(
+            results_list= [
+                {
+                    "point": "{\"point_c\": " + str(start_process_time[0]) + "}",
+                    "timestamp": start_process_time[1] + time_offset
+                } for start_process_time in start_process_times
+            ],
+            test_id=test_id,
+        )
 
-        for end_process_time in end_process_times:
-            TestsAPI.add_measurement(
-                test_id=test_id,
-                timestamp=end_process_time[1] + time_offset,
-                point="{\"point_d\": " + str(end_process_time[0]) + "}"
-            )
+        TestsAPI.add_measurement_bulk(
+            results_list= [
+                {
+                    "point": "{\"point_d\": " + str(end_process_time[0]) + "}",
+                    "timestamp": end_process_time[1] + time_offset
+                } for end_process_time in end_process_times
+            ],
+            test_id=test_id,
+        )
 
-        for send_time in send_times:
-            TestsAPI.add_measurement(
-                test_id=test_id,
-                timestamp=send_time[1] + time_offset,
-                point="{\"point_e\": " + str(send_time[0]) + "}"
-            )
+        TestsAPI.add_measurement_bulk(
+            results_list= [
+                {
+                    "point": "{\"point_e\": " + str(send_time[0]) + "}",
+                    "timestamp": send_time[1] + time_offset
+                } for send_time in send_times
+            ],
+            test_id=test_id,
+        )
             
         print("Test completed and measurements added.")
         print(f"Test ID: {test_id}")

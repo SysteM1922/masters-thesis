@@ -19,7 +19,7 @@ SERVER_IP = "100.123.205.104" # Tailscale IP
 #SERVER_IP = "10.255.40.73" # GYM VM
 #SERVER_IP = "10.255.32.55" # GPU VM
 #SERVER_IP = "192.168.1.207"
-SERVER_PORT = 9999
+SERVER_PORT = 8000
 
 FPS = 30
 
@@ -438,7 +438,7 @@ async def run(ip_address, port):
 
 if __name__ == "__main__":
 
-    time_offset = get_time_offset()
+    time_offset = 0
 
     """if sys.platform == "win32":
         try:
@@ -453,13 +453,13 @@ if __name__ == "__main__":
             print(f"Error running clock sync client: {e}")
             sys.exit(1)"""
 
-    with open("offset.txt", "r") as f:
+    """with open("offset.txt", "r") as f:
         try:
             time_offset = float(f.readline().strip())
             print(f"Time offset loaded: {time_offset} seconds")
         except ValueError as e:
             print(f"Error reading time offset: {e}")
-            sys.exit(1)
+            sys.exit(1)"""
 
     try:
         asyncio.run(run(SERVER_IP, SERVER_PORT))
@@ -479,15 +479,23 @@ if __name__ == "__main__":
         )
 
         for arrival_time in arrival_times:
-            TestsAPI.add_measurement(
+            TestsAPI.add_measurement_bulk(
+                results_list= [
+                    {
+                        "point": "{\"point_f\": " + str(arrival_time[0]) + "}",
+                        "timestamp": arrival_time[1] + time_offset
+                    },
+                ],
                 test_id=test_id,
-                timestamp=arrival_time[1] + time_offset,
-                point="{\"point_f\": " + str(arrival_time[0]) + "}"
             )
-            TestsAPI.add_measurement(
+            TestsAPI.add_measurement_bulk(
+                results_list= [
+                    {
+                        "point": "{\"point_a\": " + str(arrival_time[0]) + "}",
+                        "timestamp": send_times[arrival_time[0]][1] + time_offset
+                    },
+                ],
                 test_id=test_id,
-                timestamp=send_times[arrival_time[0]][1] + time_offset,
-                point="{\"point_a\": " + str(arrival_time[0]) + "}"
             )
 
         print("Test completed and measurements added.")
