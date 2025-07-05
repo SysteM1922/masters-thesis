@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
+from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import argparse
 import uvicorn
 import json
-from server_utils import SignalingServer, handle_message
+from server_utils import Client, ProcessingServer, SignalingServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +22,7 @@ signaling_server = SignalingServer()
 async def lifespan(app: FastAPI):
     logger.info("Starting Signaling Server...")
     yield
-    logger.info("Shutting down Signaling Server...")
+    signaling_server.shutdown()
 
 app = FastAPI(
     title="Signaling Server",
@@ -50,86 +51,60 @@ async def health_check():
     """Health check endpoint to verify server status."""
     return {"status": "ok"}
 
+# WebSocket endpoint for server registration
+@app.websocket("/ws/server")
+async def websocket_server_endpoint(websocket: WebSocket):
+    # A unique server should be stored in order to other clients to connect to its processes
+    """WebSocket endpoint for server registration."""
+    await websocket.accept()
+    server: Optional[ProcessingServer] = None
+    try:
+        message = await websocket.receive_json()
+        data = json.loads(message)
+
+        server = await signaling_server.handle_server_registration(data, signaling_server, websocket)
+
+        while True:
+            message = await websocket.receive_json()
+            data = json.loads(message)
+
+            server.handle_message(data)
+
+    except WebSocketDisconnect:
+        logger.info(f"Server {server.id} disconnected")
+    except Exception as e:
+        logger.error(f"Error in WebSocket: {e}")
+    finally:
+        if server:
+            server.disconnect()
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for handling signaling messages."""
     await websocket.accept()
 
-    client_id = None
+    client: Optional[Client] = None
 
     try:
-        message = await websocket.receive_text()
+        message = await websocket.receive_json()
         data = json.loads(message)
 
-        if data.get("type") != "register":
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": "First message must be of type 'register'"
-            }))
-            await websocket.close()
-            return
+        client = await signaling_server.handle_client_registration(data, websocket)
         
-        client_id = data.get("client_id")
-        if not client_id:
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": "client_id is required"
-            }))
-            await websocket.close()
-            return
-        
-        await signaling_server.register_client(websocket, client_id)
+        while True:
+            message = await websocket.receive_json()
+            data = json.loads(message)
 
-        async for message in websocket:
-            await handle_message(message, client_id, signaling_server)
+            client.handle_message(data)
 
     except WebSocketDisconnect:
-        logger.info(f"Client {client_id} disconnected")
+        logger.info(f"Client {client.id} disconnected")
     except Exception as e:
-        logger.error(f"Error in WebSocket {client_id}: {e}")
+        logger.error(f"Error in WebSocket {client.id}: {e}")
     finally:
-        if client_id:
-            await signaling_server.disconnect_client(client_id)
+        if client:
+            client.disconnect()
 
-# WebSocket endpoint for server registration
-@app.websocket("/ws/server")
-async def websocket_server_endpoint(websocket: WebSocket):
-    # A unique server should be stored in order to other cklients to connect to its processes
-    """WebSocket endpoint for server registration."""
-    await websocket.accept()
-    try:
-        message = await websocket.receive_text()
-        data = json.loads(message)
-
-        if data.get("type") != "register":
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": "First message must be of type 'register'"
-            }))
-            await websocket.close()
-            return
-
-        server_id = data.get("server_id")
-        if not server_id:
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": "server_id is required"
-            }))
-            await websocket.close()
-            return
-
-        await signaling_server.register_server(websocket, server_id)
-
-        async for message in websocket:
-            await handle_message(message, server_id, signaling_server)
-
-    except WebSocketDisconnect:
-        logger.info(f"Server {server_id} disconnected")
-    except Exception as e:
-        logger.error(f"Error in WebSocket {server_id}: {e}")
-    finally:
-        if server_id:
-            await signaling_server.disconnect_server(server_id)
 
 def main():
 
@@ -144,7 +119,7 @@ def main():
     logger.info(f"Starting Signaling Server on {args.host}:{args.port} with log level {args.log_level}")
 
     uvicorn.run(
-        "main:app" if args.reload else app,
+        "signaling_server:app" if args.reload else app,
         host=args.host,
         port=args.port,
         reload=args.reload,

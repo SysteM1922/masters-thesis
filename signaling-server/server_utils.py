@@ -1,305 +1,257 @@
+from __future__ import annotations
 import json
 import logging
-from datetime import datetime
-from typing import Dict, Optional
-from fastapi import WebSocket
+from typing import Dict, List
+from fastapi import WebSocket, WebSocketDisconnect
 from enum import Enum
-from dataclasses import dataclass
+
+from protocol import Protocol
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ClientState(Enum):
-    """Enumeration for client states."""
-    IDLE = "idle"
-    CALLING = "calling"
-    IN_CALL = "in_call"
-    BUSY = "busy"
-
-@dataclass
 class Client:
-    id: str
-    websocket: WebSocket
-    state: ClientState = ClientState.IDLE
-    connected_to: Optional[str] = None
-    last_ping: datetime = None
 
-    def to_dict(self):
-        """Convert the client object to a dictionary."""
-        return {
-            "id": self.id,
-            "state": self.state.value,
-            "connected_to": self.connected_to,
-            "last_ping": self.last_ping.isoformat() if self.last_ping else None
-        }
+    def __init__(self, id: str, server: ProcessingServer, websocket: WebSocket):
+        self.id = id
+        self.server = server
+        self.websocket = websocket
+
+    async def disconnect(self):
+        """Disconnect the client from the server."""
+        try:
+            Protocol.send_client_disconnect_message_to_server(self.websocket, self.id)
+            self.server.remove_client(self.id)
+            logger.info(f"Client {self.id} disconnected.")
+        except Exception as e:
+            logger.error(f"Error disconnecting client {self.id}: {e}")
+
+    async def server_shutdown(self):
+        """Shutdown the client, closing the websocket connection."""
+        try:
+            Protocol.send_server_disconnect_message_to_client(self.websocket, self.id)
+            await self.websocket.close()
+            logger.info(f"Client {self.id} shutdown.")
+        except Exception as e:
+            logger.error(f"Error shutting down client {self.id}: {e}")
+
+    async def signaling_shutdown(self):
+        """Shutdown the signaling connection for the client."""
+        try:
+            Protocol.send_signaling_disconnect_message_to_client(self.websocket, self.id)
+            await self.websocket.close()
+            logger.info(f"Client {self.id} signaling shutdown.")
+        except Exception as e:
+            logger.error(f"Error shutting down signaling for client {self.id}: {e}")
+
+    def handle_message(self, message: dict):
+        """Handle incoming messages from the client."""
+        try:
+            print(f"Received message from client {self.id}: {message}")
+            match message.get("type"):
+                case "offer":
+                    Protocol.send_offer_to_server(self.server.websocket, self.id, message.get("offer"))
+                case "ice_candidate":
+                    Protocol.send_ice_candidate_to_server(self.server.websocket, self.id, message.get("candidate"))
+                case "disconnect":
+                    raise WebSocketDisconnect(f"Client {self.id} requested disconnect.")
+                case _:
+                    logger.warning(f"Unknown message type from client {self.id}: {message.get('type')}")
+        
+        except Exception as e:
+            logger.error(f"Error handling message from client {self.id}: {e}")
+
+class ProcessingServer:
+
+    def __init__(self, id: str, signaling_server: SignalingServer = None, websocket: WebSocket = None):
+        self.id = id
+        self.websocket = websocket
+        self.signaling_server = signaling_server
+        self.clients: Dict[str, Client] = {}
+
+    def add_client(self, client: Client):
+        """Add a client to the processing server."""
+        self.clients[client.id] = client
+        logger.info(f"Client {client.id} added to Processing Server {self.id}.")
+
+    def remove_client(self, client_id: str):
+        """Remove a client from the processing server."""
+        if client_id in self.clients:
+            del self.clients[client_id]
+            logger.info(f"Client {client_id} removed from Processing Server {self.id}.")
+        else:
+            logger.warning(f"Client {client_id} not found in Processing Server {self.id}.")
+
+    def disconnect(self):
+        """Disconnect the processing server, closing all client connections."""
+        self.signaling_server.remove_processing_server(self.id)
+        for client in self.clients.values():
+            try:
+                client.server_shutdown()
+            except Exception as e:
+                logger.error(f"Error disconnecting client {client.id}: {e}")
+        self.clients.clear()
+        logger.info(f"Processing Server {self.id} disconnected.")
+
+    async def signaling_shutdown(self):
+        """Shutdown the signaling server, closing the websocket connection."""
+        try:
+            Protocol.send_signaling_disconnect_message_to_server(self.websocket, self.id)
+            for client in self.clients.values():
+                await client.signaling_shutdown()
+            await self.websocket.close()
+            logger.info(f"Processing Server {self.id} signaling shutdown.")
+        except Exception as e:
+            logger.error(f"Error shutting down Processing Server {self.id}: {e}")
+
+    def accept_connection(self, message: dict):
+        """Accept a connection from a client."""
+        try:
+            client_id = message.get("client_id")
+            if not client_id:
+                raise ValueError("client_id is required in the message to accept connection.")
+            
+            client = self.signaling_server.get_waiting_client(client_id)
+            self.add_client(client)
+            Protocol.send_accept_connection_message(client.websocket, self.id)
+            logger.info(f"Accepted connection from client {client.id} on Processing Server {self.id}.")
+        
+        except Exception as e:
+            logger.error(f"Error accepting connection on Processing Server {self.id}: {e}")
+
+    def handle_message(self, message: dict):
+        """Handle incoming messages from the processing server."""
+        try:
+            print(f"Received message from Processing Server {self.id}: {message}")
+
+            match message.get("type"):
+                case "accept_connection":
+                    self.accept_connection(message)
+                case "answer":
+                    Protocol.send_answer_to_client(self.websocket, self.id, message.get("answer"))
+                case "ice_candidate":
+                    Protocol.send_ice_candidate_to_client(self.websocket, self.id, message.get("candidate"))
+                case "disconnect":
+                    raise WebSocketDisconnect(f"Processing Server {self.id} requested disconnect.")
+                case _:
+                    logger.warning(f"Unknown message type from Processing Server {self.id}: {message.get('type')}")
+        
+        except Exception as e:
+            logger.error(f"Error handling message from Processing Server {self.id}: {e}")
+
+class SignalingServerStatus(Enum):
+    NO_PROCESSING_SERVERS = "Running with no Processing Servers"
+    RUNNING = "Running"
+    SHUTTING_DOWN = "Shutting Down"
 
 class SignalingServer:
+    
     def __init__(self):
-        self.clients : Dict[str, Client] = {}
+        self.processing_servers: List[ProcessingServer] = []
+        self.waiting_clients: Dict[str, Client] = {}
+        self.status = SignalingServerStatus.NO_PROCESSING_SERVERS
 
-        self.ice_servers = [
-            {
-                "urls": ["stun:10.255.40.73:3478"]
-            },
-            {
-                "urls": ["turn:10.255.40.73:3478"],
-                "username": "turnuser",
-                "credential": "gym456"
-            }
-        ]
+    def register_processing_server(self, server: ProcessingServer):
+        """Register a processing server."""
+        self.processing_servers.append(server)
+        Protocol.send_server_registration_message(server.websocket, server.id)
+        logger.info(f"Processing Server {server.id} registered.")
 
-    async def register_client(self, websocket: WebSocket, client_id: str):
-        """Register a new client."""
-        if client_id in self.clients:
-            logger.warning(f"Client {client_id} already registered.")
-            await self.disconnect_client(client_id)
+        if self.status == SignalingServerStatus.NO_PROCESSING_SERVERS:
+            self.status = SignalingServerStatus.RUNNING
 
-        client = Client(
-            id=client_id,
-            websocket=websocket,
-            last_ping=datetime.now()
-        )
+    def get_waiting_client(self, client_id: str) -> Client | None:
+        """Get a waiting client by ID."""
+        return self.waiting_clients.pop(client_id, None)
 
-        self.clients[client_id] = client
-        logger.info(f"Client {client_id} registered successfully.")
+    def register_client(self, client: Client):
+        """Register a client to a processing server."""
+        Protocol.send_client_registration_message(client.websocket, client.id)
 
-        await self.send_to_client(client_id, {
-            "type": "ice_servers",
-            "ice_servers": self.ice_servers
-        })
-
-        await self.send_to_client(client_id, {
-            "type": "registered",
-            "client_id": client_id,
-            "status": "success"
-        })
-
-        return True
-    
-    async def disconnect_client(self, client_id: str):
-        """Disconnect a client and clean up resources."""
-        if client_id not in self.clients:
+        if self.status == SignalingServerStatus.NO_PROCESSING_SERVERS:
+            Protocol.send_error_message(client.websocket, "No Processing Servers available to register the client.")
+            logger.error("No Processing Servers available to register the client.")
             return
-        
-        client = self.clients[client_id]
 
-        if client.connected_to:
-            await self.end_call(client_id, client.connected_to)
+        # order processing_servers by number of clients to find the least loaded server
+        self.processing_servers.sort(key=lambda x: len(x.clients))
+        server = self.processing_servers[0]
 
-        del self.clients[client_id]
-        logger.info(f"Client {client_id} disconnected successfully.")
+        self.waiting_clients[client.id] = client
 
-    async def send_to_client(self, client_id: str, message: dict):
-        """Send a message to a specific client."""
-        if client_id not in self.clients:
-            logger.warning(f"Client {client_id} not found for sending message.")
-            return
-        
-        try:
-            await self.clients[client_id].websocket.send_text(json.dumps(message))
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send message to client {client_id}: {e}")
-            self.disconnect_client(client_id)
-            return False
+        Protocol.send_client_connection_message_to_server(client.websocket, client.id)
+        Protocol.send_server_connection_message_to_client(client.websocket, server.id)
+        logger.info(f"Client {client.id} is connecting to Processing Server {server.id}.")
 
-    async def initiate_call(self, caller_id: str, target_id: str):
-        """Initiate a call between two clients."""
-        if caller_id not in self.clients or target_id not in self.clients:
-            logger.warning(f"Call initiation failed: {caller_id} or {target_id} not registered.")
-            return False
+    def remove_processing_server(self, server_id: str):
+        for server in self.processing_servers:
+            if server.id == server_id:
+                self.processing_servers.remove(server)
+                logger.info(f"Processing Server {server_id} removed.")
+                if not self.processing_servers:
+                    self.status = SignalingServerStatus.NO_PROCESSING_SERVERS
+                return
+        logger.warning(f"Processing Server {server_id} not found.")
 
-        caller = self.clients[caller_id]
-        target = self.clients[target_id]
-
-        if target.state != ClientState.IDLE:
-            await self.send_to_client(caller_id, {
-                "type": "call_error",
-                "message": f"You are not available to make calls"
-            })
-            return False
-        
-        if target.state != ClientState.IDLE:
-            await self.send_to_client(caller_id, {
-                "type": "call_error",
-                "message": f"{target_id} is not available to take calls"
-            })
-            return False
-        
-        caller.state = ClientState.CALLING
-        caller.connected_to = target_id
-        target.state = ClientState.CALLING
-        target.connected_to = caller_id
-
-        await self.send_to_client(target_id, {
-            "type": "incoming_call",
-            "from": caller_id
-        })
-
-        await self.send_to_client(caller_id, {
-            "type": "call_initiated",
-            "to": target_id,
-        })
-
-        logger.info(f"Call initiated from {caller_id} to {target_id}.")
-        return True
-    
-    async def accept_call(self, client_id: str, caller_id: str):
-        """Accept a call."""
-        if client_id not in self.clients or caller_id not in self.clients:
-            return False
-
-        client = self.clients[client_id]
-        caller = self.clients[caller_id]
-
-        if client.state != ClientState.CALLING or caller.connected_to != caller_id or client.connected_to != client_id:
-            return False
-        
-        client.state = ClientState.IN_CALL
-        caller.state = ClientState.IN_CALL
-
-        await self.send_to_client(caller_id, {
-            "type": "call_accepted",
-            "peer": client_id
-        })
-
-        await self.send_to_client(client_id, {
-            "type": "call_accepted",
-            "peer": caller_id
-        })
-
-        logger.info(f"Call accepted from {caller_id} by {client_id}.")
-        return True
-    
-    async def reject_call(self, caller_id: str, client_id: str):
-        """Reject a call from caller_id."""
-        if caller_id not in self.clients or client_id not in self.clients:
-            return False
-
-        caller = self.clients[caller_id]
-        client = self.clients[client_id]
-
-        client.state = ClientState.IDLE
-        caller.state = ClientState.IDLE
-        caller.connected_to = None
-        client.connected_to = None
-
-        await self.send_to_client(caller_id, {
-            "type": "call_rejected",
-            "by": client_id
-        })
-
-        logger.info(f"Call from {caller_id} rejected by {client_id}.")
-        return True
-    
-    async def end_call(self, client_id: str, peer_id: str):
-        """End a call."""
-        if client_id in self.clients:
-            client = self.clients[client_id]
-            client.state = ClientState.IDLE
-            client.connected_to = None
-
-        if peer_id in self.clients:
-            peer = self.clients[peer_id]
-            peer.state = ClientState.IDLE
-            peer.connected_to = None
-
-            await self.send_to_client(client_id, {
-                "type": "call_ended",
-                "by": client_id
-            })
-
-        logger.info(f"Call ended between {client_id} and {peer_id}.")
-        return True
-    
-    async def forward_webrtc_message(self, sender_id: str, target_id: str, message: dict):
-        """Forward WebRTC signaling messages between clients."""
-        if sender_id not in self.clients or target_id not in self.clients:
-            return False
-
-        sender_client = self.clients[target_id]
-        if sender_client.connected_to != target_id:
-            logger.warning(f"Client {sender_id} is not connected to {target_id}.")
-            return False
-        
-        message["from"] = sender_id
-
-        return await self.send_to_client(target_id, message)
-    
-    def get_client_list(self):
-        """Get a list of all registered clients."""
-        return {client.to_dict() for client_id, client in self.clients.values()}
-    
-    async def ping_client(self, client_id: str):
-        """Ping a client to check connectivity."""
-        if client_id not in self.clients:
-            return False
-        
-        client = self.clients[client_id]
-        client.last_ping = datetime.now()
-
-        return await self.send_to_client(client_id, {
-            "type": "ping"
-        })
-
-async def handle_message(message: str, client_id: str, signaling_server: SignalingServer):
-    """Handle incoming signaling messages."""
-
-    try:
-        data = json.loads(message)
-        msg_type = data.get("type")
-
-        # Process the message based on its type
-        if msg_type == "call":
-            target_id = data.get("target_id")
-            if target_id:
-                await signaling_server.initiate_call(client_id, target_id)
-
-        elif msg_type == "accept_call":
-            caller_id = data.get("from")
-            if caller_id:
-                await signaling_server.accept_call(caller_id, client_id)
-
-        elif msg_type == "reject_call":
-            caller_id = data.get("from")
-            if caller_id:
-                await signaling_server.reject_call(caller_id, client_id)
-
-        elif msg_type == "end_call":
-            if client_id in signaling_server.clients:
-                peer_id = signaling_server.clients[client_id].connected_to
-                if peer_id:
-                    await signaling_server.end_call(client_id, peer_id)
-
-        elif msg_type in ["offer", "answer", "ice_candidate"]:
-            target_id = data.get("to")
-            if target_id:
-                await signaling_server.forward_webrtc_message(client_id, target_id, data)
-
-        elif msg_type == "ping":
-            await signaling_server.ping_client(client_id)
-
-        elif msg_type == "pong":
-            if client_id in signaling_server.clients:
-                signaling_server.clients[client_id].last_ping = datetime.now()
-
-        else:
-            logger.warning(f"Unknown message type '{msg_type}' from {client_id}: {data}")
-            await signaling_server.send_to_client(client_id, {
+    async def handle_server_registration(self, message: dict, websocket: WebSocket) -> ProcessingServer:
+        if message.get("type") != "register":
+            logger.error("First message must be of type 'register'")
+            await websocket.send_text(json.dumps({
                 "type": "error",
-                "message": f"Unknown message type '{msg_type}'"
-            })
+                "message": "First message must be of type 'register'"
+            }))
+            await websocket.close()
+            raise ValueError("First message must be of type 'register'")
+        
+        server_id = message.get("server_id")
+        if not server_id:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "server_id is required"
+            }))
+            await websocket.close()
+            raise ValueError("server_id is required")
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode message from {client_id}: {e}")
-        await signaling_server.send_to_client(client_id, {
-            "type": "error",
-            "message": "Invalid JSON format"
-        })
+        server = ProcessingServer(id=server_id, websocket=websocket)
+        self.register_processing_server(server)
 
-    except Exception as e:
-        logger.error(f"Error handling message from {client_id}: {e}")
-        await signaling_server.send_to_client(client_id, {
-            "type": "error",
-            "message": "Internal server error"
-        })
+        return server
+    
+    async def handle_client_registration(self, message: dict, websocket: WebSocket) -> Client:
+        """Handle client registration with the signaling server."""
+
+        if message.get("type") != "connect":
+            logger.error("First message must be of type 'connect'")
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "First message must be of type 'connect'"
+            }))
+            await websocket.close()
+            raise ValueError("First message must be of type 'connect'")
+
+        client_id = message.get("client_id")
+        if not client_id:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "client_id is required"
+            }))
+            await websocket.close()
+            raise ValueError("client_id is required")
+        
+        client = Client(id=client_id, server=None, websocket=websocket)
+        self.register_client(client)
+        
+        return client
+    
+    def shutdown(self):
+        """Shutdown the signaling server, disconnecting all processing servers and clients."""
+        logger.info("Shutting down Signaling Server...")
+        for server in self.processing_servers:
+            try:
+                server.signaling_shutdown()
+            except Exception as e:
+                logger.error(f"Error shutting down Processing Server {server.id}: {e}")
+        self.processing_servers.clear()
+        self.status = SignalingServerStatus.NO_PROCESSING_SERVERS
+        logger.info("Signaling Server shutdown complete.")
+        self.status = SignalingServerStatus.SHUTTING_DOWN
