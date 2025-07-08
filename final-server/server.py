@@ -36,8 +36,8 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -146,8 +146,6 @@ class WebsocketSignalingServer:
         except Exception as e:
             print(f"Error receiving message: {e}")
             return None
-        finally:
-            await self.close()
 
     async def close(self):
         if self.websocket is not None:
@@ -278,7 +276,6 @@ async def run(host, port):
                 print("WebRTC connection ended:", pc.connectionState)
                 stop_pose_thread.set()
                 await pc.close()
-                await signaling.close()
 
         await signaling.handle_messages(pc)
     
@@ -289,9 +286,8 @@ async def run(host, port):
         print("Exiting...")
     finally:
         print("Closing connection...")
-
+        
         await signaling.close()
-        await pc.close()
 
         stop_pose_thread.set()
 
