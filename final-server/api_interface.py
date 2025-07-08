@@ -1,15 +1,14 @@
 import requests
 import urllib3
+import os
+from dotenv import load_dotenv
+
+load_dotenv("../.env")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-#SERVER_IP = "192.168.1.207"
-#SERVER_IP = "100.123.205.104" # Tailscale IP
-SERVER_IP = "localhost" # Local testing
-#SERVER_IP = "10.255.40.73" # GYM VM
-#SERVER_IP = "10.255.32.55" # GPU VM
-#SERVER_IP = "192.168.1.207"
-SERVER_PORT = 8000
+SERVER_IP = os.getenv("SERVICES_API_HOST")
+SERVER_PORT = os.getenv("SERVICES_API_PORT")
 
 TEST_API_URL = f"https://{SERVER_IP}:{SERVER_PORT}/v1/tests/"
 VERIFY_SSL = False

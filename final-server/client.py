@@ -1,5 +1,6 @@
 import asyncio
 import fractions
+import os
 import threading
 import websockets
 import cv2
@@ -13,10 +14,12 @@ from api_interface import TestsAPI
 from copy import deepcopy
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
-# linux conflit cv2 and av/aiortc - needs special anaconda environment
+from dotenv import load_dotenv
 
-SIGNALING_IP = "localhost"  # Local testing
-SIGNALING_PORT = 8765
+load_dotenv("../.env")
+
+SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
+SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
 
 FPS = 30
 

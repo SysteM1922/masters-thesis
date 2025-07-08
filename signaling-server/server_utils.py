@@ -21,8 +21,8 @@ class Client:
         """Disconnect the client from the server."""
         try:
             if self.server:
-                await Protocol.send_client_disconnect_message_to_server(self.websocket, self.id)
                 self.server.remove_client(self.id)
+                await Protocol.send_client_disconnect_message_to_server(self.server.websocket, self.id)
                 logger.info(f"Client {self.id} disconnected.")
         except Exception as e:
             logger.error(f"Error disconnecting client {self.id}: {e}")
@@ -41,7 +41,6 @@ class Client:
         """Shutdown the signaling connection for the client."""
         try:
             await Protocol.send_signaling_disconnect_message_to_client(self.websocket, self.id)
-            await self.websocket.close()
             logger.info(f"Client {self.id} signaling shutdown.")
         except Exception as e:
             logger.error(f"Error shutting down signaling for client {self.id}: {e}")
@@ -102,7 +101,6 @@ class ProcessingServer:
             await Protocol.send_signaling_disconnect_message_to_server(self.websocket, self.id)
             for client in self.clients.values():
                 await client.signaling_shutdown()
-            await self.websocket.close()
             logger.info(f"Processing Server {self.id} signaling shutdown.")
         except Exception as e:
             logger.error(f"Error shutting down Processing Server {self.id}: {e}")

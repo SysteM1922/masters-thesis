@@ -9,6 +9,8 @@ import threading
 from dataclasses import asdict
 import sys
 import websockets
+import os
+from dotenv import load_dotenv
 
 from api_interface import TestsAPI
 from utils import get_time_offset
@@ -16,8 +18,10 @@ from utils import get_time_offset
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-IP_ADDRESS = "localhost"
-PORT = 8765
+load_dotenv("../.env")
+
+SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
+SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
 
 test_id = None
 
@@ -297,7 +301,7 @@ if __name__ == "__main__":
     time_offset = 0
 
     try:
-        asyncio.run(run(IP_ADDRESS, PORT))
+        asyncio.run(run(SIGNALING_IP, SIGNALING_PORT))
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
