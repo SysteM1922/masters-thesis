@@ -1,5 +1,5 @@
 import json
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import RTCConfiguration, RTCIceServer, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
 import av
 import mediapipe as mp
 from mediapipe.tasks.python import vision
@@ -56,6 +56,7 @@ class WebsocketSignalingServer:
         self.port = port
         self.websocket = None
         self.id = id
+        self.client_id = None
 
     async def connect(self):
         self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws/server")
@@ -87,7 +88,24 @@ class WebsocketSignalingServer:
         })
         print("Answer sent to signaling server")
 
+    async def send_ice_candidate(self, candidate):
+        if candidate is None:
+            return
+        
+        message = {
+            "type": "ice_candidate",
+            "candidate": {
+                "candidate": candidate.candidate,
+                "sdpMid": candidate.sdpMid,
+                "sdpMLineIndex": candidate.sdpMLineIndex
+            },
+            "client_id": self.client_id
+        }
+        await self.send(message)
+        print("ICE candidate sent to signaling server")
+
     async def accept_client(self, client_id):
+        self.client_id = client_id
         await self.send({
             "type": "accept_connection",
             "client_id": client_id,
@@ -124,6 +142,18 @@ class WebsocketSignalingServer:
                         print("Received offer from client")
                         await self.receive_offer(pc, message)
                         await self.send_answer(pc, message.get("client_id"))
+
+                    case "ice_candidate":
+                        print("Received ICE candidate from client")
+                        candidate = message.get("candidate")
+                        if candidate:
+                            pc.addIceCandidate(RTCIceCandidate(
+                                candidate=candidate.get("candidate"),
+                                sdpMid=candidate.get("sdpMid"),
+                                sdpMLineIndex=candidate.get("sdpMLineIndex")
+                            ))
+                        else:
+                            print("Received empty ICE candidate, ignoring")
 
                     case "signaling_disconnect":
                         print("Signaling server disconnected")
@@ -218,9 +248,20 @@ class VideoReceiver:
 
 async def run(host, port):
     signaling = WebsocketSignalingServer(host, port, "server_id")
-    pc_config = {
-
-    }
+    pc_config = RTCConfiguration(
+        iceServers=[
+            RTCIceServer(
+                urls="stun:192.168.1.100:3478",
+                username="gymuser",
+                credential="gym456"
+            ),
+            RTCIceServer(
+                urls="turn:192.168.1.100:3478",
+                username="gymuser",
+                credential="gym456"
+            )
+        ],
+    )
     pc = RTCPeerConnection(pc_config)
     video_receiver = VideoReceiver()
 
@@ -276,6 +317,11 @@ async def run(host, port):
                 print("WebRTC connection ended:", pc.connectionState)
                 stop_pose_thread.set()
                 await pc.close()
+
+        @pc.on("icecandidate")
+        async def on_icecandidate(candidate):
+            print("ICE candidate received:", candidate)
+            await signaling.send_ice_candidate(candidate)
 
         await signaling.handle_messages(pc)
     

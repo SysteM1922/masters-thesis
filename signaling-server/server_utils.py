@@ -133,6 +133,19 @@ class ProcessingServer:
         except Exception as e:
             logger.error(f"Error sending answer to client {client_id} on Processing Server {self.id}: {e}")
 
+    async def send_ice_candidate_to_client(self, client_id: str, candidate: dict):
+        """Send an ICE candidate to a client."""
+        try:
+            client = self.clients.get(client_id)
+            if not client:
+                raise ValueError(f"Client {client_id} not found in Processing Server {self.id}.")
+            
+            await Protocol.send_ice_candidate_to_client(client.websocket, self.id, candidate)
+            logger.info(f"Sent ICE candidate to client {client_id} on Processing Server {self.id}.")
+        
+        except Exception as e:
+            logger.error(f"Error sending ICE candidate to client {client_id} on Processing Server {self.id}: {e}")
+
     async def handle_message(self, message: dict):
         """Handle incoming messages from the processing server."""
         try:
@@ -144,7 +157,7 @@ class ProcessingServer:
                 case "answer":
                     await self.send_answer_to_client(message.get("client_id"), message.get("sdp"))
                 case "ice_candidate":
-                    await Protocol.send_ice_candidate_to_client(self.websocket, self.id, message.get("candidate"))
+                    await self.send_ice_candidate_to_client(message.get("client_id"), message.get("candidate"))
                 case "disconnect":
                     raise WebSocketDisconnect(f"Processing Server {self.id} requested disconnect.")
                 case _:

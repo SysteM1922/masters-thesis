@@ -12,7 +12,7 @@ import subprocess
 from utils import get_time_offset
 from api_interface import TestsAPI
 from copy import deepcopy
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc import RTCConfiguration, RTCIceCandidate, RTCIceServer, RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 from dotenv import load_dotenv
 
@@ -244,6 +244,21 @@ class WebsocketSignalingClient:
         )
         await pc.setRemoteDescription(obj)
 
+    async def send_ice_candidate(self, candidate):
+        if candidate is None:
+            return
+        
+        message = {
+            "type": "ice_candidate",
+            "candidate": {
+                "candidate": candidate.candidate,
+                "sdpMid": candidate.sdpMid,
+                "sdpMLineIndex": candidate.sdpMLineIndex
+            }
+        }
+        await self.send(message)
+        print("ICE candidate sent to signaling server")
+
     async def handle_messages(self, pc: RTCPeerConnection):
         errors = 0
         try:
@@ -269,6 +284,18 @@ class WebsocketSignalingClient:
                     case "answer":
                         print("Received answer")
                         await self.receive_answer(pc, message)
+
+                    case "ice_candidate":
+                        print("Received ICE candidate from client")
+                        candidate = message.get("candidate")
+                        if candidate:
+                            pc.addIceCandidate(RTCIceCandidate(
+                                candidate=candidate.get("candidate"),
+                                sdpMid=candidate.get("sdpMid"),
+                                sdpMLineIndex=candidate.get("sdpMLineIndex")
+                            ))
+                        else:
+                            print("Received empty ICE candidate, ignoring")
 
                     case "signaling_disconnect":
                         print("Signaling server disconnected")
@@ -401,9 +428,21 @@ class VideoTrack(VideoStreamTrack):
     
 async def run(ip_address, port):
     signaling = WebsocketSignalingClient(ip_address, port, id)
-    pc_config = {
-    
-    }
+    pc_config = RTCConfiguration(
+        iceServers=[
+            RTCIceServer(
+                urls="stun:192.168.1.100:3478",
+                username="gymuser",
+                credential="gym456"
+            ),
+            RTCIceServer(
+                urls="turn:192.168.1.100:3478",
+                username="gymuser",
+                credential="gym456"
+            )
+        ],
+    )
+
     pc = RTCPeerConnection(pc_config)
     video_track = VideoTrack(0)
     pc.addTrack(video_track)
@@ -449,6 +488,11 @@ async def run(ip_address, port):
             elif pc.connectionState  in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection closed or failed")
                 stop_display.set()
+
+        @pc.on("icecandidate")
+        async def on_icecandidate(candidate):
+            print("ICE candidate received:", candidate)
+            await signaling.send_ice_candidate(candidate)
 
         await signaling.handle_messages(pc)
 
