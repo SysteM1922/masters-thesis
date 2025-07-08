@@ -13,31 +13,31 @@ class Protocol:
             raise RuntimeError(f"Failed to send message: {e}")
         
     @staticmethod
-    def send_server_registration_message(websocket: WebSocket, server_id: str) -> None:
+    async def send_server_registration_message(websocket: WebSocket) -> None:
         """
         Send a registration message for the server.
         """
         message = {
             "type": "register",
-            "server_id": server_id,
+            "registered": True,
             "message": "The server is registered."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_client_registration_message(websocket: WebSocket, client_id: str) -> None:
+    async def send_client_registration_message(websocket: WebSocket) -> None:
         """
         Send a registration message for the client.
         """
         message = {
             "type": "register",
-            "client_id": client_id,
+            "registered": True,
             "message": "The client is registered."
         }
-        Protocol.send(websocket, message)
-        
+        await Protocol.send(websocket, message)
+
     @staticmethod
-    def send_client_connection_message_to_server(websocket: WebSocket, client_id: str) -> None:
+    async def send_client_connection_message_to_server(websocket: WebSocket, client_id: str) -> None:
         """
         Send a connection message for the client.
         """
@@ -46,10 +46,10 @@ class Protocol:
             "client_id": client_id,
             "message": "The client wants to connect."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_server_connection_message_to_client(websocket: WebSocket, server_id: str) -> None:
+    async def send_server_connection_message_to_client(websocket: WebSocket, server_id: str) -> None:
         """
         Send a connection message for the server.
         """
@@ -58,22 +58,22 @@ class Protocol:
             "server_id": server_id,
             "message": "You are connecting to the server."
         }
-        Protocol.send(websocket, message)
-        
+        await Protocol.send(websocket, message)
+
     @staticmethod
-    def send_server_disconnect_message_to_client(websocket: WebSocket, client_id: str) -> None:
+    async def send_server_disconnect_message_to_client(websocket: WebSocket, server_id: str) -> None:
         """
         Send a disconnect message for the client.
         """
         message = {
             "type": "disconnect",
-            "client_id": client_id,
+            "server_id": server_id,
             "message": "The server was disconnected."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_client_disconnect_message_to_server(websocket: WebSocket, client_id: str) -> None:
+    async def send_client_disconnect_message_to_server(websocket: WebSocket, client_id: str) -> None:
         """
         Send a disconnect message for the server.
         """
@@ -82,10 +82,10 @@ class Protocol:
             "client_id": client_id,
             "message": "The client was disconnected."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_signaling_disconnect_message_to_client(websocket: WebSocket, client_id: str) -> None:
+    async def send_signaling_disconnect_message_to_client(websocket: WebSocket, client_id: str) -> None:
         """
         Send a signaling disconnect message to the client.
         """
@@ -94,11 +94,10 @@ class Protocol:
             "client_id": client_id,
             "message": "The signaling connection was closed."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_signaling_disconnect_message_to_server(websocket: WebSocket, server_id: str
-    ) -> None:
+    async def send_signaling_disconnect_message_to_server(websocket: WebSocket, server_id: str) -> None:
         """
         Send a signaling disconnect message to the server.
         """
@@ -107,10 +106,10 @@ class Protocol:
             "server_id": server_id,
             "message": "The signaling connection was closed."
         }
-        Protocol.send(websocket, message)
-        
+        await Protocol.send(websocket, message)
+
     @staticmethod
-    def send_error_message(websocket: WebSocket, error_message: str) -> None:
+    async def send_error_message(websocket: WebSocket, error_message: str) -> None:
         """
         Send an error message to the client.
         """
@@ -118,10 +117,10 @@ class Protocol:
             "type": "error",
             "message": error_message
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_accept_connection_message(websocket: WebSocket, server_id: str) -> None:
+    async def send_accept_connection_message(websocket: WebSocket, server_id: str) -> None:
         """
         Send an accept connection message to the client.
         """
@@ -130,36 +129,36 @@ class Protocol:
             "server_id": server_id,
             "message": "The connection was accepted."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_offer_to_server(websocket: WebSocket, client_id: str, offer: dict) -> None:
+    async def send_offer_to_server(websocket: WebSocket, client_id: str, offer: dict) -> None:
         """
         Send an offer to the server.
         """
         message = {
             "type": "offer",
             "client_id": client_id,
-            "offer": offer,
+            "sdp": offer,
             "message": "Offer sent to the server."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_answer_to_client(websocket: WebSocket, server_id: str, answer: dict) -> None:
+    async def send_answer_to_client(websocket: WebSocket, server_id: str, answer: dict) -> None:
         """
         Send an answer to the client.
         """
         message = {
             "type": "answer",
             "server_id": server_id,
-            "answer": answer,
+            "sdp": answer,
             "message": "Answer sent to the client."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_ice_candidate_to_server(websocket: WebSocket, client_id: str, candidate: dict) -> None:
+    async def send_ice_candidate_to_server(websocket: WebSocket, client_id: str, candidate: dict) -> None:
         """
         Send an ICE candidate to the server.
         """
@@ -169,10 +168,10 @@ class Protocol:
             "candidate": candidate,
             "message": "ICE candidate sent to the server."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)
 
     @staticmethod
-    def send_ice_candidate_to_client(websocket: WebSocket, server_id: str, candidate: dict) -> None:
+    async def send_ice_candidate_to_client(websocket: WebSocket, server_id: str, candidate: dict) -> None:
         """
         Send an ICE candidate to the client.
         """
@@ -182,4 +181,4 @@ class Protocol:
             "candidate": candidate,
             "message": "ICE candidate sent to the client."
         }
-        Protocol.send(websocket, message)
+        await Protocol.send(websocket, message)

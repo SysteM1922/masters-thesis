@@ -3,15 +3,22 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-SERVER_IP = "10.255.40.73"
 #SERVER_IP = "192.168.1.207"
-TEST_API_URL = f"https://{SERVER_IP}:8000/v1/tests/"
+#SERVER_IP = "100.123.205.104" # Tailscale IP
+SERVER_IP = "localhost" # Local testing
+#SERVER_IP = "10.255.40.73" # GYM VM
+#SERVER_IP = "10.255.32.55" # GPU VM
+#SERVER_IP = "192.168.1.207"
+SERVER_PORT = 8000
+
+TEST_API_URL = f"https://{SERVER_IP}:{SERVER_PORT}/v1/tests/"
 VERIFY_SSL = False
 
 class TestsAPI:
 
     @staticmethod
     def create_test(test_type, house_id, division):
+        return
         try:
             response = requests.post(
                 TEST_API_URL,
@@ -30,6 +37,7 @@ class TestsAPI:
         
     @staticmethod
     def update_test(test_id, start_time, notes=""):
+        return
         try:
             response = requests.patch(
                 TEST_API_URL,
@@ -49,6 +57,7 @@ class TestsAPI:
         
     @staticmethod
     def get_tests(test_id, house_id):
+        return
         try:
             response = requests.get(
                 TEST_API_URL,
@@ -66,6 +75,7 @@ class TestsAPI:
     
     @staticmethod    
     def delete_test(test_id):
+        return
         try:
             response = requests.delete(
                 TEST_API_URL,
@@ -80,6 +90,7 @@ class TestsAPI:
         
     @staticmethod
     def add_measurement(test_id, timestamp, point):
+        return
         try:
             response = requests.post(
                 f"{TEST_API_URL}measurement",
@@ -98,6 +109,7 @@ class TestsAPI:
         
     @staticmethod
     def add_measurement_bulk(test_id, results_list):
+        return
         try:
             response = requests.post(
                 f"{TEST_API_URL}measurement/bulk",

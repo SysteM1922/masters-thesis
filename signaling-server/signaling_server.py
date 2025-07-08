@@ -22,7 +22,7 @@ signaling_server = SignalingServer()
 async def lifespan(app: FastAPI):
     logger.info("Starting Signaling Server...")
     yield
-    signaling_server.shutdown()
+    await signaling_server.shutdown()
 
 app = FastAPI(
     title="Signaling Server",
@@ -59,24 +59,25 @@ async def websocket_server_endpoint(websocket: WebSocket):
     await websocket.accept()
     server: Optional[ProcessingServer] = None
     try:
-        message = await websocket.receive_json()
-        data = json.loads(message)
+        data = await websocket.receive_json()
 
         server = await signaling_server.handle_server_registration(data, signaling_server, websocket)
 
         while True:
-            message = await websocket.receive_json()
-            data = json.loads(message)
+            data = await websocket.receive_json()
 
-            server.handle_message(data)
+            await server.handle_message(data)
 
     except WebSocketDisconnect:
-        logger.info(f"Server {server.id} disconnected")
+        if server:
+            logger.info(f"Server {server.id} disconnected")
+        else:
+            logger.info("Server disconnected without registration")
     except Exception as e:
         logger.error(f"Error in WebSocket: {e}")
     finally:
         if server:
-            server.disconnect()
+            await server.disconnect()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -86,25 +87,27 @@ async def websocket_endpoint(websocket: WebSocket):
     client: Optional[Client] = None
 
     try:
-        message = await websocket.receive_json()
-        data = json.loads(message)
+        data = await websocket.receive_json()
 
-        client = await signaling_server.handle_client_registration(data, websocket)
-        
-        while True:
-            message = await websocket.receive_json()
-            data = json.loads(message)
+        client, registered = await signaling_server.handle_client_registration(data, websocket)
 
-            client.handle_message(data)
+        if registered:
+            while True:
+                data = await websocket.receive_json()
+
+                await client.handle_message(data)
+        else:
+            logger.info(f"Client {client.id} could not be registered. No Processing Servers available.")
+            await client.signaling_shutdown()
 
     except WebSocketDisconnect:
         logger.info(f"Client {client.id} disconnected")
+        if client:
+            await client.disconnect()
+        else:
+            logger.info("Client disconnected without registration")
     except Exception as e:
         logger.error(f"Error in WebSocket {client.id}: {e}")
-    finally:
-        if client:
-            client.disconnect()
-
 
 def main():
 

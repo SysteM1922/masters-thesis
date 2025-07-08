@@ -8,14 +8,16 @@ import asyncio
 import threading
 from dataclasses import asdict
 import sys
+import websockets
+
 from api_interface import TestsAPI
 from utils import get_time_offset
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-IP_ADDRESS = "0.0.0.0"
-PORT = 8000
+IP_ADDRESS = "localhost"
+PORT = 8765
 
 test_id = None
 
@@ -43,6 +45,113 @@ options = vision.PoseLandmarkerOptions(
 )
 
 detector = vision.PoseLandmarker.create_from_options(options)
+
+class WebsocketSignalingServer:
+    def __init__(self, host, port, id):
+        self.host = host
+        self.port = port
+        self.websocket = None
+        self.id = id
+
+    async def connect(self):
+        self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws/server")
+        await self.websocket.send(json.dumps({
+            "type": "register",
+            "server_id": self.id,
+        }))
+
+    async def send(self, obj):
+        if hasattr(obj, "sdp"):
+            message = {"type": obj.type, "sdp": obj.sdp}
+        else:
+            message = obj
+
+        try:
+            await self.websocket.send(json.dumps(message))
+            print(f"Sent message: {obj.type if hasattr(obj, 'type') else message.get('type', 'unknown')}")
+        except Exception as e:
+            print(f"Error sending message: {e}")
+            return False
+        
+    async def send_answer(self, pc: RTCPeerConnection, client_id: str):
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        await self.send({
+            "type": "answer",
+            "sdp": pc.localDescription.sdp,
+            "client_id": client_id
+        })
+        print("Answer sent to signaling server")
+
+    async def accept_client(self, client_id):
+        await self.send({
+            "type": "accept_connection",
+            "client_id": client_id,
+            "message": "Client connection accepted."
+        })
+
+    async def receive_offer(self, pc: RTCPeerConnection, message: dict):
+        obj = RTCSessionDescription(
+            sdp=message.get("sdp"),
+            type=message.get("type")
+        )
+        await pc.setRemoteDescription(obj)
+
+    async def handle_messages(self, pc: RTCPeerConnection):
+        errors = 0
+        try:
+            while True:
+                message = await self.websocket.recv()
+                message = json.loads(message)
+
+                match message.get("type", None):
+                    case "register":
+                        if message.get("registered"):
+                            print(f"Server {self.id} registered successfully")
+                        else:
+                            print(f"Server {self.id} registration failed")
+                            return
+
+                    case "connect":
+                        print(f"Client {message.get('client_id')} wants to connect")
+                        await self.accept_client(message.get("client_id"))
+
+                    case "offer":
+                        print("Received offer from client")
+                        await self.receive_offer(pc, message)
+                        await self.send_answer(pc, message.get("client_id"))
+
+                    case "signaling_disconnect":
+                        print("Signaling server disconnected")
+                        break
+
+                    case "disconnect":
+                        print(f"Client disconnected: {message.get('client_id')}")
+                        break
+
+                    case "error":
+                        print(f"Error from server: {message.get('message', 'Unknown error')}")
+                        errors += 1
+                        if errors > 5:
+                            print("Too many errors, closing connection")
+                            break
+                        
+                    case _:
+                        print(f"Received message: {message}")
+        
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+            return None
+        finally:
+            await self.close()
+
+    async def close(self):
+        if self.websocket is not None:
+            try:
+                await self.websocket.close()
+                print("WebSocket connection closed")
+            except Exception as e:
+                print(f"Error closing WebSocket: {e}")
     
 async def handle_results(results, frame_pts):
     if results.pose_landmarks:
@@ -89,203 +198,99 @@ class VideoReceiver:
         process_thread.daemon = True  # Make thread daemon so it terminates when main thread exits
         process_thread.start()
         
-        timeouts = 0
         while True:
             try:    
-                last_frame = await asyncio.wait_for(track.recv(), timeout=5.0)
+                last_frame = await asyncio.wait_for(track.recv(), timeout=1.0)
                 arrival_time = time.time()
                 if isinstance(last_frame, av.VideoFrame):
                     arrival_times.append((last_frame.pts, arrival_time))
                     process_frame_flag.set()
                 else:
                     print(f"Frame type: {type(last_frame)}")
-                timeouts = 0
             except asyncio.TimeoutError:
-                print("Timeout")
-                timeouts += 1
-                if timeouts > 4:
-                    break
+                print("Timeout waiting for frame")
+                continue            
             except Exception as e:
                 print(f"Error receiving frame: {e}")
                 break
 
-        stop_pose_thread.set()
-        print("Track handler terminated")
+async def run(host, port):
+    signaling = WebsocketSignalingServer(host, port, "server_id")
+    pc_config = {
 
-class TcpSocketSignalingServer:
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.reader = None
-        self.writer = None
-
-    async def start_server(self):
-        server = await asyncio.start_server(
-            self.handle_client, self.host, self.port
-        )
-        print(f"Signaling server started on {self.host}:{self.port}")
-        return server
-    
-    async def handle_client(self, reader, writer):
-        self.reader = reader
-        self.writer = writer
-        print("Client connected")
-
-    async def send(self, obj):
-        if self.writer is None:
-            raise ConnectionError("Not connected to a client")
-        
-        if hasattr(obj, 'sdp'):
-            message = { "sdp": obj.sdp, "type": obj.type}
-        else:
-            message = obj
-
-        data = json.dumps(message).encode() + b'\n'
-        self.writer.write(data)
-        await self.writer.drain()
-
-    async def receive(self):
-        if self.reader is None:
-            return None
-        
-        try:
-            data = await self.reader.readline()
-            if not data:
-                return None
-            
-            message = json.loads(data.decode().strip())
-            if "type" in message and "sdp" in message:
-                return RTCSessionDescription(sdp=message["sdp"], type=message["type"])
-            return message
-        except Exception as e:
-            print(f"Error receiving message: {e}")
-            return None
-        
-    async def close(self):
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-        
-async def run(ip_adress, port):
-    signaling = TcpSocketSignalingServer(ip_adress, port)
-    server = await signaling.start_server()
+    }
+    pc = RTCPeerConnection(pc_config)
+    video_receiver = VideoReceiver()
 
     try:
-        while True:
+        await signaling.connect()
 
-            print("Waiting for client to connect...")
-            while signaling.writer is None:
-                await asyncio.sleep(0.1)
+        # Reset global state for new connection
+        stop_pose_thread.clear()
+        data_channel = None
 
-            try:
-                pc_config = {
+        @pc.on("datachannel")
+        def on_datachannel(channel):
+            print("Data channel opened")
+            global data_channel
+            data_channel = channel
 
-                }
-                pc = RTCPeerConnection(pc_config)
-                video_receiver = VideoReceiver()
-
-                # Reset global state for new connection
-                stop_pose_thread.clear()
+            @channel.on("close")
+            def on_close():
+                print("Data channel closed")
+                global data_channel
                 data_channel = None
 
-                @pc.on("datachannel")
-                def on_datachannel(channel):
-                    print("Data channel opened")
-                    global data_channel
-                    data_channel = channel
+            @channel.on("stop")
+            def on_stop():
+                print("Data channel stopped")
+                global data_channel
+                data_channel = None
+                channel.close()
 
-                    @channel.on("close")
-                    def on_close():
-                        print("Data channel closed")
-                        global data_channel
-                        data_channel = None
-
-                    @channel.on("stop")
-                    def on_stop():
-                        print("Data channel stopped")
-                        global data_channel
-                        data_channel = None
-                        channel.close()
-
-                    @channel.on("message")
-                    def on_message(message):
-                        global test_id
-                        print("Message received:", message)
-                        if isinstance(message, str):
-                            try:
-                                data = json.loads(message)
-                                if "test_id" in data:
-                                    test_id = data["test_id"]
-                            except json.JSONDecodeError:
-                                print("Received non-JSON message:", message)
-
-                @pc.on("track")
-                def on_track(track):
-                    print("Track received")
-                    asyncio.create_task(video_receiver.handle_track(track))
-
-                @pc.on("connectionstatechange")
-                async def on_connectionstatechange():
-                    print("Connection state is", pc.connectionState)
-                    if pc.connectionState == "connected":
-                        print("WebRTC connected")
-                    elif pc.connectionState in ["closed", "failed", "disconnected"]:
-                        print("WebRTC connection ended:", pc.connectionState)
-                        stop_pose_thread.set()
-                        await pc.close()
-                        await signaling.close()
-
-                print("Waiting for offer...")
-                # receive offer
-                offer = await signaling.receive()
-                if not offer:
-                    print("No offer received")
-                    continue
-
-                await pc.setRemoteDescription(offer)
-
-                print("Received offer, creating answer...")
-                # send answer
-                answer = await pc.createAnswer()
-                await pc.setLocalDescription(answer)
-                await signaling.send(pc.localDescription)
-
-                # Process signaling messages
-                print("WebRTC connection established")
-                while True:
+            @channel.on("message")
+            def on_message(message):
+                global test_id
+                print("Message received:", message)
+                if isinstance(message, str):
                     try:
-                        obj = await signaling.receive()
-                        if isinstance(obj, RTCSessionDescription):
-                            await pc.setRemoteDescription(obj)
-                            print("Received remote description")
-                        elif obj is None:
-                            print("Signaling connection closed")
-                            break
-                    except Exception as e:
-                        print(f"Signaling error: {e}")
-                        break
+                        data = json.loads(message)
+                        if "test_id" in data:
+                            test_id = data["test_id"]
+                    except json.JSONDecodeError:
+                        print("Received non-JSON message:", message)
 
+        @pc.on("track")
+        def on_track(track):
+            print("Track received")
+            asyncio.create_task(video_receiver.handle_track(track))
+
+        @pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            print("Connection state is", pc.connectionState)
+            if pc.connectionState == "connected":
+                print("WebRTC connected")
+            elif pc.connectionState in ["closed", "failed", "disconnected"]:
+                print("WebRTC connection ended:", pc.connectionState)
                 stop_pose_thread.set()
-
                 await pc.close()
-                signaling.writer.close()
-                await signaling.writer.wait_closed()
+                await signaling.close()
 
-                signaling.writer = None
-                signaling.reader = None
-                break
-
-            except Exception as e:
-                print(f"Server error: {e}")
-                break
+        await signaling.handle_messages(pc)
+    
+    except Exception as e:
+        print(e)
 
     except KeyboardInterrupt:
         print("Exiting...")
     finally:
-        print("Closing server...")
-        server.close()
-        print("Server closed")
-        #await server.wait_closed() # broken according to the documentation
+        print("Closing connection...")
+
+        await signaling.close()
+        await pc.close()
+
+        stop_pose_thread.set()
+
 
 if __name__ == "__main__":
     

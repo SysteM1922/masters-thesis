@@ -1,6 +1,7 @@
 import asyncio
 import fractions
 import threading
+import websockets
 import cv2
 import json
 import time
@@ -12,14 +13,10 @@ from api_interface import TestsAPI
 from copy import deepcopy
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
-# linux conflit cv2 and av/aiortc
+# linux conflit cv2 and av/aiortc - needs special anaconda environment
 
-SERVER_IP = "100.123.205.104" # Tailscale IP
-#SERVER_IP = "localhost" # Local testing
-#SERVER_IP = "10.255.40.73" # GYM VM
-#SERVER_IP = "10.255.32.55" # GPU VM
-#SERVER_IP = "192.168.1.207"
-SERVER_PORT = 8000
+SIGNALING_IP = "localhost"  # Local testing
+SIGNALING_PORT = 8765
 
 FPS = 30
 
@@ -27,6 +24,7 @@ test_id = None
 test_type = "gym"
 houseID = "house01"
 division = "sala"
+id = "client_id"
 
 send_times = []
 arrival_times = []
@@ -201,57 +199,108 @@ def arms_exercise(landmarks):
     )
     return styled_connections
 
-class TcpSocketSignalingClient:
-    def __init__(self, ip_address, port):
-        self.ip_address = ip_address
+class WebsocketSignalingClient:
+    def __init__(self, host, port, id):
+        self.host = host
         self.port = port
-        self.reader = None
-        self.writer = None
+        self.websocket = None
+        self.id = id
 
     async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(
-            self.ip_address, self.port
-        )
-        print(f"Connected to signaling server at {self.ip_address}:{self.port}")
+        self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws")
+        print(f"Connected to signaling server at {self.host}:{self.port}")
+        await self.websocket.send(json.dumps({
+            "type": "connect",
+            "client_id": self.id,
+        }))
 
     async def send(self, obj):
-        if self.writer is None:
-            raise ConnectionError("Not connected to signaling server")
-        
         if hasattr(obj, "sdp"):
             message = {"type": obj.type, "sdp": obj.sdp}
         else:
             message = obj
 
-        data = json.dumps(message).encode() + b'\n'
-        self.writer.write(data)
-        await self.writer.drain()
-
-    async def receive(self):
-        if self.reader is None:
-            return None
-        
         try:
-            data = await self.reader.readline()
-            if not data:
-                return None
-            
-            message = json.loads(data.decode().strip())
-            if "type" in message and "sdp" in message:
-                return RTCSessionDescription(sdp=message["sdp"], type=message["type"])
-            else:
-                return message
+            await self.websocket.send(json.dumps(message))
+            print(f"Sent message: {obj.type if hasattr(obj, 'type') else message.get('type', 'unknown')}")
+        except Exception as e:
+            print(f"Error sending message: {e}")
+            return False
+        
+    async def send_offer(self, pc: RTCPeerConnection):
+        """Send an offer to the signaling server."""
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        await self.send(pc.localDescription)
+        print("Offer sent to signaling server")
+
+    async def receive_answer(self, pc: RTCPeerConnection, message: dict):
+        obj = RTCSessionDescription(
+            sdp=message.get("sdp"),
+            type=message.get("type")
+        )
+        await pc.setRemoteDescription(obj)
+
+    async def handle_messages(self, pc: RTCPeerConnection):
+        errors = 0
+        try:
+            while True:
+                message = await self.websocket.recv()
+                message = json.loads(message)
+    
+                match message.get("type", None):
+                    case "register":
+                        if message.get("registered"):
+                            print(f"Client {self.id} registered successfully")
+                        else:
+                            print(f"Failed to register client {self.id}: {message.get('message', 'Unknown error')}")
+                            break
+                        
+                    case "connecting":
+                        print(f"Connecting to server: {message.get('server_id')}")
+    
+                    case "accepted_connection":
+                        print(f"Connection accepted by server: {message.get('server_id')}")
+                        await self.send_offer(pc)
+    
+                    case "answer":
+                        print("Received answer")
+                        await self.receive_answer(pc, message)
+
+                    case "signaling_disconnect":
+                        print("Signaling server disconnected")
+                        break
+
+                    case "disconnect":
+                        print(f"Server disconnected: {message.get('server_id')}")
+                        break
+    
+                    case "error":
+                        print(f"Error from server: {message.get('message', 'Unknown error')}")
+                        errors += 1
+                        if errors > 5:
+                            print("Too many errors, closing connection")
+                            break
+                        
+                    case _:
+                        print(f"Received message: {message}")
+
         except Exception as e:
             print(f"Error receiving message: {e}")
             return None
+        finally:
+            await self.close()
+
         
     async def close(self):
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-            print("Connection closed")
-        else:
-            print("No connection to close")
+        if self.websocket is not None:
+            try:
+                await self.websocket.close()
+                print("WebSocket connection closed")
+            except Exception as e:
+                print(f"Error closing WebSocket: {e}")
+            finally:
+                self.websocket = None
 
 def display_image():
     try:
@@ -348,8 +397,11 @@ class VideoTrack(VideoStreamTrack):
                 break
     
 async def run(ip_address, port):
-    signaling = TcpSocketSignalingClient(ip_address, port)
-    pc = RTCPeerConnection()
+    signaling = WebsocketSignalingClient(ip_address, port, id)
+    pc_config = {
+    
+    }
+    pc = RTCPeerConnection(pc_config)
     video_track = VideoTrack(0)
     pc.addTrack(video_track)
     print("Added video track")
@@ -373,7 +425,6 @@ async def run(ip_address, port):
 
     try:
         await signaling.connect()
-        print("Connecting to server")
 
         data_channel = pc.createDataChannel("data")
 
@@ -396,28 +447,11 @@ async def run(ip_address, port):
                 print("WebRTC connection closed or failed")
                 stop_display.set()
 
-        offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        await signaling.send(pc.localDescription)
+        await signaling.handle_messages(pc)
 
-        while True:
-            obj = await signaling.receive()
-            if isinstance(obj, RTCSessionDescription):
-                if obj.type == "answer":
-                    await pc.setRemoteDescription(obj)
-                    print("Received answer")
-                    break
-                else:
-                    print(f"Unexpected SDP type: {obj.type}")
-            elif obj is None:
-                print("Connection closed by server")
-                return
-            else:
-                print(f"Received unexpected object: {obj}")
-
-        # Run until the connection is closed or user interrupts
+        """# Run until the connection is closed or user interrupts
         while not stop_display.is_set():
-            await asyncio.sleep(5)
+            await asyncio.sleep(5)"""
     
     except Exception as e:
         print(e)
@@ -462,7 +496,7 @@ if __name__ == "__main__":
             sys.exit(1)"""
 
     try:
-        asyncio.run(run(SERVER_IP, SERVER_PORT))
+        asyncio.run(run(SIGNALING_IP, SIGNALING_PORT))
     except KeyboardInterrupt:
         print("Exiting...")
     except Exception as e:
