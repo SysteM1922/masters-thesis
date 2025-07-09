@@ -259,6 +259,9 @@ async def run(host, port):
                 urls="turn:192.168.1.100:3478",
                 username="gymuser",
                 credential="gym456"
+            ),
+            RTCIceServer(
+                urls="stun:stun.l.google.com:19302",
             )
         ],
     )
@@ -322,6 +325,10 @@ async def run(host, port):
         async def on_icecandidate(candidate):
             print("ICE candidate received:", candidate)
             await signaling.send_ice_candidate(candidate)
+
+        @pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange():
+            print("ICE connection state is", pc.iceConnectionState)
 
         await signaling.handle_messages(pc)
     

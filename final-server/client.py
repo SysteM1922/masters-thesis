@@ -439,6 +439,9 @@ async def run(ip_address, port):
                 urls="turn:192.168.1.100:3478",
                 username="gymuser",
                 credential="gym456"
+            ),
+            RTCIceServer(
+                urls="stun:stun.l.google.com:19302",
             )
         ],
     )
@@ -494,11 +497,11 @@ async def run(ip_address, port):
             print("ICE candidate received:", candidate)
             await signaling.send_ice_candidate(candidate)
 
-        await signaling.handle_messages(pc)
+        @pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange():
+            print("ICE connection state is", pc.iceConnectionState)
 
-        """# Run until the connection is closed or user interrupts
-        while not stop_display.is_set():
-            await asyncio.sleep(5)"""
+        await signaling.handle_messages(pc)
     
     except Exception as e:
         print(e)
