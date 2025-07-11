@@ -27,6 +27,8 @@ test_id = None
 
 last_frame = None
 data_channel = None
+media_track = None
+
 stop_pose_thread = threading.Event()
 process_frame_flag = threading.Event()
 
@@ -121,8 +123,8 @@ class WebsocketSignalingServer:
 
     async def handle_messages(self, pc: RTCPeerConnection):
         errors = 0
-        try:
-            while True:
+        while True:
+            try:
                 message = await self.websocket.recv()
                 message = json.loads(message)
 
@@ -178,13 +180,16 @@ class WebsocketSignalingServer:
                         if errors > 5:
                             print("Too many errors, closing connection")
                             break
-                        
+
                     case _:
                         print(f"Received message: {message}")
+            
+            except websockets.ConnectionClosed:
+                break
+
+            except Exception as e:
+                print(f"Error receiving message: {e}")
         
-        except Exception as e:
-            print(f"Error receiving message: {e}")
-            return None
 
     async def close(self):
         if self.websocket is not None:
@@ -228,32 +233,23 @@ def process_frame():
             continue
         process_frame_flag.clear()  # Clear the flag to wait for the next frame
 
-class VideoReceiver:
-    def __init__(self):
-        self.start_timer_to_send_to_db = 0
-        self.data_to_send_to_db = []
+async def handle_track(track):
+    global last_frame, arrival_times, process_frame_flag, stop_pose_thread
+    threading.Thread(target=process_frame, daemon=True).start()
 
-    async def handle_track(self, track):
-        global last_frame, arrival_times, process_frame_flag, stop_pose_thread
-        process_thread = threading.Thread(target=process_frame)
-        process_thread.daemon = True  # Make thread daemon so it terminates when main thread exits
-        process_thread.start()
-        
-        while True:
-            try:    
-                last_frame = await asyncio.wait_for(track.recv(), timeout=1.0)
-                arrival_time = time.time()
-                if isinstance(last_frame, av.VideoFrame):
-                    arrival_times.append((last_frame.pts, arrival_time))
-                    process_frame_flag.set()
-                else:
-                    print(f"Frame type: {type(last_frame)}")
-            except asyncio.TimeoutError:
-                print("Timeout waiting for frame")
-                continue            
-            except Exception as e:
-                print(f"Error receiving frame: {e}")
-                break
+    while True:
+        try:    
+            last_frame = await track.recv()
+            arrival_time = time.time()
+            if last_frame is not None:
+                arrival_times.append((last_frame.pts, arrival_time))
+                process_frame_flag.set()
+        except asyncio.TimeoutError:
+            print("Timeout waiting for frame")
+            continue            
+        except Exception as e:
+            print(f"Error receiving frame: {e}")
+            break
 
 async def run(host, port):
     signaling = WebsocketSignalingServer(host, port, "server_id")
@@ -275,7 +271,6 @@ async def run(host, port):
         ],
     )
     pc = RTCPeerConnection(pc_config)
-    video_receiver = VideoReceiver()
 
     try:
         await signaling.connect()
@@ -317,18 +312,19 @@ async def run(host, port):
 
         @pc.on("track")
         def on_track(track):
+            global media_track
             print("Track received")
-            asyncio.create_task(video_receiver.handle_track(track))
+            media_track = track
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
             print("Connection state is", pc.connectionState)
             if pc.connectionState == "connected":
                 print("WebRTC connected")
+                asyncio.create_task(handle_track(media_track))
             elif pc.connectionState in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection ended:", pc.connectionState)
                 stop_pose_thread.set()
-                await pc.close()
 
         @pc.on("icecandidate")
         async def on_icecandidate(candidate):
@@ -350,7 +346,7 @@ async def run(host, port):
         print("Closing connection...")
         
         await signaling.close()
-
+        await pc.close()
         stop_pose_thread.set()
 
 
