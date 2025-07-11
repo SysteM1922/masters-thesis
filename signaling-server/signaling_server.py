@@ -101,8 +101,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await client.signaling_shutdown()
 
     except WebSocketDisconnect:
-        logger.info(f"Client {client.id} disconnected")
         if client:
+            logger.info(f"Client {client.id} disconnected")
             await client.disconnect()
         else:
             logger.info("Client disconnected without registration")

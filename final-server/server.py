@@ -37,7 +37,7 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -147,10 +147,19 @@ class WebsocketSignalingServer:
                         print("Received ICE candidate from client")
                         candidate = message.get("candidate")
                         if candidate:
-                            pc.addIceCandidate(RTCIceCandidate(
-                                candidate=candidate.get("candidate"),
-                                sdpMid=candidate.get("sdpMid"),
-                                sdpMLineIndex=candidate.get("sdpMLineIndex")
+                            await pc.addIceCandidate(RTCIceCandidate(
+                                component=candidate.get("component"),
+                                foundation=candidate.get("foundation"),
+                                ip=candidate.get("ip"),
+                                port=candidate.get("port"),
+                                priority=candidate.get("priority"),
+                                protocol=candidate.get("protocol"),
+                                type=candidate.get("type"),
+                                relatedAddress=candidate.get("relatedAddress", None),
+                                relatedPort=candidate.get("relatedPort", None),
+                                sdpMid=candidate.get("sdpMid", None),
+                                sdpMLineIndex=candidate.get("sdpMLineIndex", None),
+                                tcpType=candidate.get("tcpType", None),
                             ))
                         else:
                             print("Received empty ICE candidate, ignoring")
