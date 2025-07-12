@@ -16,7 +16,7 @@ from api_interface import TestsAPI
 from utils import get_time_offset
 
 if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv("../.env")
 
@@ -38,7 +38,7 @@ end_process_times = []
 send_times = []
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
+    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
@@ -237,19 +237,12 @@ async def handle_track(track):
     global last_frame, arrival_times, process_frame_flag, stop_pose_thread
     threading.Thread(target=process_frame, daemon=True).start()
 
-    while True:
-        try:    
-            last_frame = await track.recv()
-            arrival_time = time.time()
-            if last_frame is not None:
-                arrival_times.append((last_frame.pts, arrival_time))
-                process_frame_flag.set()
-        except asyncio.TimeoutError:
-            print("Timeout waiting for frame")
-            continue            
-        except Exception as e:
-            print(f"Error receiving frame: {e}")
-            break
+    while True:   
+        last_frame = await track.recv()
+        arrival_time = time.time()
+        if last_frame is not None:
+            arrival_times.append((last_frame.pts, arrival_time))
+            process_frame_flag.set()
 
 async def run(host, port):
     signaling = WebsocketSignalingServer(host, port, "server_id")
