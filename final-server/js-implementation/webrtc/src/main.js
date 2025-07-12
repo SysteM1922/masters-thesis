@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
 import { WebSocketSignalingClient } from './websocket.js'
+import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 
 createApp(App)
 
@@ -35,9 +36,18 @@ const webcamDisplay = document.getElementById('webcamDisplay');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
 
-//const outputCanvas = document.getElementById('output_canvas');
-//const outputCanvasCtx = outputCanvas.getContext('2d');
-//const drawingUtils = new DrawingUtils(outputCanvasCtx);
+const outputCanvas = document.getElementById('output_canvas');
+const outputCanvasCtx = outputCanvas.getContext('2d');
+outputCanvas.style.transform = 'scaleX(-1)'; // Mirror the canvas to match the webcam display
+const drawingUtils = new DrawingUtils(outputCanvasCtx);
+
+function resizeCanvas() {
+    const width = webcamDisplay.clientWidth;
+    const height = webcamDisplay.clientHeight;
+    outputCanvas.width = width;
+    outputCanvas.height = height;
+    outputCanvasCtx.clearRect(0, 0, width, height);
+}
 
 async function startCapture() {
     try {
@@ -48,6 +58,8 @@ async function startCapture() {
         webcamDisplay.srcObject = stream;
         webcamDisplay.style.transform = 'scaleX(-1)';
         webcamDisplay.play();
+
+        resizeCanvas();
 
         stream.getTracks().forEach((track) => {
             console.log('Adding track to peer connection:', track);
@@ -81,7 +93,14 @@ async function startCapture() {
         };
 
         dataChannel.onmessage = (event) => {
-            console.log('Received message');
+            outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            const data = JSON.parse(event.data);
+
+            const landmarks = data.landmarks;
+            if (landmarks && landmarks.length > 0) {
+                drawingUtils.drawLandmarks(landmarks, { radius: 5, lineWidth: 2, color: '#FFFFFF' });
+                drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 2, color: '#FFFFFF' });
+            }
         };
 
         pc.onconnectionstatechange = () => {
