@@ -237,7 +237,7 @@ async def handle_track(track):
     global last_frame, arrival_times, process_frame_flag, stop_pose_thread
     threading.Thread(target=process_frame, daemon=True).start()
 
-    while True:
+    while not stop_pose_thread.is_set():
         try:
             last_frame = await track.recv()
             arrival_time = time.time()
