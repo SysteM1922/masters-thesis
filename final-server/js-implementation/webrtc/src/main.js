@@ -46,6 +46,7 @@ async function startCapture() {
             throw new Error('No media stream available');
         }
         webcamDisplay.srcObject = stream;
+        webcamDisplay.style.transform = 'scaleX(-1)';
         webcamDisplay.play();
 
         stream.getTracks().forEach((track) => {
@@ -80,7 +81,7 @@ async function startCapture() {
         };
 
         dataChannel.onmessage = (event) => {
-            console.log('Received message:', event.data);
+            console.log('Received message');
         };
 
         pc.onconnectionstatechange = () => {
