@@ -1,5 +1,5 @@
 import json
-from aiortc import RTCConfiguration, RTCIceServer, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
+from aiortc import MediaStreamError, RTCConfiguration, RTCIceServer, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
 import av
 import mediapipe as mp
 from mediapipe.tasks.python import vision
@@ -39,7 +39,7 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -238,18 +238,16 @@ async def handle_track(track):
     threading.Thread(target=process_frame, daemon=True).start()
 
     while True:
-        try:    
+        try:
             last_frame = await track.recv()
             arrival_time = time.time()
             if last_frame is not None:
                 arrival_times.append((last_frame.pts, arrival_time))
                 process_frame_flag.set()
-        except asyncio.TimeoutError:
-            print("Timeout waiting for frame")
-            continue            
+        except MediaStreamError as e:
+            print("MediaStreamError:", e)
         except Exception as e:
-            print(f"Error receiving frame: {e}")
-            break
+            print("Error receiving track:", e)
 
 async def run(host, port):
     signaling = WebsocketSignalingServer(host, port, "server_id")
