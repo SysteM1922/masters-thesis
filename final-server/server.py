@@ -246,6 +246,7 @@ async def handle_track(track):
                 process_frame_flag.set()
         except MediaStreamError as e:
             print("MediaStreamError:", e)
+            break
         except Exception as e:
             print("Error receiving track:", e)
 
@@ -276,6 +277,16 @@ async def run(host, port):
         # Reset global state for new connection
         stop_pose_thread.clear()
         data_channel = None
+
+        @pc.on("icecandidate")
+        async def on_icecandidate(candidate):
+            print("ICE candidate received:", candidate)
+            await signaling.send_ice_candidate(candidate)
+
+        @pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange():
+            print("ICE connection state is", pc.iceConnectionState)
+
 
         @pc.on("datachannel")
         def on_datachannel(channel):
@@ -322,16 +333,7 @@ async def run(host, port):
                 asyncio.create_task(handle_track(media_track))
             elif pc.connectionState in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection ended:", pc.connectionState)
-                stop_pose_thread.set()
-
-        @pc.on("icecandidate")
-        async def on_icecandidate(candidate):
-            print("ICE candidate received:", candidate)
-            await signaling.send_ice_candidate(candidate)
-
-        @pc.on("iceconnectionstatechange")
-        async def on_iceconnectionstatechange():
-            print("ICE connection state is", pc.iceConnectionState)
+                raise MediaStreamError("WebRTC connection ended")
 
         await signaling.handle_messages(pc)
     

@@ -407,7 +407,7 @@ class VideoTrack(VideoStreamTrack):
             if pts == frame_count:
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    styled_connections = arms_exercise(deepcopy(landmarks))
+                    styled_connections = None #arms_exercise(deepcopy(landmarks))
                     if styled_connections:
                         utils.new_draw_landmarks(
                             image=frame,
