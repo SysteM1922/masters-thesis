@@ -14,23 +14,13 @@ let signaling = null;
 const pc_config = {
     iceServers: [
         {
-            urls: "stun:192.168.1.100:3478",
-            username: "gymuser",
-            credential: "gym456"
-        },
-        {
-            urls: "turn:192.168.1.100:3478",
-            username: "gymuser",
-            credential: "gym456"
-        },
-        {
             urls: "stun:stun.l.google.com:19302"
         }
     ]
 };
 
 let pc = new RTCPeerConnection(pc_config);
-let stream = null;
+let displayStream = null;
 
 const webcamDisplay = document.getElementById('webcamDisplay');
 const callButton = document.getElementById('callButton');
@@ -51,20 +41,24 @@ function resizeCanvas() {
 
 async function startCapture() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 3840, height: 2160 }, audio: false });
-        if (!stream) {
+        displayStream = await navigator.mediaDevices.getUserMedia({ video: { width: 3840, height: 2160, frameRate: { ideal: 30, max: 60 } }, audio: false });
+        if (!displayStream) {
             throw new Error('No media stream available');
         }
-        webcamDisplay.srcObject = stream;
+        webcamDisplay.srcObject = displayStream;
         webcamDisplay.style.transform = 'scaleX(-1)';
         webcamDisplay.play();
 
-        resizeCanvas();
+        const videoTrack = displayStream.getVideoTracks()[0];
 
-        stream.getTracks().forEach((track) => {
-            console.log('Adding track to peer connection:', track);
-            pc.addTrack(track, stream);
-        });
+        if (!videoTrack) {
+            throw new Error('No video track found in the media stream');
+        }  
+
+        pc.addTrack(videoTrack, displayStream);
+        console.log('Added video track to peer connection:', videoTrack);
+
+        resizeCanvas();
         
     } catch (error) {
         console.error('Error accessing media devices.', error);
@@ -103,10 +97,19 @@ async function startCapture() {
             }
         };
 
-        pc.onconnectionstatechange = () => {
+        pc.onconnectionstatechange = async () => {
             console.log('Connection state changed:', pc.connectionState);
             if (pc.connectionState === 'connected') {
                 console.log('WebRTC connected');
+
+                const sender = pc.getSenders().find(s => s.track.kind === 'video');
+                const parameters = sender.getParameters();
+                if (sender) {
+                    parameters.encodings[0].scaleResolutionDownBy = displayStream.getVideoTracks()[0].getSettings().height / 480;
+                    await sender.setParameters(parameters);
+                    console.log('Set max bitrate for video sender:', sender.getParameters());
+                }
+
             } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                 console.log('WebRTC connection closed or failed');
                 stopCapture();
