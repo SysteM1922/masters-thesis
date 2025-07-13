@@ -51,6 +51,7 @@ async def send_results(data, frame_pts):
         print(f"Error in send_results: {e}")
 
 def handle_results(results, _, frame_pts):
+    global end_process_times
     end_process_times.append((frame_pts, time.time()))
 
     data = json.dumps({
@@ -242,7 +243,7 @@ def process_frame():
 
 async def handle_track(track):
     global last_frame, arrival_times, process_frame_flag, handle_track_flag
-
+    
     threading.Thread(target=process_frame, daemon=True).start()
 
     while not handle_track_flag.is_set():
@@ -251,8 +252,6 @@ async def handle_track(track):
             arrival_time = time.time()
             arrival_times.append((last_frame.pts, arrival_time))
             process_frame_flag.set()
-        except asyncio.TimeoutError:
-            continue
         except TypeError as e:
             continue
         except MediaStreamError as e:
@@ -309,8 +308,6 @@ async def run(host, port):
             @channel.on("stop")
             def on_stop():
                 print("Data channel stopped")
-                global data_channel
-                data_channel = None
                 channel.close()
 
             @channel.on("message")
@@ -337,6 +334,7 @@ async def run(host, port):
             if pc.connectionState == "connected":
                 print("WebRTC connected")
                 asyncio.create_task(handle_track(media_track))
+                
             elif pc.connectionState in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection ended:", pc.connectionState)
                 raise MediaStreamError("WebRTC connection ended")
