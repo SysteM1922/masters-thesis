@@ -4,7 +4,6 @@ import mediapipe as mp
 from mediapipe.tasks.python import vision
 import time
 import asyncio
-import threading
 from dataclasses import asdict
 import sys
 import websockets
@@ -56,7 +55,7 @@ def handle_results(results, _, frame_pts):
         "landmarks": [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else [],
         "frame_count": frame_pts
     })
-    asyncio.run(send_results(data, frame_pts))
+    asyncio.create_task(send_results(data, frame_pts))
 
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
