@@ -4,7 +4,6 @@ import mediapipe as mp
 from mediapipe.tasks.python import vision
 import time
 import asyncio
-import threading
 from dataclasses import asdict
 import sys
 import websockets
@@ -30,7 +29,6 @@ data_channel = None
 media_track = None
 
 not_stop = True
-process_frame_flag = asyncio.Event()
 
 arrival_times = []
 start_process_times = []
@@ -220,21 +218,17 @@ class WebsocketSignalingServer:
             except Exception as e:
                 print(f"Error closing WebSocket: {e}")
 
-async def process_frame():
-    global last_frame, start_process_times, process_frame_flag
-    while not_stop:
-        process_frame_flag.clear()
-        await process_frame_flag.wait()
-        last_frame_pts = last_frame.pts
-        start_process_times.append((last_frame_pts, time.time()))
-        try:
-            mp_image = mp.Image(
-                image_format=mp.ImageFormat.SRGB,
-                data=last_frame.to_ndarray(format="bgr24")
-            )
-            detector.detect_async(mp_image, last_frame_pts)
-        except Exception as e:
-            print("Error processing frame:", e)
+async def process_frame(last_frame):
+     last_frame_pts = last_frame.pts
+     start_process_times.append((last_frame_pts, time.time()))
+     try:
+         mp_image = mp.Image(
+             image_format=mp.ImageFormat.SRGB,
+             data=last_frame.to_ndarray(format="bgr24")
+         )
+         detector.detect_async(mp_image, last_frame_pts)
+     except Exception as e:
+         print("Error processing frame:", e)
 
 async def handle_track(track):
     global last_frame, arrival_times, process_frame_flag
@@ -243,7 +237,7 @@ async def handle_track(track):
             last_frame = await track.recv()
             arrival_time = time.time()
             arrival_times.append((last_frame.pts, arrival_time))
-            process_frame_flag.set()
+            asyncio.create_task(process_frame(last_frame))
         except asyncio.TimeoutError:
             continue
         except TypeError as e:
@@ -330,7 +324,6 @@ async def run(host, port):
             if pc.connectionState == "connected":
                 print("WebRTC connected")
                 asyncio.create_task(handle_track(media_track))
-                asyncio.create_task(process_frame())
             elif pc.connectionState in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection ended:", pc.connectionState)
                 raise MediaStreamError("WebRTC connection ended")
