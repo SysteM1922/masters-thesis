@@ -44,9 +44,8 @@ base_options = mp.tasks.BaseOptions(
 async def send_results(data, frame_pts):
     global data_channel, send_times
     try:
-        if data_channel and data_channel.readyState == "open":
-            send_times.append((frame_pts, time.time()))
-            data_channel.send(data)
+        send_times.append((frame_pts, time.time()))
+        data_channel.send(data)
     except Exception as e:
         print(f"Error in send_results: {e}")
 
@@ -235,17 +234,16 @@ def process_frame(last_frame):
 async def handle_track(track):
     while not_stop:
         try:
-            last_frame = await asyncio.wait_for(track.recv(), timeout=1.0)
+            last_frame = await track.recv()
             arrival_time = time.time()
-            if last_frame is not None:
-                arrival_times.append((last_frame.pts, arrival_time))
-                asyncio.create_task(process_frame(last_frame))
+            arrival_times.append((last_frame.pts, arrival_time))
+            asyncio.create_task(process_frame(last_frame))
         except asyncio.TimeoutError:
             continue
         except TypeError as e:
             continue
         except MediaStreamError as e:
-            print("MediaStreamError:", e)
+            break
         except Exception as e:
             print("Error receiving track:", e)
 
