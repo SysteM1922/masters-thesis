@@ -53,12 +53,8 @@ async def send_results(data, frame_pts):
 def handle_results(results, _, frame_pts):
     end_process_times.append((frame_pts, time.time()))
 
-    if results.pose_landmarks:
-        landmarkslist = [asdict(landmark) for landmark in results.pose_landmarks[0]]
-    else:
-        landmarkslist = []
     data = json.dumps({
-        "landmarks": landmarkslist,
+        "landmarks": [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else [],
         "frame_count": frame_pts
     })
     asyncio.run(send_results(data, frame_pts))
@@ -209,6 +205,9 @@ class WebsocketSignalingServer:
             except websockets.ConnectionClosed:
                 break
 
+            except TypeError as e:
+                continue
+
             except Exception as e:
                 print(f"Error receiving message: {e}")
         
@@ -225,8 +224,10 @@ def process_frame(last_frame):
     last_frame_pts = last_frame.pts
     start_process_times.append((last_frame_pts, time.time()))
     try:
-        image = last_frame.to_ndarray(format="bgr24")
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB,
+            data=last_frame.to_ndarray(format="bgr24")
+        )
         detector.detect_async(mp_image, last_frame_pts)
     except Exception as e:
         print("Error processing frame:", e)
@@ -245,7 +246,6 @@ async def handle_track(track):
             continue
         except MediaStreamError as e:
             print("MediaStreamError:", e)
-            break
         except Exception as e:
             print("Error receiving track:", e)
 
