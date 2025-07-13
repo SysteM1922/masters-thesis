@@ -1,3 +1,4 @@
+import threading
 import time
 import mediapipe as mp
 from mediapipe.python.solutions.pose import POSE_CONNECTIONS
@@ -22,7 +23,7 @@ def update_results(result, output_image=None, timestamp=None):
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 options = vision.PoseLandmarkerOptions(
@@ -33,31 +34,38 @@ options = vision.PoseLandmarkerOptions(
     result_callback=update_results,
 )
 
-detector = vision.PoseLandmarker.create_from_options(options)
+def func():
+    global flag, results, time_stamp
+    detector = vision.PoseLandmarker.create_from_options(options)
 
-cap = cv2.VideoCapture(0)
-image = None
+    cap = cv2.VideoCapture(0)
+    image = None
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Failed to read frame from camera")
-        break
-    
-    if flag:
-        flag = False
-        image = cv2.flip(frame, 1)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
-        time_stamp = time.perf_counter()
-        detector.detect_async(mp_image, timestamp_ms=int(time.time() * 1000))
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to read frame from camera")
+            break
+        
+        if flag:
+            flag = False
+            image = cv2.flip(frame, 1)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+            time_stamp = time.perf_counter()
+            detector.detect_async(mp_image, timestamp_ms=int(time.time() * 1000))
 
-    if results is not None and results.pose_landmarks:
-        utils.new_draw_landmarks(image, results.pose_landmarks[0], POSE_CONNECTIONS)
-    
-    cv2.imshow("frame", image)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        if results is not None and results.pose_landmarks:
+            utils.new_draw_landmarks(image, results.pose_landmarks[0], POSE_CONNECTIONS)
 
-cap.release()
-cv2.destroyAllWindows()
-detector.close()
+        cv2.imshow("frame", image)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    detector.close()
+
+if __name__ == "__main__":
+    threading.Thread(target=func).start()
+    while True:
+        time.sleep(1)  # Keep the main thread alive

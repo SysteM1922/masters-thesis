@@ -4,6 +4,7 @@ import mediapipe as mp
 from mediapipe.tasks.python import vision
 import time
 import asyncio
+import threading
 from dataclasses import asdict
 import sys
 import websockets
@@ -28,7 +29,8 @@ results_to_send = None
 data_channel = None
 media_track = None
 
-not_stop = True
+handle_track_flag = threading.Event()
+process_frame_flag = threading.Event()
 
 arrival_times = []
 start_process_times = []
@@ -65,8 +67,6 @@ options = vision.PoseLandmarkerOptions(
     min_pose_detection_confidence=0.5,
     min_tracking_confidence=0.5,
 )
-
-detector = vision.PoseLandmarker.create_from_options(options)
 
 class WebsocketSignalingServer:
     def __init__(self, host, port, id):
@@ -218,26 +218,39 @@ class WebsocketSignalingServer:
             except Exception as e:
                 print(f"Error closing WebSocket: {e}")
 
-async def process_frame(last_frame):
-     last_frame_pts = last_frame.pts
-     start_process_times.append((last_frame_pts, time.time()))
-     try:
-         mp_image = mp.Image(
-             image_format=mp.ImageFormat.SRGB,
-             data=last_frame.to_ndarray(format="bgr24")
-         )
-         detector.detect_async(mp_image, last_frame_pts)
-     except Exception as e:
-         print("Error processing frame:", e)
+def process_frame():
+    global last_frame, start_process_times, process_frame_flag
+
+    detector = vision.PoseLandmarker.create_from_options(options)
+
+    while not handle_track_flag.is_set():
+        process_frame_flag.clear()
+        process_frame_flag.wait()
+
+        last_frame_pts = last_frame.pts
+        start_process_times.append((last_frame_pts, time.time()))
+        try:
+            mp_image = mp.Image(
+                image_format=mp.ImageFormat.SRGB,
+                data=last_frame.to_ndarray(format="bgr24")
+            )
+            detector.detect_async(mp_image, last_frame_pts)
+        except Exception as e:
+            print("Error processing frame:", e)
+    
+    detector.close()
 
 async def handle_track(track):
-    global last_frame, arrival_times, process_frame_flag
-    while not_stop:
+    global last_frame, arrival_times, process_frame_flag, handle_track_flag
+
+    threading.Thread(target=process_frame, daemon=True).start()
+
+    while not handle_track_flag.is_set():
         try:
             last_frame = await track.recv()
             arrival_time = time.time()
             arrival_times.append((last_frame.pts, arrival_time))
-            asyncio.create_task(process_frame(last_frame))
+            process_frame_flag.set()
         except asyncio.TimeoutError:
             continue
         except TypeError as e:
@@ -338,7 +351,7 @@ async def run(host, port):
     finally:
         print("Closing connection...")
         
-        not_stop = False
+        handle_track_flag.set()
         await signaling.close()
         await pc.close()
 
@@ -352,7 +365,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        detector.close()
         #exit(0)
 
         print("Adding measurements to the test. Please wait...")
