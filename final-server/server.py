@@ -1,6 +1,5 @@
 import json
 from aiortc import MediaStreamError, RTCConfiguration, RTCIceServer, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
-import av
 import mediapipe as mp
 from mediapipe.tasks.python import vision
 import time
@@ -26,11 +25,11 @@ SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
 test_id = None
 
 last_frame = None
+results_to_send = None
 data_channel = None
 media_track = None
 
-stop_pose_thread = threading.Event()
-process_frame_flag = threading.Event()
+not_stop = True
 
 arrival_times = []
 start_process_times = []
@@ -42,9 +41,32 @@ base_options = mp.tasks.BaseOptions(
     delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
+async def send_results(data, frame_pts):
+    global data_channel, send_times
+    try:
+        if data_channel and data_channel.readyState == "open":
+            send_times.append((frame_pts, time.time()))
+            data_channel.send(data)
+    except Exception as e:
+        print(f"Error in send_results: {e}")
+
+def handle_results(results, _, frame_pts):
+    end_process_times.append((frame_pts, time.time()))
+
+    if results.pose_landmarks:
+        landmarkslist = [asdict(landmark) for landmark in results.pose_landmarks[0]]
+    else:
+        landmarkslist = []
+    data = json.dumps({
+        "landmarks": landmarkslist,
+        "frame_count": frame_pts
+    })
+    asyncio.run(send_results(data, frame_pts))
+
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
-    running_mode=vision.RunningMode.IMAGE,
+    running_mode=vision.RunningMode.LIVE_STREAM,
+    result_callback=handle_results,
     num_poses=1,
     min_pose_detection_confidence=0.5,
     min_tracking_confidence=0.5,
@@ -198,52 +220,29 @@ class WebsocketSignalingServer:
                 print("WebSocket connection closed")
             except Exception as e:
                 print(f"Error closing WebSocket: {e}")
-    
-async def handle_results(results, frame_pts):
-    if results.pose_landmarks:
-        landmarkslist = [asdict(landmark) for landmark in results.pose_landmarks[0]]
-    else:
-        landmarkslist = []
-    data = json.dumps({
-        "landmarks": landmarkslist,
-        "frame_count": frame_pts
-    })
-    
-    try:
-        # Check if data_channel exists and is open before sending
-        if data_channel and data_channel.readyState == "open":
-            send_times.append((frame_pts, time.time()))
-            data_channel.send(data)
-    except Exception as e:
-        print(f"Error sending data: {e}")
 
-def process_frame():
-    while not stop_pose_thread.is_set():
-        process_frame_flag.wait()  # Wait until a frame is available
-        last_frame_pts = last_frame.pts
-        start_process_times.append((last_frame_pts, time.time()))
-        try:
-            image = last_frame.to_ndarray(format="bgr24")
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
-            results = detector.detect(mp_image)
-            end_process_times.append((last_frame_pts, time.time()))
-            _ = asyncio.run(handle_results(results, last_frame_pts))
-        except Exception as e:
-            print("Error processing frame:", e)
-            continue
-        process_frame_flag.clear()  # Clear the flag to wait for the next frame
+def process_frame(last_frame):
+    last_frame_pts = last_frame.pts
+    start_process_times.append((last_frame_pts, time.time()))
+    try:
+        image = last_frame.to_ndarray(format="bgr24")
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+        detector.detect_async(mp_image, last_frame_pts)
+    except Exception as e:
+        print("Error processing frame:", e)
 
 async def handle_track(track):
-    global last_frame, arrival_times, process_frame_flag, stop_pose_thread
-    threading.Thread(target=process_frame, daemon=True).start()
-
-    while not stop_pose_thread.is_set():
+    while not_stop:
         try:
-            last_frame = await track.recv()
+            last_frame = await asyncio.wait_for(track.recv(), timeout=1.0)
             arrival_time = time.time()
             if last_frame is not None:
                 arrival_times.append((last_frame.pts, arrival_time))
-                process_frame_flag.set()
+                asyncio.create_task(process_frame(last_frame))
+        except asyncio.TimeoutError:
+            continue
+        except TypeError as e:
+            continue
         except MediaStreamError as e:
             print("MediaStreamError:", e)
             break
@@ -273,10 +272,6 @@ async def run(host, port):
 
     try:
         await signaling.connect()
-
-        # Reset global state for new connection
-        stop_pose_thread.clear()
-        data_channel = None
 
         @pc.on("icecandidate")
         async def on_icecandidate(candidate):
@@ -345,9 +340,9 @@ async def run(host, port):
     finally:
         print("Closing connection...")
         
+        not_stop = False
         await signaling.close()
         await pc.close()
-        stop_pose_thread.set()
 
 
 if __name__ == "__main__":
