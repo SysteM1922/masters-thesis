@@ -46,7 +46,8 @@ async def send_results(data, frame_pts):
     global data_channel, send_times
     try:
         send_times.append((frame_pts, time.time()))
-        data_channel.send(data)
+        if data_channel:
+            data_channel.send(data)
     except Exception as e:
         print(f"Error in send_results: {e}")
 
@@ -263,16 +264,6 @@ async def run(host, port):
     signaling = WebsocketSignalingServer(host, port, "server_id")
     pc_config = RTCConfiguration(
         iceServers=[
-            RTCIceServer(
-                urls="stun:192.168.1.100:3478",
-                username="gymuser",
-                credential="gym456"
-            ),
-            RTCIceServer(
-                urls="turn:192.168.1.100:3478",
-                username="gymuser",
-                credential="gym456"
-            ),
             RTCIceServer(
                 urls="stun:stun.l.google.com:19302",
             )
