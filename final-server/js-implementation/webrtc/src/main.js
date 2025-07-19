@@ -16,7 +16,9 @@ const pc_config = {
         {
             urls: "stun:stun.l.google.com:19302"
         }
-    ]
+    ],
+    bundlePolicy: "max-bundle",
+    rtcpMuxPolicy: "require",
 };
 
 let pc = new RTCPeerConnection(pc_config);
@@ -47,7 +49,15 @@ function resizeCanvas() {
 
 async function startCapture() {
     try {
-        displayStream = await navigator.mediaDevices.getUserMedia({ video: { width: 3840, height: 2160, frameRate: { ideal: 30, max: 60 } }, audio: false });
+        const constraints = {
+            video: {
+                width: { ideal: 3840 },
+                height: { ideal: 2160 },
+                frameRate: { ideal: 30 }
+            },
+            audio: false
+        };
+        displayStream = await navigator.mediaDevices.getUserMedia(constraints);
         if (!displayStream) {
             throw new Error('No media stream available');
         }
@@ -59,13 +69,13 @@ async function startCapture() {
 
         if (!videoTrack) {
             throw new Error('No video track found in the media stream');
-        }  
+        }
 
         pc.addTrack(videoTrack, displayStream);
         console.log('Added video track to peer connection:', videoTrack);
 
         resizeCanvas();
-        
+
     } catch (error) {
         console.error('Error accessing media devices.', error);
         alert('Error accessing media devices: ' + error.message);
@@ -146,11 +156,11 @@ async function startCapture() {
 }
 
 async function stopCapture() {
-    if (stream) {
-        stream.getTracks().forEach((track) => {
+    if (displayStream) {
+        displayStream.getTracks().forEach((track) => {
             track.stop();
         });
-        stream = null;
+        displayStream = null;
     }
     webcamDisplay.srcObject = null;
 }
