@@ -29,6 +29,8 @@ results_to_send = None
 data_channel = None
 media_track = None
 
+loop = None
+
 handle_track_flag = threading.Event()
 process_frame_flag = threading.Event()
 
@@ -39,7 +41,7 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
 )
 
 async def send_results(data, frame_pts):
@@ -59,7 +61,7 @@ def handle_results(results, _, frame_pts):
         "landmarks": [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else [],
         "frame_count": frame_pts
     })
-    asyncio.run(send_results(data, frame_pts))
+    asyncio.run_coroutine_threadsafe(send_results(data, frame_pts), loop)
 
 options = vision.PoseLandmarkerOptions(
     base_options=base_options,
@@ -261,6 +263,10 @@ async def handle_track(track):
             print("Error receiving track:", e)
 
 async def run(host, port):
+    global loop
+
+    loop = asyncio.get_event_loop()
+    
     signaling = WebsocketSignalingServer(host, port, "server_id")
     pc_config = RTCConfiguration(
         iceServers=[
