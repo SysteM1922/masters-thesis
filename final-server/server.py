@@ -31,8 +31,8 @@ media_track = None
 
 loop = None
 
-handle_track_flag = threading.Event()
-process_frame_flag = threading.Event()
+stop_flag = threading.Event()
+last_frame_lock = threading.Lock()
 
 arrival_times = []
 start_process_times = []
@@ -227,34 +227,40 @@ def process_frame():
 
     detector = vision.PoseLandmarker.create_from_options(options)
 
-    while not handle_track_flag.is_set():
-        process_frame_flag.clear()
-        process_frame_flag.wait()
-
-        last_frame_pts = last_frame.pts
-        start_process_times.append((last_frame_pts, time.time()))
-        try:
-            mp_image = mp.Image(
-                image_format=mp.ImageFormat.SRGB,
-                data=last_frame.to_ndarray(format="bgr24")
-            )
-            detector.detect_async(mp_image, last_frame_pts)
-        except Exception as e:
-            print("Error processing frame:", e)
+    while not stop_flag.is_set():
+        if last_frame is None:
+            time.sleep(0.02)
+            continue
+        with last_frame_lock:
+            last_frame_pts = last_frame.pts
+            start_process_times.append((last_frame_pts, time.time()))
+            try:
+                mp_image = mp.Image(
+                    image_format=mp.ImageFormat.SRGB,
+                    data=last_frame.to_ndarray(format="bgr24")
+                )
+                detector.detect_async(mp_image, last_frame_pts)
+                last_frame = None  # Clear the last frame after processing
+            except Exception as e:
+                print("Error processing frame:", e)
     
     detector.close()
 
 async def handle_track(track):
-    global last_frame, arrival_times, process_frame_flag, handle_track_flag
+    global last_frame, arrival_times, process_frame_flag, stop_flag
     
     threading.Thread(target=process_frame, daemon=True).start()
 
-    while not handle_track_flag.is_set():
+    while not stop_flag.is_set():
         try:
-            last_frame = await track.recv()
+            frame = await track.recv()
             arrival_time = time.time()
-            arrival_times.append((last_frame.pts, arrival_time))
-            process_frame_flag.set()
+            if last_frame_lock.acquire(blocking=False):
+                try:
+                    last_frame = frame
+                finally:
+                    last_frame_lock.release()
+            arrival_times.append((frame.pts, arrival_time))
         except TypeError as e:
             continue
         except MediaStreamError as e:
@@ -266,7 +272,7 @@ async def run(host, port):
     global loop
 
     loop = asyncio.get_event_loop()
-    
+
     signaling = WebsocketSignalingServer(host, port, "server_id")
     pc_config = RTCConfiguration(
         iceServers=[
@@ -274,6 +280,7 @@ async def run(host, port):
                 urls="stun:stun.l.google.com:19302",
             )
         ],
+        bundlePolicy="max-bundle",
     )
     pc = RTCPeerConnection(pc_config)
 
@@ -346,7 +353,7 @@ async def run(host, port):
     finally:
         print("Closing connection...")
         
-        handle_track_flag.set()
+        stop_flag.set()
         await signaling.close()
         await pc.close()
 
@@ -406,4 +413,19 @@ if __name__ == "__main__":
             
         print("Test completed and measurements added.")
         print(f"Test ID: {test_id}")
+
+
+        # traverse arrival_times and calculate the estimated frame rate
+        if arrival_times:
+            first_arrival = arrival_times[0][1]
+            last_arrival = arrival_times[-1][1]
+            estimated_fps = len(arrival_times) / (last_arrival - first_arrival)
+            print(f"Estimated FPS: {estimated_fps:.2f}")
+
+        if end_process_times:
+            first_process = end_process_times[0][1]
+            last_process = end_process_times[-1][1]
+            estimated_processing_fps = len(end_process_times) / (last_process - first_process)
+            print(f"Estimated Processing FPS: {estimated_processing_fps:.2f}")
+
         exit(0)
