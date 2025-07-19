@@ -29,14 +29,20 @@ const hangupButton = document.getElementById('hangupButton');
 const outputCanvas = document.getElementById('output_canvas');
 const outputCanvasCtx = outputCanvas.getContext('2d');
 outputCanvas.style.transform = 'scaleX(-1)'; // Mirror the canvas to match the webcam display
-const drawingUtils = new DrawingUtils(outputCanvasCtx);
+
+const offscreenCanvas = document.createElement('canvas');
+const offscreenCanvasCtx = offscreenCanvas.getContext('2d');
+const drawingUtils = new DrawingUtils(offscreenCanvasCtx);
 
 function resizeCanvas() {
     const width = webcamDisplay.clientWidth;
     const height = webcamDisplay.clientHeight;
     outputCanvas.width = width;
     outputCanvas.height = height;
+    offscreenCanvas.width = width;
+    offscreenCanvas.height = height;
     outputCanvasCtx.clearRect(0, 0, width, height);
+    offscreenCanvasCtx.clearRect(0, 0, width, height);
 }
 
 async function startCapture() {
@@ -87,7 +93,7 @@ async function startCapture() {
         };
 
         dataChannel.onmessage = (event) => {
-            outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            offscreenCanvasCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
             const data = JSON.parse(event.data);
 
             const landmarks = data.landmarks;
@@ -95,6 +101,9 @@ async function startCapture() {
                 drawingUtils.drawLandmarks(landmarks, { radius: 5, lineWidth: 2, color: '#FFFFFF' });
                 drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 2, color: '#FFFFFF' });
             }
+
+            outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            outputCanvasCtx.drawImage(offscreenCanvas, 0, 0);
         };
 
         pc.onconnectionstatechange = async () => {
