@@ -203,7 +203,7 @@ while True:
 
     if results.pose_landmarks:
         landmarks = results.pose_landmarks
-        styled_connections = arms_exercise(landmarks)
+        styled_connections = None #arms_exercise(landmarks)
 
         if styled_connections:
             mp_drawing.draw_landmarks(
