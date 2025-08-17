@@ -81,7 +81,7 @@ class WebsocketSignalingServer:
         self.client_id = None
 
     async def connect(self):
-        self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws/server")
+        self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws/processing")
         await self.websocket.send(json.dumps({
             "type": "register",
             "server_id": self.id,
@@ -268,12 +268,12 @@ async def handle_track(track):
         except Exception as e:
             print("Error receiving track:", e)
 
-async def run(host, port):
+async def run(host, port, identifier):
     global loop
 
     loop = asyncio.get_event_loop()
 
-    signaling = WebsocketSignalingServer(host, port, "server_id")
+    signaling = WebsocketSignalingServer(host, port, identifier)
     pc_config = RTCConfiguration(
         iceServers=[
             RTCIceServer(
@@ -358,16 +358,16 @@ async def run(host, port):
         await pc.close()
 
 
-if __name__ == "__main__":
-    
+def start_processing_unit(identifier, signaling_host, signaling_port, input_queue=None, output_queue=None):
+
     time_offset = 0
 
     try:
-        asyncio.run(run(SIGNALING_IP, SIGNALING_PORT))
+        asyncio.run(run(signaling_host, signaling_port, identifier))
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        #exit(0)
+        #return
 
         print("Adding measurements to the test. Please wait...")
 
@@ -428,4 +428,15 @@ if __name__ == "__main__":
             estimated_processing_fps = len(end_process_times) / (last_process - first_process)
             print(f"Estimated Processing FPS: {estimated_processing_fps:.2f}")
 
-        exit(0)
+if __name__ == "__main__":
+    
+    import argparse
+
+    parser = argparse.ArgumentParser(description="WebRTC Processing Unit")
+    parser.add_argument("--host", type=str, default=SIGNALING_IP, help="Signaling server host")
+    parser.add_argument("--port", type=int, default=SIGNALING_PORT, help="Signaling server port")
+    parser.add_argument("--id", type=str, required=True, help="Unique identifier for the processing unit")
+
+    args = parser.parse_args()
+
+    start_processing_unit(args.id, args.host, args.port)

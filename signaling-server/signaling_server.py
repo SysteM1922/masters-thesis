@@ -5,8 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import argparse
 import uvicorn
-import json
-from server_utils import Client, ProcessingServer, SignalingServer
+from server_utils import Client, ProcessingUnit, SignalingServer, MultiServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,10 +53,16 @@ async def health_check():
 # WebSocket endpoint for server registration
 @app.websocket("/ws/server")
 async def websocket_server_endpoint(websocket: WebSocket):
-    # A unique server should be stored in order to other clients to connect to its processes
+    await websocket.accept()
+    server: Optional[MultiServer] = None
+
+    
+    
+@app.websocket("/ws/processing")
+async def websocket_processing_endpoint(websocket: WebSocket):
     """WebSocket endpoint for server registration."""
     await websocket.accept()
-    server: Optional[ProcessingServer] = None
+    server: Optional[ProcessingUnit] = None
     try:
         data = await websocket.receive_json()
 

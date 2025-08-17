@@ -62,48 +62,48 @@ class Client:
         except Exception as e:
             logger.error(f"Error handling message from client {self.id}: {e}")
 
-class ProcessingServer:
+class ProcessingUnit:
 
     def __init__(self, id: str, signaling_server: SignalingServer, websocket: WebSocket = None):
         self.id = id
         self.websocket = websocket
         self.signaling_server = signaling_server
-        self.clients: Dict[str, Client] = {}
+        self.client: Client = None
 
     def add_client(self, client: Client):
-        """Add a client to the processing server."""
+        """Add a client to the processing unit."""
         client.server = self  # Set the server reference in the client
-        self.clients[client.id] = client
-        logger.info(f"Client {client.id} added to Processing Server {self.id}.")
+        self.client = client
+        logger.info(f"Client {client.id} added to Processing Unit {self.id}.")
 
     def remove_client(self, client_id: str):
-        """Remove a client from the processing server."""
-        if client_id in self.clients:
-            del self.clients[client_id]
-            logger.info(f"Client {client_id} removed from Processing Server {self.id}.")
+        """Remove a client from the processing unit."""
+        if self.client and self.client.id == client_id:
+            self.client = None
+            logger.info(f"Client {client_id} removed from Processing Unit {self.id}.")
         else:
-            logger.warning(f"Client {client_id} not found in Processing Server {self.id}.")
+            logger.warning(f"Client {client_id} not found in Processing Unit {self.id}.")
 
     async def disconnect(self):
-        """Disconnect the processing server, closing all client connections."""
-        self.signaling_server.remove_processing_server(self.id)
-        for client in self.clients.values():
+        """Disconnect the processing unit, closing all client connections."""
+        self.signaling_server.remove_processing_unit(self.id)
+        if self.client:
             try:
-                await client.server_shutdown(self.id)
+                await self.client.server_shutdown(self.id)
             except Exception as e:
-                logger.error(f"Error disconnecting client {client.id}: {e}")
-        self.clients.clear()
-        logger.info(f"Processing Server {self.id} disconnected.")
+                logger.error(f"Error disconnecting client {self.client.id}: {e}")
+            self.client = None
+        logger.info(f"Processing Unit {self.id} disconnected.")
 
     async def signaling_shutdown(self):
         """Shutdown the signaling server, closing the websocket connection."""
         try:
             await Protocol.send_signaling_disconnect_message_to_server(self.websocket, self.id)
-            for client in self.clients.values():
-                await client.signaling_shutdown()
-            logger.info(f"Processing Server {self.id} signaling shutdown.")
+            if self.client:
+                await self.client.signaling_shutdown()
+            logger.info(f"Processing Unit {self.id} signaling shutdown.")
         except Exception as e:
-            logger.error(f"Error shutting down Processing Server {self.id}: {e}")
+            logger.error(f"Error shutting down Processing Unit {self.id}: {e}")
 
     async def accept_connection(self, message: dict):
         """Accept a connection from a client."""
@@ -115,41 +115,39 @@ class ProcessingServer:
             client = self.signaling_server.get_waiting_client(client_id)
             self.add_client(client)
             await Protocol.send_accept_connection_message(client.websocket, self.id)
-            logger.info(f"Accepted connection from client {client.id} on Processing Server {self.id}.")
-        
+            logger.info(f"Accepted connection from client {client.id} on Processing Unit {self.id}.")
+
         except Exception as e:
-            logger.error(f"Error accepting connection on Processing Server {self.id}: {e}")
+            logger.error(f"Error accepting connection on Processing Unit {self.id}: {e}")
 
     async def send_answer_to_client(self, client_id: str, sdp: str):
         """Send an answer to a client."""
         try:
-            client = self.clients.get(client_id)
-            if not client:
-                raise ValueError(f"Client {client_id} not found in Processing Server {self.id}.")
-            
-            await Protocol.send_answer_to_client(client.websocket, self.id, sdp)
-            logger.info(f"Sent answer to client {client_id} on Processing Server {self.id}.")
-        
+            if not self.client:
+                raise ValueError(f"Client {client_id} not found in Processing Unit {self.id}.")
+
+            await Protocol.send_answer_to_client(self.client.websocket, self.id, sdp)
+            logger.info(f"Sent answer to client {client_id} on Processing Unit {self.id}.")
+
         except Exception as e:
-            logger.error(f"Error sending answer to client {client_id} on Processing Server {self.id}: {e}")
+            logger.error(f"Error sending answer to client {client_id} on Processing Unit {self.id}: {e}")
 
     async def send_ice_candidate_to_client(self, client_id: str, candidate: dict):
         """Send an ICE candidate to a client."""
         try:
-            client = self.clients.get(client_id)
-            if not client:
-                raise ValueError(f"Client {client_id} not found in Processing Server {self.id}.")
-            
-            await Protocol.send_ice_candidate_to_client(client.websocket, self.id, candidate)
-            logger.info(f"Sent ICE candidate to client {client_id} on Processing Server {self.id}.")
+            if not self.client:
+                raise ValueError(f"Client {client_id} not found in Processing Unit {self.id}.")
+
+            await Protocol.send_ice_candidate_to_client(self.client.websocket, self.id, candidate)
+            logger.info(f"Sent ICE candidate to client {client_id} on Processing Unit {self.id}.")
         
         except Exception as e:
-            logger.error(f"Error sending ICE candidate to client {client_id} on Processing Server {self.id}: {e}")
+            logger.error(f"Error sending ICE candidate to client {client_id} on Processing Unit {self.id}: {e}")
 
     async def handle_message(self, message: dict):
         """Handle incoming messages from the processing server."""
         try:
-            logger.info(f"Received message from Processing Server {self.id}: {message.get('type', None)}")
+            logger.info(f"Received message from Processing Unit {self.id}: {message.get('type', None)}")
 
             match message.get("type"):
                 case "accept_connection":
@@ -166,25 +164,43 @@ class ProcessingServer:
         except Exception as e:
             logger.error(f"Error handling message from Processing Server {self.id}: {e}")
 
+class MultiServer:
+
+    def __init__(self):
+        self.servers: Dict[str, ProcessingUnit] = {}
+
+    def add_unit(self, server: ProcessingUnit):
+        """Add a processing unit to the multi-server."""
+        self.servers[server.id] = server
+        logger.info(f"Processing Unit {server.id} added to MultiServer.")
+
+    def remove_unit(self, unit_id: str):
+        """Remove a processing unit from the multi-server."""
+        if unit_id in self.servers:
+            del self.servers[unit_id]
+            logger.info(f"Processing Unit {unit_id} removed from MultiServer.")
+        else:
+            logger.warning(f"Processing Unit {unit_id} not found in MultiServer.")
+
 class SignalingServerStatus(Enum):
-    NO_PROCESSING_SERVERS = "Running with no Processing Servers"
+    NO_SERVERS = "Running with no Servers"
     RUNNING = "Running"
     SHUTTING_DOWN = "Shutting Down"
 
 class SignalingServer:
     
     def __init__(self):
-        self.processing_servers: List[ProcessingServer] = []
+        self.servers: List[MultiServer] = []
         self.waiting_clients: Dict[str, Client] = {}
-        self.status = SignalingServerStatus.NO_PROCESSING_SERVERS
+        self.status = SignalingServerStatus.NO_SERVERS
 
-    async def register_processing_server(self, server: ProcessingServer):
-        """Register a processing server."""
-        self.processing_servers.append(server)
+    async def register_multi_server(self, server: MultiServer):
+        """Register a server."""
+        self.servers.append(server)
         await Protocol.send_server_registration_message(server.websocket)
-        logger.info(f"Processing Server {server.id} registered.")
+        logger.info(f"Server {server.id} registered.")
 
-        if self.status == SignalingServerStatus.NO_PROCESSING_SERVERS:
+        if self.status == SignalingServerStatus.NO_SERVERS:
             self.status = SignalingServerStatus.RUNNING
 
     def get_waiting_client(self, client_id: str) -> Client | None:
@@ -195,14 +211,14 @@ class SignalingServer:
         """Register a client to a processing server."""
         await Protocol.send_client_registration_message(client.websocket)
 
-        if self.status == SignalingServerStatus.NO_PROCESSING_SERVERS:
-            await Protocol.send_error_message(client.websocket, "No Processing Servers available to register the client.")
-            logger.error("No Processing Servers available to register the client.")
+        if self.status == SignalingServerStatus.NO_SERVERS:
+            await Protocol.send_error_message(client.websocket, "No Servers available to register the client.")
+            logger.error("No Servers available to register the client.")
             return False
 
-        # order processing_servers by number of clients to find the least loaded server
-        self.processing_servers.sort(key=lambda x: len(x.clients))
-        server = self.processing_servers[0]
+        # order servers by number of clients to find the least loaded server
+        self.servers.sort(key=lambda x: len(x.clients))
+        server = self.servers[0]
 
         self.waiting_clients[client.id] = client
 
