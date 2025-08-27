@@ -202,6 +202,58 @@ def arms_exercise(landmarks):
     )
     return styled_connections
 
+angle = 0
+leg_exercise_reps = 0
+leg_exercise_started = None
+start_clock = 0
+
+def leg_exercise(landmarks, right_leg: bool):
+    global angle, leg_exercise_reps, leg_exercise_started, start_clock
+
+    if time.time() - start_clock < 1:
+        return utils.get_colored_style(
+        left_leg=utils.GREEN_STYLE if right_leg else utils.WHITE_STYLE,
+        right_leg=utils.GREEN_STYLE if not right_leg else utils.WHITE_STYLE
+        )
+
+
+    hip, knee, ankle = (23, 25, 27) if right_leg else (24, 26, 28)
+    if landmarks[hip]['visibility'] > 0.5 and landmarks[knee]['visibility'] > 0.5 and landmarks[ankle]['visibility'] > 0.5:
+        angle = utils.get_angle_3_points(
+            landmarks[hip], landmarks[knee], landmarks[ankle]
+        )
+        angle = int(angle)
+    
+    else:
+        angle = 0
+        leg_exercise_started = None
+        return utils.get_colored_style(
+            right_leg=utils.WHITE_STYLE,
+            left_leg=utils.WHITE_STYLE,
+        )
+
+    leg_style = utils.WHITE_STYLE
+
+    if angle > 170 and leg_exercise_started is not None:
+
+        if not leg_exercise_started:
+            leg_style = utils.GREEN_STYLE
+            leg_exercise_reps += 1
+            start_clock = time.time()
+
+        leg_exercise_started = True
+    elif angle < 140:
+        leg_exercise_started = False
+    else:
+        leg_style = utils.WHITE_STYLE
+
+    styled_connections = utils.get_colored_style(
+        left_leg=leg_style if right_leg else utils.WHITE_STYLE,
+        right_leg=leg_style if not right_leg else utils.WHITE_STYLE
+    )
+
+    return styled_connections
+
 class WebsocketSignalingClient:
     def __init__(self, host, port, id):
         self.host = host
@@ -336,7 +388,9 @@ def display_image():
     try:
         while not stop_display.is_set():
             resume_display.wait()  # Wait until the display is resumed
-            cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(actual_frame, f"Angle: {angle}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            #cv2.putText(actual_frame, f"Leg Repetitions: {leg_exercise_reps}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            #cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.imshow("MediaPipe Pose", actual_frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 stop_display.set()
@@ -389,7 +443,7 @@ class VideoTrack(VideoStreamTrack):
     
     async def process_frame(self, message):
         arrival_time = time.time()
-        global arms_exercise_reps, arrival_times, actual_frame, resume_display
+        global arms_exercise_reps, arrival_times, actual_frame, resume_display, angle
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
             #print(self.fps, "fps")
@@ -407,7 +461,8 @@ class VideoTrack(VideoStreamTrack):
             if pts == frame_count:
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    styled_connections = None #arms_exercise(deepcopy(landmarks))
+                    #styled_connections = None #arms_exercise(deepcopy(landmarks))
+                    styled_connections = leg_exercise(landmarks, right_leg=True)
                     if styled_connections:
                         utils.new_draw_landmarks(
                             image=frame,
