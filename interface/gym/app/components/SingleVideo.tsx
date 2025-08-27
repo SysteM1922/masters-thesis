@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 
@@ -46,6 +46,8 @@ export default function SingleVideo() {
 
     let drawingUtils: DrawingUtils;
 
+    const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
     useEffect(() => {
         pc = new RTCPeerConnection(pc_config);
 
@@ -64,6 +66,35 @@ export default function SingleVideo() {
         }
 
         drawingUtils = new DrawingUtils(offScreenCanvasCtx);
+
+        const setupResizeObserver = () => {
+            if (webCamDisplay && !resizeObserverRef.current) {
+                resizeObserverRef.current = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.target === webCamDisplay) {
+                            resizeCanvas();
+                        }
+                    }
+                });
+                resizeObserverRef.current.observe(webCamDisplay);
+            }
+        };
+
+        const handleWindowResize = () => {
+            resizeCanvas();
+        };
+
+        window.addEventListener("resize", handleWindowResize);
+        setupResizeObserver();
+
+        return () => {
+            window.removeEventListener("resize", handleWindowResize);
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+        };
+
     }, []);
 
     const resizeCanvas = () => {
@@ -196,7 +227,7 @@ export default function SingleVideo() {
         <main className="flex h-screen flex-col items-center justify-center p-5">
             <div className="flex flex-col min-w-full min-h-full gap-5">
                 <div className="flex flex-2 w-full justify-center align-center gap-2">
-                    <div className="flex-1 align-center">
+                    <div className="flex-1 align-center relative">
                         <video id="webCamDisplay" className="object-contain bg-amber-100" style={{ transform: 'scaleX(-1)' }} autoPlay playsInline muted></video>
                         <canvas className="absolute top-0 left-0 pointer-events-none" style={{ transform: 'scaleX(-1)' }} id="output_canvas"></canvas>
                     </div>
