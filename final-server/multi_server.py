@@ -21,9 +21,14 @@ def summon_processing_unit():
         actual_id += 1
     ids_pool.append(actual_id)
 
-    subprocess.Popen(
-        ["py", "processing_unit.py", "--host", SIGNALING_IP, "--port", SIGNALING_PORT, "--id", SERVER_ID + "-" + str(actual_id)]
-    )
+    if os.name == "nt":
+        subprocess.Popen(
+            ["py", "processing_unit.py", "--host", SIGNALING_IP, "--port", SIGNALING_PORT, "--id", SERVER_ID + "-" + str(actual_id)]
+        )
+    else:
+        subprocess.Popen(
+            ["python3", "processing_unit.py", "--host", SIGNALING_IP, "--port", SIGNALING_PORT, "--id", SERVER_ID + "-" + str(actual_id)]
+        )
 
 def processing_unit_off(unit_id):
     global ids_pool, actual_id
