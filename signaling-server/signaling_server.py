@@ -56,19 +56,13 @@ async def websocket_server_endpoint(websocket: WebSocket):
     await websocket.accept()
     server: Optional[MultiServer] = None
 
-    
-    
-@app.websocket("/ws/processing")
-async def websocket_processing_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for server registration."""
-    await websocket.accept()
-    server: Optional[ProcessingUnit] = None
     try:
-        data = await websocket.receive_json()
+        data = await  websocket.receive_json()
 
-        server = await signaling_server.handle_server_registration(data, signaling_server, websocket)
+        server = await signaling_server.handle_multi_server_registration(data, signaling_server, websocket)
 
         while True:
+
             data = await websocket.receive_json()
 
             await server.handle_message(data)
@@ -79,10 +73,36 @@ async def websocket_processing_endpoint(websocket: WebSocket):
         else:
             logger.info("Server disconnected without registration")
     except Exception as e:
-        logger.error(f"Error in WebSocket: {e}")
+        logger.error(f"Error in WebSocket Server {server.id}: {e}")
     finally:
         if server:
             await server.disconnect()
+
+@app.websocket("/ws/processing")
+async def websocket_processing_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for server registration."""
+    await websocket.accept()
+    processing_unit: Optional[ProcessingUnit] = None
+    try:
+        data = await websocket.receive_json()
+
+        processing_unit = await signaling_server.handle_processing_unit_registration(data, signaling_server, websocket)
+
+        while True:
+            data = await websocket.receive_json()
+
+            await processing_unit.handle_message(data)
+
+    except WebSocketDisconnect:
+        if processing_unit:
+            logger.info(f"Processing Unit {processing_unit.id} disconnected")
+        else:
+            logger.info("Processing Unit disconnected without registration")
+    except Exception as e:
+        logger.error(f"Error in WebSocket Processing Unit {processing_unit.id}: {e}")
+    finally:
+        if processing_unit:
+            await processing_unit.disconnect()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -102,7 +122,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 await client.handle_message(data)
         else:
-            logger.info(f"Client {client.id} could not be registered. No Processing Servers available.")
+            logger.info(f"Client {client.id} could not be registered. No Servers available.")
             await client.signaling_shutdown()
 
     except WebSocketDisconnect:
@@ -112,7 +132,7 @@ async def websocket_endpoint(websocket: WebSocket):
         else:
             logger.info("Client disconnected without registration")
     except Exception as e:
-        logger.error(f"Error in WebSocket {client.id}: {e}")
+        logger.error(f"Error in WebSocket Client {client.id}: {e}")
 
 def main():
 
