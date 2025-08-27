@@ -86,14 +86,14 @@ class ProcessingUnit:
 
     async def disconnect(self):
         """Disconnect the processing unit, closing all client connections."""
-        self.signaling_server.remove_processing_unit(self.id)
+        await self.signaling_server.remove_processing_unit(self.id)
         if self.client:
             try:
                 await self.client.unit_shutdown(self.id)
             except Exception as e:
                 logger.error(f"Error disconnecting client {self.client.id}: {e}")
             self.client = None
-        logger.info(f"Processing Unit {self.id} disconnected.")
+        logger.info(f"Processing Unit {self.id} disconnected.")    
 
     async def signaling_shutdown(self):
         """Shutdown the signaling server, closing the websocket connection."""
@@ -179,10 +179,13 @@ class MultiServer:
         self.processing_units[unit.id] = unit
         logger.info(f"Processing Unit {unit.id} added to MultiServer.")
 
-    def remove_unit(self, unit_id: str):
+    async def remove_unit(self, unit_id: str):
         """Remove a processing unit from the multi-server."""
         if unit_id in self.processing_units:
-            del self.processing_units[unit_id]
+            client = self.processing_units.pop(unit_id).client
+            await Protocol.send_server_unit_disconnect(self.websocket, unit_id)
+            if client:
+                await client.unit_shutdown(unit_id)
             logger.info(f"Processing Unit {unit_id} removed from MultiServer.")
         else:
             logger.warning(f"Processing Unit {unit_id} not found in MultiServer.")
@@ -190,7 +193,7 @@ class MultiServer:
     async def disconnect(self):
         """Disconnect the multi-server and all its processing units."""
         for unit in self.processing_units.values():
-            await unit.disconnect()
+            await unit.client.disconnect() if unit.client else None
 
         del self.signaling_server.servers[self.id]
         self.signaling_server.check_multi_server_availability()
@@ -206,10 +209,6 @@ class MultiServer:
             logger.info(f"MultiServer {self.id} signaling shutdown.")
         except Exception as e:
             logger.error(f"Error shutting down MultiServer {self.id}: {e}")
-
-    async def handle_message(self, message: dict):
-        print(message)
-        pass
 
 class SignalingServerStatus(Enum):
     NO_SERVERS = "Running with no Servers"
@@ -275,11 +274,17 @@ class SignalingServer:
 
         await self.assign_processing_unit_to_client(unit)
 
-    def remove_processing_unit(self, unit_id: str):
-        for server in self.servers.values():
-            if unit_id in server.processing_units:
-                server.remove_unit(unit_id)
-                logger.info(f"Processing Unit {unit_id} removed.")
+    async def remove_processing_unit(self, unit_id: str):
+        server_id = unit_id.split("-")[0]
+        if server_id not in self.servers:
+            return
+
+        server = self.servers[server_id]
+        if unit_id in server.processing_units:
+            await server.remove_unit(unit_id)
+            logger.info(f"Processing Unit {unit_id} removed.")
+            return
+        
         logger.warning(f"Processing Unit {unit_id} not found.")
 
     async def handle_processing_unit_registration(self, message: dict, signaling_server: SignalingServer, websocket: WebSocket) -> ProcessingUnit:
