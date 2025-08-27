@@ -41,7 +41,7 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
 )
 
 async def send_results(data, frame_pts):
@@ -84,7 +84,7 @@ class WebsocketSignalingServer:
         self.websocket = await websockets.connect(f"ws://{self.host}:{self.port}/ws/processing")
         await self.websocket.send(json.dumps({
             "type": "register",
-            "server_id": self.id,
+            "unit_id": self.id,
         }))
 
     async def send(self, obj):
@@ -151,9 +151,9 @@ class WebsocketSignalingServer:
                 match message.get("type", None):
                     case "register":
                         if message.get("registered"):
-                            print(f"Server {self.id} registered successfully")
+                            print(f"Unit {self.id} registered successfully")
                         else:
-                            print(f"Server {self.id} registration failed")
+                            print(f"Unit {self.id} registration failed")
                             return
 
                     case "connect":
@@ -341,7 +341,6 @@ async def run(host, port, identifier):
                 
             elif pc.connectionState in ["closed", "failed", "disconnected"]:
                 print("WebRTC connection ended:", pc.connectionState)
-                raise MediaStreamError("WebRTC connection ended")
 
         await signaling.handle_messages(pc)
     
@@ -358,7 +357,7 @@ async def run(host, port, identifier):
         await pc.close()
 
 
-def start_processing_unit(identifier, signaling_host, signaling_port, input_queue=None, output_queue=None):
+def start_processing_unit(identifier, signaling_host, signaling_port):
 
     time_offset = 0
 
