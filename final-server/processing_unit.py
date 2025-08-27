@@ -41,7 +41,8 @@ send_times = []
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.CPU, # Use GPU if available (only on Linux)
+    delegate=mp.tasks.BaseOptions.Delegate.GPU if os.name == "posix" else mp.tasks.BaseOptions.Delegate.CPU,
+    # Use GPU if available (only on Linux)
 )
 
 async def send_results(data, frame_pts):
