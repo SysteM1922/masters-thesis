@@ -153,11 +153,11 @@ def get_colored_style(right_arm: DrawingSpec = None, left_arm: DrawingSpec = Non
     colored_style = _DEFAULT_POSE_LANDMARK_DRAWSPEC.copy()
 
     if right_arm:
-        for connection in _LEFT_ARM_AND_HAND_CONNECTIONS:
+        for connection in _RIGHT_ARM_AND_HAND_CONNECTIONS:
             colored_style[connection] = right_arm
 
     if left_arm:
-        for connection in _RIGHT_ARM_AND_HAND_CONNECTIONS:
+        for connection in _LEFT_ARM_AND_HAND_CONNECTIONS:
             colored_style[connection] = left_arm
 
     if torso:
@@ -231,6 +231,20 @@ def get_angle_2_points_x_axis(p1: dict, p2: dict) -> Optional[float]:
     dy = p2['y'] - p1['y']
     angle = math.atan2(dy, dx)
     return math.degrees(angle) if not math.isnan(angle) else None
+
+def get_distance_2_points(p1: dict, p2: dict) -> float:
+    """Calculate the distance between two points.
+
+    Args:
+        p1: The first point.
+        p2: The second point.
+
+    Returns:
+        The distance between the two points.
+    """
+    dx = p2['x'] - p1['x']
+    dy = p2['y'] - p1['y']
+    return math.sqrt(dx ** 2 + dy ** 2)
 
 import numpy as np
 import cv2

@@ -254,6 +254,121 @@ def leg_exercise(landmarks, right_leg: bool):
 
     return styled_connections
 
+correct_steps = 0
+right_arm_angle_amp = 0
+left_arm_angle_amp = 0
+right_arm_rep_state = False
+left_arm_rep_state = False
+
+def walk_exercise(landmarks):
+
+    global correct_steps, right_arm_angle_amp, left_arm_angle_amp, right_arm_rep_state, left_arm_rep_state, start_clock
+
+    if landmarks[23]['visibility'] < 0.5 or landmarks[24]['visibility'] < 0.5 or landmarks[25]['visibility'] < 0.5 or landmarks[26]['visibility'] < 0.5 or landmarks[27]['visibility'] < 0.5 or landmarks[28]['visibility'] < 0.5:
+        right_arm_angle_amp = 0
+        left_arm_angle_amp = 0
+        return None
+
+    right_arm_angle_amp = utils.get_angle_3_points(
+        landmarks[11], landmarks[13], landmarks[15]
+    )
+
+    left_arm_angle_amp = utils.get_angle_3_points(
+        landmarks[12], landmarks[14], landmarks[16]
+    )
+
+    right_shoulder = landmarks[11]
+    left_shoulder = landmarks[12]
+
+    right_wrist = landmarks[15]
+    left_wrist = landmarks[16]
+
+    right_knee_y = landmarks[25]['y']
+    left_knee_y = landmarks[26]['y']
+
+    right_ankle_y = landmarks[27]['y']
+    left_ankle_y = landmarks[28]['y']
+
+    right_hip_x = landmarks[23]['x']
+    left_hip_x = landmarks[24]['x']
+
+    if right_wrist["x"] < right_hip_x:
+        if right_arm_angle_amp < 140:
+        
+            left_arm_rep_state = False
+
+            if time.time() - start_clock < 1:
+                if right_arm_rep_state:
+                
+                    return utils.get_colored_style(
+                        left_arm=utils.GREEN_STYLE,
+                        right_leg=utils.GREEN_STYLE,
+                    )
+
+            elif right_arm_rep_state:
+                return None
+
+            right_arm_style = utils.RED_STYLE
+            left_leg_style = utils.RED_STYLE
+
+            if utils.get_distance_2_points(right_wrist, left_shoulder) < utils.get_distance_2_points(right_wrist, right_shoulder):
+                right_arm_style = utils.GREEN_STYLE
+
+            if left_knee_y + 0.02 < right_knee_y and left_ankle_y + 0.02 < right_ankle_y:
+                left_leg_style = utils.GREEN_STYLE
+
+            if left_leg_style == utils.GREEN_STYLE and right_arm_style == utils.GREEN_STYLE:
+                correct_steps += 1
+                right_arm_rep_state = True
+                start_clock = time.time()
+
+            return utils.get_colored_style(
+                left_arm=right_arm_style,
+                right_leg=left_leg_style
+            )
+    elif left_knee_y + 0.02 > right_knee_y:
+        right_arm_rep_state = False
+
+    if left_wrist["x"] > left_hip_x:
+        if left_arm_angle_amp < 140:
+
+            right_arm_rep_state = False
+
+            if time.time() - start_clock < 1:
+                if left_arm_rep_state:
+
+                    return utils.get_colored_style(
+                        right_arm=utils.GREEN_STYLE,
+                        left_leg=utils.GREEN_STYLE,
+                    )
+
+            elif left_arm_rep_state:
+                return None
+
+            left_arm_style = utils.RED_STYLE
+            right_leg_style = utils.RED_STYLE
+
+            if utils.get_distance_2_points(left_wrist, right_shoulder) < utils.get_distance_2_points(left_wrist, left_shoulder):
+                left_arm_style = utils.GREEN_STYLE
+
+            if right_knee_y + 0.02 < left_knee_y and right_ankle_y + 0.02 < left_ankle_y:
+                right_leg_style = utils.GREEN_STYLE
+
+            if left_arm_style == utils.GREEN_STYLE and right_leg_style == utils.GREEN_STYLE:
+                correct_steps += 1
+                left_arm_rep_state = True
+                start_clock = time.time()
+
+            return utils.get_colored_style(
+                right_arm=left_arm_style,
+                left_leg=right_leg_style
+            )
+
+    elif right_knee_y + 0.02 > left_knee_y:
+        left_arm_rep_state = False
+
+    return None
+
 class WebsocketSignalingClient:
     def __init__(self, host, port, id):
         self.host = host
@@ -388,9 +503,9 @@ def display_image():
     try:
         while not stop_display.is_set():
             resume_display.wait()  # Wait until the display is resumed
-            #cv2.putText(actual_frame, f"Angle: {angle}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             #cv2.putText(actual_frame, f"Leg Repetitions: {leg_exercise_reps}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            #cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(actual_frame, f"Steps: {correct_steps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("MediaPipe Pose", actual_frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 stop_display.set()
@@ -461,8 +576,9 @@ class VideoTrack(VideoStreamTrack):
             if pts == frame_count:
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    #styled_connections = None #arms_exercise(deepcopy(landmarks))
-                    styled_connections = leg_exercise(landmarks, right_leg=True)
+                    styled_connections = arms_exercise(deepcopy(landmarks))
+                    #styled_connections = leg_exercise(landmarks, right_leg=True)
+                    #styled_connections = walk_exercise(landmarks)
                     if styled_connections:
                         utils.new_draw_landmarks(
                             image=frame,
