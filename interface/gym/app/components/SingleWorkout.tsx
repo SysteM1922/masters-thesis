@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
+import { BrowserRouter, Routes, Route, redirect } from 'react-router-dom';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -17,7 +18,7 @@ const pc_config: RTCConfiguration = {
     rtcpMuxPolicy: "require" as RTCRtcpMuxPolicy
 };
 
-export default function SingleVideo() {
+export default function SingleWorkout() {
 
     let signaling: WebSocketSignalingClient;
 
@@ -31,18 +32,6 @@ export default function SingleVideo() {
 
     let offScreenCanvas: HTMLCanvasElement;
     let offScreenCanvasCtx: CanvasRenderingContext2D;
-
-    let topCanvas: HTMLCanvasElement | null = null;
-    let topCanvasCtx: CanvasRenderingContext2D | null = null;
-
-    let offScreenTopCanvas: HTMLCanvasElement | null = null;
-    let offScreenTopCanvasCtx: CanvasRenderingContext2D | null = null;
-
-    let bottomCanvas: HTMLCanvasElement | null = null;
-    let bottomCanvasCtx: CanvasRenderingContext2D | null = null;
-
-    let offScreenBottomCanvas: HTMLCanvasElement | null = null;
-    let offScreenBottomCanvasCtx: CanvasRenderingContext2D | null = null;
 
     let drawingUtils: DrawingUtils;
 
@@ -137,7 +126,7 @@ export default function SingleVideo() {
 
             webCamDisplay!.srcObject = displayStream;
 
-            webCamDisplay!.addEventListener('loadedmetadata', () => {    
+            webCamDisplay!.addEventListener('loadedmetadata', () => {
                 resizeCanvas();
             });
 
@@ -177,6 +166,7 @@ export default function SingleVideo() {
                 const data = JSON.parse(event.data);
 
                 const landmarks = data.landmarks;
+                const style = data.style;
                 if (landmarks && landmarks.length > 0) {
                     drawingUtils.drawLandmarks(landmarks, { radius: 5, lineWidth: 2, color: '#FFFFFF' });
                     drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 2, color: '#FFFFFF' });
@@ -223,24 +213,81 @@ export default function SingleVideo() {
         }
     };
 
-    return (
-        <main className="flex h-screen flex-col items-center justify-center p-5">
-            <div className="flex flex-col min-w-full min-h-full gap-5">
-                <div className="flex flex-2 w-full justify-center align-center gap-2">
-                    <div className="flex-1 align-center relative">
-                        <video id="webCamDisplay" className="object-contain bg-amber-100" style={{ transform: 'scaleX(-1)' }} autoPlay playsInline muted></video>
-                        <canvas className="absolute top-0 left-0 pointer-events-none" style={{ transform: 'scaleX(-1)' }} id="output_canvas"></canvas>
-                    </div>
-                    <div className="flex flex-col w-1/6 h-full gap-2">
-                        <canvas id="topCanvas" className="flex-1 bg-black"></canvas>
-                        <canvas id="bottomCanvas" className="flex-1 bg-black"></canvas>
+    function BasePageLayout({ children }: { children: React.ReactNode | null }) {
+        return (
+            <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
+                <div className="flex justify-center gap-2 relative overflow-hidden">
+                    <div className='flex relative w-full h-full justify-center'>
+                        <div className='flex relative justify-center'>
+                            <video
+                                id="webCamDisplay"
+                                className="max-w-full max-h-full object-contain"
+                                style={{ transform: 'scaleX(-1)' }}
+                                autoPlay
+                                playsInline
+                                muted
+                            ></video>
+                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none">
+                                {children}
+                            </div>
+                            <canvas
+                                className="absolute max-w-full max-h-full object-contain pointer-events-none"
+                                style={{ transform: 'scaleX(-1)' }}
+                                id="output_canvas"
+                            ></canvas>
+                        </div>
                     </div>
                 </div>
-                <div id="buttons" className="flex justify-center items-center w-full gap-10">
+                <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
                     <button className="btn btn-soft" id="callButton" onClick={startCapture}>Call</button>
                     <button className="btn btn-soft" id="hangupButton" onClick={stopCapture}>Hang Up</button>
                 </div>
-            </div>
-        </main>
+            </main>
+        );
+    }
+
+    function ArmsExercise() {
+        return (
+            <BasePageLayout children={
+                <main className='w-full h-full'>
+                    <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+
+                        <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto">
+                            <div className="text-sm font-semibold mb-1">Informações</div>
+                            <div className="text-xs">
+                                <p>Rep: 5/10</p>
+                                <p>Set: 2/3</p>
+                                <p>Form: 85%</p>
+                            </div>
+                        </div>
+
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </main>
+            } />
+        )
+    }
+
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<ArmsExercise />} />
+                <Route path="/arms" element={<ArmsExercise />} />
+            </Routes>
+        </BrowserRouter>
     );
 }

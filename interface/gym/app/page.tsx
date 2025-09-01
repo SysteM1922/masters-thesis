@@ -7,7 +7,7 @@ import { useEffect } from "react";
 export default function Root() {
 
   useEffect(() => {
-    redirect("/single-video");
+    redirect("/workout");
   }, []);
 
   return (
