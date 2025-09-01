@@ -60,6 +60,7 @@ def handle_results(results, _, frame_pts):
 
     data = json.dumps({
         "landmarks": [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else [],
+        "style": results.style if results.style else None,
         "frame_count": frame_pts
     })
     asyncio.run_coroutine_threadsafe(send_results(data, frame_pts), loop)
