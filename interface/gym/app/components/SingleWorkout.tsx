@@ -8,10 +8,17 @@ import { BrowserRouter, Routes, Route, redirect } from 'react-router-dom';
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
 
+const TURN_SERVER_HOST: string = process.env.TURN_SERVER_HOST ?? "";
+const TURN_SERVER_PORT: number = parseInt(process.env.TURN_SERVER_PORT ?? "0");
+const TURN_SERVER_USERNAME: string = process.env.TURN_SERVER_USERNAME ?? "";
+const TURN_SERVER_CREDENTIAL: string = process.env.TURN_SERVER_CREDENTIAL ?? "";
+
 const pc_config: RTCConfiguration = {
     iceServers: [
         {
-            urls: "stun:stun.l.google.com:19302"
+            urls: `turn:${TURN_SERVER_HOST}:${TURN_SERVER_PORT}`,
+            username: TURN_SERVER_USERNAME,
+            credential: TURN_SERVER_CREDENTIAL
         }
     ],
     bundlePolicy: "max-bundle" as RTCBundlePolicy,
@@ -241,6 +248,9 @@ export default function SingleWorkout() {
                 <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
                     <button className="btn btn-soft" id="callButton" onClick={startCapture}>Call</button>
                     <button className="btn btn-soft" id="hangupButton" onClick={stopCapture}>Hang Up</button>
+                    <button className="btn btn-soft" id="reloadButton" onClick={() => window.location.href = '/'}>
+                        Reload
+                    </button>
                 </div>
             </main>
         );
