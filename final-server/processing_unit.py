@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from api_interface import TestsAPI
 from utils import get_time_offset
+from exercises.arms_exercise import arms_exercise
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -58,9 +59,14 @@ def handle_results(results, _, frame_pts):
     global end_process_times
     end_process_times.append((frame_pts, time.time()))
 
+    # dummy for arms_exercise
+    landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else []
+    styled_connections, new_rep = arms_exercise(landmarks)
+
     data = json.dumps({
-        "landmarks": [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else [],
-        "style": results.style if results.style else None,
+        "landmarks": landmarks,
+        "style": styled_connections,
+        "new_rep": new_rep,
         "frame_count": frame_pts
     })
     asyncio.run_coroutine_threadsafe(send_results(data, frame_pts), loop)
@@ -280,6 +286,11 @@ async def run(host, port, identifier):
         iceServers=[
             RTCIceServer(
                 urls="stun:stun.l.google.com:19302",
+            ),
+            RTCIceServer(
+                urls="turn:turn.server.com:3478",
+                username="user",
+                credential="pass"
             )
         ],
         bundlePolicy="max-bundle",
