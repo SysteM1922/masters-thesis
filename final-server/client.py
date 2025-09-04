@@ -442,10 +442,10 @@ class WebsocketSignalingClient:
                             break
                         
                     case "connecting":
-                        print(f"Connecting to server: {message.get('server_id')}")
+                        print(f"Connecting to server: {message.get('unit_id')}")
     
                     case "accepted_connection":
-                        print(f"Connection accepted by server: {message.get('server_id')}")
+                        print(f"Connection accepted by server: {message.get('unit_id')}")
                         await self.send_offer(pc)
     
                     case "answer":
@@ -469,7 +469,7 @@ class WebsocketSignalingClient:
                         break
 
                     case "disconnect":
-                        print(f"Server disconnected: {message.get('server_id')}")
+                        print(f"Server disconnected: {message.get('unit_id')}")
                         break
     
                     case "error":
