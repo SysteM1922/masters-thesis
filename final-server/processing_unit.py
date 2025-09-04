@@ -23,6 +23,11 @@ load_dotenv("../.env")
 SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
 SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
 
+TURN_SERVER_HOST = os.getenv("TURN_SERVER_HOST")
+TURN_SERVER_PORT = os.getenv("TURN_SERVER_PORT")
+TURN_SERVER_USERNAME = os.getenv("TURN_SERVER_USERNAME")
+TURN_SERVER_CREDENTIAL = os.getenv("TURN_SERVER_CREDENTIAL")
+
 test_id = None
 
 last_frame = None
@@ -285,12 +290,9 @@ async def run(host, port, identifier):
     pc_config = RTCConfiguration(
         iceServers=[
             RTCIceServer(
-                urls="stun:stun.l.google.com:19302",
-            ),
-            RTCIceServer(
-                urls="turn:turn.server.com:3478",
-                username="user",
-                credential="pass"
+                urls=f"turn:{TURN_SERVER_HOST}:{TURN_SERVER_PORT}",
+                username=TURN_SERVER_USERNAME,
+                credential=TURN_SERVER_CREDENTIAL
             )
         ],
         bundlePolicy="max-bundle",
