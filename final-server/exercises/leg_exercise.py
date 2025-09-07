@@ -2,18 +2,19 @@ import utils
 import time
 
 angle = 0
-leg_exercise_reps = 0
 leg_exercise_started = None
 start_clock = 0
 
 def leg_exercise(landmarks, right_leg: bool):
     global angle, leg_exercise_reps, leg_exercise_started, start_clock
 
+    new_rep = False
+
     if time.time() - start_clock < 1:
-        return utils.get_colored_style(
-        left_leg=utils.GREEN_STYLE if right_leg else utils.WHITE_STYLE,
-        right_leg=utils.GREEN_STYLE if not right_leg else utils.WHITE_STYLE
-        )
+        return {
+            "left_leg": True if right_leg else None,
+            "right_leg": True if not right_leg else None,
+        }, new_rep
 
 
     hip, knee, ankle = (23, 25, 27) if right_leg else (24, 26, 28)
@@ -26,29 +27,29 @@ def leg_exercise(landmarks, right_leg: bool):
     else:
         angle = 0
         leg_exercise_started = None
-        return utils.get_colored_style(
-            right_leg=utils.WHITE_STYLE,
-            left_leg=utils.WHITE_STYLE,
-        )
+        return {
+            "left_leg": None,
+            "right_leg": None,
+        }, new_rep
 
-    leg_style = utils.WHITE_STYLE
+    leg_style = None
 
     if angle > 170 and leg_exercise_started is not None:
 
         if not leg_exercise_started:
-            leg_style = utils.GREEN_STYLE
-            leg_exercise_reps += 1
+            leg_style = True
+            new_rep = True
             start_clock = time.time()
 
         leg_exercise_started = True
     elif angle < 140:
         leg_exercise_started = False
     else:
-        leg_style = utils.WHITE_STYLE
+        leg_style = None
 
-    styled_connections = utils.get_colored_style(
-        left_leg=leg_style if right_leg else utils.WHITE_STYLE,
-        right_leg=leg_style if not right_leg else utils.WHITE_STYLE
-    )
+    styled_connections = {
+        "left_leg": leg_style if right_leg else None,
+        "right_leg": leg_style if not right_leg else None
+    }
 
-    return styled_connections
+    return styled_connections, new_rep
