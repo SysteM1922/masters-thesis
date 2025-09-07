@@ -6,7 +6,7 @@ leg_exercise_started = None
 start_clock = 0
 
 def leg_exercise(landmarks, right_leg: bool):
-    global angle, leg_exercise_reps, leg_exercise_started, start_clock
+    global angle, leg_exercise_started, start_clock
 
     new_rep = False
 

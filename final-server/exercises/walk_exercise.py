@@ -1,7 +1,6 @@
 import utils
 import time
 
-correct_steps = 0
 right_arm_angle_amp = 0
 left_arm_angle_amp = 0
 right_arm_rep_state = False
@@ -10,7 +9,9 @@ start_clock = 0
 
 def walk_exercise(landmarks):
 
-    global correct_steps, right_arm_angle_amp, left_arm_angle_amp, right_arm_rep_state, left_arm_rep_state, start_clock
+    global right_arm_angle_amp, left_arm_angle_amp, right_arm_rep_state, left_arm_rep_state, start_clock
+
+    new_rep = False
 
     if landmarks[23]['visibility'] < 0.5 or landmarks[24]['visibility'] < 0.5 or landmarks[25]['visibility'] < 0.5 or landmarks[26]['visibility'] < 0.5 or landmarks[27]['visibility'] < 0.5 or landmarks[28]['visibility'] < 0.5:
         right_arm_angle_amp = 0
@@ -48,32 +49,33 @@ def walk_exercise(landmarks):
             if time.time() - start_clock < 1:
                 if right_arm_rep_state:
                 
-                    return utils.get_colored_style(
-                        left_arm=utils.GREEN_STYLE,
-                        right_leg=utils.GREEN_STYLE,
-                    )
+                    return {
+                        "left_arm": True,
+                        "right_leg": True,
+                    }, new_rep
 
             elif right_arm_rep_state:
                 return None
 
-            right_arm_style = utils.RED_STYLE
-            left_leg_style = utils.RED_STYLE
+            right_arm_style = False
+            left_leg_style = False
 
             if utils.get_distance_2_points(right_wrist, left_shoulder) < utils.get_distance_2_points(right_wrist, right_shoulder):
-                right_arm_style = utils.GREEN_STYLE
+                right_arm_style = True
 
             if left_knee_y + 0.02 < right_knee_y and left_ankle_y + 0.02 < right_ankle_y:
-                left_leg_style = utils.GREEN_STYLE
+                left_leg_style = True
 
-            if left_leg_style == utils.GREEN_STYLE and right_arm_style == utils.GREEN_STYLE:
-                correct_steps += 1
+            if left_leg_style and right_arm_style:
+                new_rep = True
                 right_arm_rep_state = True
                 start_clock = time.time()
 
-            return utils.get_colored_style(
-                left_arm=right_arm_style,
-                right_leg=left_leg_style
-            )
+            return {
+                "left_arm": right_arm_style,
+                "right_leg": left_leg_style
+            }, new_rep
+        
     elif left_knee_y + 0.02 > right_knee_y:
         right_arm_rep_state = False
 
@@ -85,34 +87,34 @@ def walk_exercise(landmarks):
             if time.time() - start_clock < 1:
                 if left_arm_rep_state:
 
-                    return utils.get_colored_style(
-                        right_arm=utils.GREEN_STYLE,
-                        left_leg=utils.GREEN_STYLE,
-                    )
+                    return {
+                        "right_arm": True,
+                        "left_leg": True,
+                    }, new_rep
 
             elif left_arm_rep_state:
                 return None
 
-            left_arm_style = utils.RED_STYLE
-            right_leg_style = utils.RED_STYLE
+            left_arm_style = False
+            right_leg_style = False
 
             if utils.get_distance_2_points(left_wrist, right_shoulder) < utils.get_distance_2_points(left_wrist, left_shoulder):
-                left_arm_style = utils.GREEN_STYLE
+                left_arm_style = True
 
             if right_knee_y + 0.02 < left_knee_y and right_ankle_y + 0.02 < left_ankle_y:
-                right_leg_style = utils.GREEN_STYLE
+                right_leg_style = True
 
-            if left_arm_style == utils.GREEN_STYLE and right_leg_style == utils.GREEN_STYLE:
-                correct_steps += 1
+            if left_arm_style and right_leg_style:
+                new_rep = True
                 left_arm_rep_state = True
                 start_clock = time.time()
 
-            return utils.get_colored_style(
-                right_arm=left_arm_style,
-                left_leg=right_leg_style
-            )
+            return {
+                "right_arm": left_arm_style,
+                "left_leg": right_leg_style
+            }, new_rep
 
     elif right_knee_y + 0.02 > left_knee_y:
         left_arm_rep_state = False
 
-    return None
+    return None, new_rep
