@@ -65,7 +65,7 @@ def handle_results(results, _, frame_pts):
     end_process_times.append((frame_pts, time.time()))
 
     # dummy for arms_exercise
-    landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if results.pose_landmarks else []
+    landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
     styled_connections, new_rep = arms_exercise(landmarks)
 
     data = json.dumps({
