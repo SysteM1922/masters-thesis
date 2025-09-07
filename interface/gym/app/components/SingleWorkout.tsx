@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { BrowserRouter, Routes, Route, redirect } from 'react-router-dom';
+import { BodyDrawer } from '../utils/bodydrawer';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -41,6 +42,7 @@ export default function SingleWorkout() {
     let offScreenCanvasCtx: CanvasRenderingContext2D;
 
     let drawingUtils: DrawingUtils;
+    let bodyDrawer: BodyDrawer;
 
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
@@ -62,6 +64,7 @@ export default function SingleWorkout() {
         }
 
         drawingUtils = new DrawingUtils(offScreenCanvasCtx);
+        bodyDrawer = new BodyDrawer(drawingUtils);
 
         const setupResizeObserver = () => {
             if (webCamDisplay && !resizeObserverRef.current) {
@@ -175,8 +178,7 @@ export default function SingleWorkout() {
                 const landmarks = data.landmarks;
                 const style = data.style;
                 if (landmarks && landmarks.length > 0) {
-                    drawingUtils.drawLandmarks(landmarks, { radius: 5, lineWidth: 2, color: '#FFFFFF' });
-                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 2, color: '#FFFFFF' });
+                    bodyDrawer.drawFromJson(style, landmarks);
                 }
 
                 outputCanvasCtx!.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
