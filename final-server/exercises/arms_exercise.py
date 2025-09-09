@@ -111,19 +111,19 @@ arms_exercise_state_repetition = 0
 arms_exercise_state = None
 old_arms_exercise_state = None
 
-def arms_exercise(landmarks):
+def arms_exercise(landmarks, others):
     global arms_exercise_state_repetition, arms_exercise_state, old_arms_exercise_state
 
     new_rep = False
 
     # Check if we have enough landmarks (MediaPipe pose has 33 landmarks, indices 0-32)
-    """if not landmarks or len(landmarks) < 25:  # We need at least index 24
+    if not landmarks or len(landmarks) < 25:  # We need at least index 24
         styled_connections = {
             "right_arm": None,
             "left_arm": None,
             "torso": None
         }
-        return styled_connections, new_rep"""
+        return styled_connections, new_rep
 
     spine_state = spine_straight(
         landmarks[12],

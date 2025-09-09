@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from api_interface import TestsAPI
 from utils import get_time_offset
 from exercises.arms_exercise import arms_exercise
+from exercises.legs_exercise import legs_exercise
+from exercises.walk_exercise import walk_exercise
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -45,6 +47,8 @@ start_process_times = []
 end_process_times = []
 send_times = []
 
+exercise_function = arms_exercise
+
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.GPU if os.name == "posix" else mp.tasks.BaseOptions.Delegate.CPU,
@@ -61,12 +65,12 @@ async def send_results(data, frame_pts):
         print(f"Error in send_results: {e}")
 
 def handle_results(results, _, frame_pts):
-    global end_process_times
+    global end_process_times, exercise_function
     end_process_times.append((frame_pts, time.time()))
 
     # dummy for arms_exercise
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
-    styled_connections, new_rep = arms_exercise(landmarks)
+    styled_connections, new_rep = exercise_function(landmarks, True)
 
     data = json.dumps({
         "landmarks": landmarks,
@@ -282,7 +286,7 @@ async def handle_track(track):
             print("Error receiving track:", e)
 
 async def run(host, port, identifier):
-    global loop
+    global loop, exercise_function
 
     loop = asyncio.get_event_loop()
 
@@ -338,6 +342,20 @@ async def run(host, port, identifier):
                         data = json.loads(message)
                         if "test_id" in data:
                             test_id = data["test_id"]
+                        elif "exercise" in data:
+                            global exercise_function
+                            match data["exercise"]:
+                                case "arms":
+                                    exercise_function = arms_exercise
+                                case "legs":
+                                    exercise_function = legs_exercise
+                                case "walk":
+                                    exercise_function = walk_exercise
+                                case _:
+                                    print(f"Unknown exercise type: {data['exercise']}")
+                        elif "status" in data:
+                            print(f"Status message: {data['status']}")
+
                     except json.JSONDecodeError:
                         print("Received non-JSON message:", message)
 

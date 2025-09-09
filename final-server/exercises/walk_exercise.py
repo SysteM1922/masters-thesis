@@ -7,11 +7,22 @@ right_arm_rep_state = False
 left_arm_rep_state = False
 start_clock = 0
 
-def walk_exercise(landmarks):
+def walk_exercise(landmarks, others):
 
     global right_arm_angle_amp, left_arm_angle_amp, right_arm_rep_state, left_arm_rep_state, start_clock
 
     new_rep = False
+
+    if not landmarks or len(landmarks) < 33:  # We need at least index 32
+        styled_connections = {
+            "left_arm": None,
+            "right_arm": None,
+            "left_leg": None,
+            "right_leg": None,
+        }
+        right_arm_rep_state = False
+        left_arm_rep_state = False
+        return styled_connections, new_rep
 
     if landmarks[23]['visibility'] < 0.5 or landmarks[24]['visibility'] < 0.5 or landmarks[25]['visibility'] < 0.5 or landmarks[26]['visibility'] < 0.5 or landmarks[27]['visibility'] < 0.5 or landmarks[28]['visibility'] < 0.5:
         right_arm_angle_amp = 0

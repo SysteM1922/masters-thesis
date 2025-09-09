@@ -10,6 +10,14 @@ def legs_exercise(landmarks, right_leg: bool):
 
     new_rep = False
 
+    if not landmarks or len(landmarks) < 33:  # We need at least index 32
+        styled_connections = {
+            "left_leg": None,
+            "right_leg": None,
+        }
+        leg_exercise_started = None
+        return styled_connections, new_rep
+
     if time.time() - start_clock < 1:
         return {
             "left_leg": True if right_leg else None,

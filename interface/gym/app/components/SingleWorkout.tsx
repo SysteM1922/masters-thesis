@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { BrowserRouter, Routes, Route, redirect } from 'react-router-dom';
@@ -44,68 +44,11 @@ export default function SingleWorkout() {
     let drawingUtils: DrawingUtils;
     let bodyDrawer: BodyDrawer;
 
+    let dataChannel: RTCDataChannel | null = null;
+
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-    useEffect(() => {
-        pc = new RTCPeerConnection(pc_config);
-
-        webCamDisplay = document.getElementById("webCamDisplay") as HTMLVideoElement;
-        outputCanvas = document.getElementById("output_canvas") as HTMLCanvasElement;
-        outputCanvasCtx = outputCanvas.getContext("2d") as CanvasRenderingContext2D;
-        if (!outputCanvasCtx) {
-            throw new Error("Could not get 2D context from outputCanvas");
-        }
-
-        offScreenCanvas = document.createElement("canvas");
-        offScreenCanvasCtx = offScreenCanvas.getContext("2d")!;
-
-        if (!offScreenCanvasCtx) {
-            throw new Error("Could not get 2D context from offScreenCanvas");
-        }
-
-        drawingUtils = new DrawingUtils(offScreenCanvasCtx);
-        bodyDrawer = new BodyDrawer(drawingUtils);
-
-        const setupResizeObserver = () => {
-            if (webCamDisplay && !resizeObserverRef.current) {
-                resizeObserverRef.current = new ResizeObserver((entries) => {
-                    for (const entry of entries) {
-                        if (entry.target === webCamDisplay) {
-                            resizeCanvas();
-                        }
-                    }
-                });
-                resizeObserverRef.current.observe(webCamDisplay);
-            }
-        };
-
-        const handleWindowResize = () => {
-            resizeCanvas();
-        };
-
-        window.addEventListener("resize", handleWindowResize);
-        setupResizeObserver();
-
-        return () => {
-            window.removeEventListener("resize", handleWindowResize);
-            if (resizeObserverRef.current) {
-                resizeObserverRef.current.disconnect();
-                resizeObserverRef.current = null;
-            }
-        };
-
-    }, []);
-
-    const resizeCanvas = () => {
-        const width = webCamDisplay!.clientWidth;
-        const height = webCamDisplay!.clientHeight;
-        outputCanvas.width = width;
-        outputCanvas.height = height;
-        offScreenCanvas.width = width;
-        offScreenCanvas.height = height;
-        outputCanvasCtx!.clearRect(0, 0, width, height);
-        offScreenCanvasCtx!.clearRect(0, 0, width, height);
-    };
+    let repCounter = 0;
 
     const stopCapture = async () => {
         if (displayStream) {
@@ -165,7 +108,7 @@ export default function SingleWorkout() {
 
             await signaling.connect();
 
-            const dataChannel = pc.createDataChannel("data");
+            dataChannel = pc.createDataChannel("data");
 
             dataChannel.onopen = () => {
                 console.log("Data channel opened");
@@ -179,6 +122,11 @@ export default function SingleWorkout() {
                 const style = data.style;
                 if (landmarks && landmarks.length > 0) {
                     bodyDrawer.drawFromJson(style, landmarks);
+                }
+
+                if (data.new_rep) {
+                    repCounter += 1;
+                    console.log("New rep:", repCounter);
                 }
 
                 outputCanvasCtx!.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -222,6 +170,87 @@ export default function SingleWorkout() {
         }
     };
 
+    useEffect(() => {
+        pc = new RTCPeerConnection(pc_config);
+
+        webCamDisplay = document.getElementById("webCamDisplay") as HTMLVideoElement;
+        outputCanvas = document.getElementById("output_canvas") as HTMLCanvasElement;
+        outputCanvasCtx = outputCanvas.getContext("2d") as CanvasRenderingContext2D;
+        if (!outputCanvasCtx) {
+            throw new Error("Could not get 2D context from outputCanvas");
+        }
+
+        offScreenCanvas = document.createElement("canvas");
+        offScreenCanvasCtx = offScreenCanvas.getContext("2d")!;
+
+        if (!offScreenCanvasCtx) {
+            throw new Error("Could not get 2D context from offScreenCanvas");
+        }
+
+        drawingUtils = new DrawingUtils(offScreenCanvasCtx);
+        bodyDrawer = new BodyDrawer(drawingUtils);
+
+        const setupResizeObserver = () => {
+            if (webCamDisplay && !resizeObserverRef.current) {
+                resizeObserverRef.current = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.target === webCamDisplay) {
+                            resizeCanvas();
+                        }
+                    }
+                });
+                resizeObserverRef.current.observe(webCamDisplay);
+            }
+        };
+
+        const handleWindowResize = () => {
+            resizeCanvas();
+        };
+
+        window.addEventListener("resize", handleWindowResize);
+        setupResizeObserver();
+
+        startCapture();
+
+        return () => {
+            window.removeEventListener("resize", handleWindowResize);
+            if (resizeObserverRef.current) {
+                resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+        };
+
+    }, []);
+
+    const resizeCanvas = () => {
+        const width = webCamDisplay!.clientWidth;
+        const height = webCamDisplay!.clientHeight;
+        outputCanvas.width = width;
+        outputCanvas.height = height;
+        offScreenCanvas.width = width;
+        offScreenCanvas.height = height;
+        outputCanvasCtx!.clearRect(0, 0, width, height);
+        offScreenCanvasCtx!.clearRect(0, 0, width, height);
+    };
+
+    const startArmsExercise = () => {
+        if (dataChannel && dataChannel.readyState === "open") {
+            dataChannel.send(JSON.stringify({ exercise: "arms" }));
+        }
+    }
+
+    const startLegsExercise = () => {
+        if (dataChannel && dataChannel.readyState === "open") {
+            dataChannel.send(JSON.stringify({ exercise: "legs" }));
+        }
+    }
+
+    const startWalkExercise = () => {
+        if (dataChannel && dataChannel.readyState === "open") {
+            dataChannel.send(JSON.stringify({ exercise: "walk" }));
+        }
+    }
+
     function BasePageLayout({ children }: { children: React.ReactNode | null }) {
         return (
             <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
@@ -248,8 +277,15 @@ export default function SingleWorkout() {
                     </div>
                 </div>
                 <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
-                    <button className="btn btn-soft" id="callButton" onClick={startCapture}>Call</button>
-                    <button className="btn btn-soft" id="hangupButton" onClick={stopCapture}>Hang Up</button>
+                    <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
+                        Start Arms Exercise
+                    </button>
+                    <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
+                        Start Legs Exercise
+                    </button>
+                    <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
+                        Start Walk Exercise
+                    </button>
                     <button className="btn btn-soft" id="reloadButton" onClick={() => window.location.href = '/'}>
                         Reload
                     </button>
@@ -268,12 +304,9 @@ export default function SingleWorkout() {
                         <div></div>
                         <div></div>
 
-                        <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto">
-                            <div className="text-sm font-semibold mb-1">Informações</div>
-                            <div className="text-xs">
-                                <p>Rep: 5/10</p>
-                                <p>Set: 2/3</p>
-                                <p>Form: 85%</p>
+                        <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                            <div className="w-full flex h-full">
+                                <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/10</p>
                             </div>
                         </div>
 
