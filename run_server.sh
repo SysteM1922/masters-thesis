@@ -9,7 +9,4 @@ cd final-server
 python3 multi_server.py &
 deactivate
 
-cd ../interface/gym
-npm run dev && \
-
-cd ../../
+cd ..
