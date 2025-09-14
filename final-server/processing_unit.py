@@ -10,6 +10,7 @@ import sys
 import websockets
 import os
 from dotenv import load_dotenv
+import cv2
 
 from api_interface import TestsAPI
 from utils import get_time_offset
@@ -51,7 +52,7 @@ exercise_function = arms_exercise
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
-    delegate=mp.tasks.BaseOptions.Delegate.GPU if os.name == "posix" else mp.tasks.BaseOptions.Delegate.CPU,
+    delegate=mp.tasks.BaseOptions.Delegate.CPU if os.name == "posix" else mp.tasks.BaseOptions.Delegate.CPU,
     # Use GPU if available (only on Linux)
 )
 
@@ -251,10 +252,15 @@ def process_frame():
         with last_frame_lock:
             last_frame_pts = last_frame.pts
             start_process_times.append((last_frame_pts, time.time()))
+
             try:
+                # Convert frame to numpy array for debugging
+                frame_array = last_frame.to_ndarray(format="bgr24")
+                cv2.imwrite("debug.jpg", frame_array)
+                
                 mp_image = mp.Image(
                     image_format=mp.ImageFormat.SRGB,
-                    data=last_frame.to_ndarray(format="bgr24")
+                    data=frame_array
                 )
                 detector.detect_async(mp_image, last_frame_pts)
                 last_frame = None  # Clear the last frame after processing
