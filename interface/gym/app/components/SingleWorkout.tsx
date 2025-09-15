@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
-import { BrowserRouter, Routes, Route, redirect } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { BodyDrawer } from '../utils/bodydrawer';
+import { useRouter } from 'next/navigation';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -27,40 +28,68 @@ const pc_config: RTCConfiguration = {
 };
 
 export default function SingleWorkout() {
-
-    let signaling: WebSocketSignalingClient;
-
-    let pc: RTCPeerConnection;
-
-    let displayStream: MediaStream | null;
-
-    let webCamDisplay: HTMLVideoElement | null = null;
-    let outputCanvas: HTMLCanvasElement;
-    let outputCanvasCtx: CanvasRenderingContext2D;
-
-    let offScreenCanvas: HTMLCanvasElement;
-    let offScreenCanvasCtx: CanvasRenderingContext2D;
-
-    let drawingUtils: DrawingUtils;
-    let bodyDrawer: BodyDrawer;
-
-    let dataChannel: RTCDataChannel | null = null;
-
+    // Usar refs para evitar re-renders
+    const signalingRef = useRef<WebSocketSignalingClient | null>(null);
+    const pcRef = useRef<RTCPeerConnection | null>(null);
+    const displayStreamRef = useRef<MediaStream | null>(null);
+    const webCamDisplayRef = useRef<HTMLVideoElement | null>(null);
+    const outputCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const outputCanvasCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+    const offScreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const offScreenCanvasCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+    const drawingUtilsRef = useRef<DrawingUtils | null>(null);
+    const bodyDrawerRef = useRef<BodyDrawer | null>(null);
+    const dataChannelRef = useRef<RTCDataChannel | null>(null);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-    let repCounter = 0;
+    const counterRef = useRef(0);
+    const [repCounter, setRepCounter] = useState(0);
 
-    const stopCapture = async () => {
-        if (displayStream) {
-            displayStream.getTracks().forEach((track) => {
-                track.stop();
-            });
-            displayStream = null;
-        }
-        webCamDisplay!.srcObject = null;
+    const router = useRouter();
+
+    function incrementRepCounter() {
+        counterRef.current += 1;
+        setRepCounter(counterRef.current);
     }
 
-    const startCapture = async () => {
+    const stopCapture = useCallback(async () => {
+        if (displayStreamRef.current) {
+            displayStreamRef.current.getTracks().forEach((track) => {
+                track.stop();
+            });
+            displayStreamRef.current = null;
+        }
+        if (webCamDisplayRef.current) {
+            webCamDisplayRef.current.srcObject = null;
+        }
+    }, []);
+
+    const resizeCanvas = useCallback(() => {
+        const webCamDisplay = webCamDisplayRef.current;
+        const outputCanvas = outputCanvasRef.current;
+        const offScreenCanvas = offScreenCanvasRef.current;
+        const outputCanvasCtx = outputCanvasCtxRef.current;
+        const offScreenCanvasCtx = offScreenCanvasCtxRef.current;
+
+        if (!webCamDisplay || !outputCanvas || !offScreenCanvas || !outputCanvasCtx || !offScreenCanvasCtx) {
+            return;
+        }
+
+        const width = webCamDisplay.clientWidth;
+        const height = webCamDisplay.clientHeight;
+
+        // Verificar se as dimensões são válidas
+        if (width > 0 && height > 0) {
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+            offScreenCanvas.width = width;
+            offScreenCanvas.height = height;
+            outputCanvasCtx.clearRect(0, 0, width, height);
+            offScreenCanvasCtx.clearRect(0, 0, width, height);
+        }
+    }, []);
+
+    const startCapture = useCallback(async () => {
         try {
             const constrains = {
                 video: {
@@ -71,28 +100,33 @@ export default function SingleWorkout() {
                 audio: false
             };
 
-            displayStream = await navigator.mediaDevices.getUserMedia(constrains);
+            const stream = await navigator.mediaDevices.getUserMedia(constrains);
 
-            if (!displayStream) {
+            if (!stream) {
                 throw new Error("Could not get user media");
             }
 
-            webCamDisplay!.srcObject = displayStream;
+            displayStreamRef.current = stream;
 
-            webCamDisplay!.addEventListener('loadedmetadata', () => {
-                resizeCanvas();
-            });
+            if (webCamDisplayRef.current) {
+                webCamDisplayRef.current.srcObject = stream;
 
-            webCamDisplay!.play();
+                webCamDisplayRef.current.addEventListener('loadedmetadata', () => {
+                    resizeCanvas();
+                });
 
-            const videoTrack = displayStream.getVideoTracks()[0];
+                webCamDisplayRef.current.play();
+            }
+
+            const videoTrack = displayStreamRef.current.getVideoTracks()[0];
 
             if (!videoTrack) {
                 throw new Error("No video track found");
             }
 
-            pc.addTrack(videoTrack, displayStream);
-
+            if (pcRef.current) {
+                pcRef.current.addTrack(videoTrack, displayStreamRef.current);
+            }
 
         } catch (error) {
             console.error("Error accessing media devices.", error);
@@ -100,102 +134,135 @@ export default function SingleWorkout() {
         }
 
         try {
-            signaling = new WebSocketSignalingClient(
+            signalingRef.current = new WebSocketSignalingClient(
                 SIGNALING_SERVER_HOST,
                 SIGNALING_SERVER_PORT,
                 "client_id"
             );
 
-            await signaling.connect();
+            await signalingRef.current.connect();
 
-            dataChannel = pc.createDataChannel("data");
+            if (pcRef.current) {
+                dataChannelRef.current = pcRef.current.createDataChannel("data");
 
-            dataChannel.onopen = () => {
-                console.log("Data channel opened");
-            };
+                dataChannelRef.current.onopen = () => {
+                    console.log("Data channel opened");
+                };
 
-            dataChannel.onmessage = (event: { data: string; }) => {
-                offScreenCanvasCtx!.clearRect(0, 0, offScreenCanvas.width, offScreenCanvas.height);
-                const data = JSON.parse(event.data);
+                dataChannelRef.current.onmessage = (event: { data: string; }) => {
+                    const offScreenCanvas = offScreenCanvasRef.current;
+                    const offScreenCanvasCtx = offScreenCanvasCtxRef.current;
+                    const outputCanvas = outputCanvasRef.current;
+                    const outputCanvasCtx = outputCanvasCtxRef.current;
+                    const bodyDrawer = bodyDrawerRef.current;
 
-                const landmarks = data.landmarks;
-                const style = data.style;
-                if (landmarks && landmarks.length > 0) {
-                    bodyDrawer.drawFromJson(style, landmarks);
-                }
-
-                if (data.new_rep) {
-                    repCounter += 1;
-                    console.log("New rep:", repCounter);
-                }
-
-                outputCanvasCtx!.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-                outputCanvasCtx!.drawImage(offScreenCanvas, 0, 0);
-            };
-
-            pc.onconnectionstatechange = async () => {
-                console.log('Connection state changed:', pc.connectionState);
-                if (pc.connectionState === 'connected') {
-                    console.log('WebRTC connected');
-
-                    const sender = pc.getSenders().find((s) => s.track !== null && s.track.kind === 'video');
-                    const parameters = sender!.getParameters();
-                    if (sender) {
-                        parameters.encodings[0].scaleResolutionDownBy = displayStream!.getVideoTracks()[0].getSettings().height! / 480;
-                        await sender.setParameters(parameters);
-                        console.log('Set max bitrate for video sender:', sender.getParameters());
+                    if (!offScreenCanvas || !offScreenCanvasCtx || !outputCanvas || !outputCanvasCtx || !bodyDrawer) {
+                        return;
                     }
 
-                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-                    console.log('WebRTC connection closed or failed');
-                    stopCapture();
-                }
-            };
+                    // Verificar se o canvas tem dimensões válidas antes de limpar
+                    if (offScreenCanvas.width > 0 && offScreenCanvas.height > 0) {
+                        offScreenCanvasCtx.clearRect(0, 0, offScreenCanvas.width, offScreenCanvas.height);
+                    }
 
-            pc.onicecandidate = (event: { candidate: RTCIceCandidate | null; }) => {
-                if (event.candidate) {
-                    console.log('New ICE candidate:', event.candidate);
-                    signaling!.sendIceCandidate(event.candidate);
-                }
+                    const data = JSON.parse(event.data);
+
+                    const landmarks = data.landmarks;
+                    const style = data.style;
+                    if (landmarks && landmarks.length > 0) {
+                        bodyDrawer.drawFromJson(style, landmarks);
+                    }
+
+                    if (data.new_rep) {
+                        incrementRepCounter();
+                    }
+
+                    // Verificar dimensões antes de copiar para o canvas de saída
+                    if (outputCanvas.width > 0 && outputCanvas.height > 0 && 
+                        offScreenCanvas.width > 0 && offScreenCanvas.height > 0) {
+                        outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+                        outputCanvasCtx.drawImage(offScreenCanvas, 0, 0);
+                    }
+                };
             }
 
-            pc.oniceconnectionstatechange = () => {
-                console.log('ICE connection state changed:', pc.iceConnectionState);
-            };
+            if (pcRef.current && signalingRef.current) {
+                pcRef.current.onconnectionstatechange = async () => {
+                    const pc = pcRef.current;
+                    if (!pc) return;
 
-            signaling.handleMessages(pc);
+                    console.log('Connection state changed:', pc.connectionState);
+                    if (pc.connectionState === 'connected') {
+                        console.log('WebRTC connected');
+
+                        const sender = pc.getSenders().find((s) => s.track !== null && s.track.kind === 'video');
+                        const parameters = sender?.getParameters();
+                        if (sender && parameters && displayStreamRef.current) {
+                            const videoSettings = displayStreamRef.current.getVideoTracks()[0].getSettings();
+                            if (videoSettings.height) {
+                                parameters.encodings[0].scaleResolutionDownBy = videoSettings.height / 480;
+                                await sender.setParameters(parameters);
+                                console.log('Set max bitrate for video sender:', sender.getParameters());
+                            }
+                        }
+
+                    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                        console.log('WebRTC connection closed or failed');
+                        stopCapture();
+                    }
+                };
+
+                pcRef.current.onicecandidate = (event: { candidate: RTCIceCandidate | null; }) => {
+                    if (event.candidate && signalingRef.current) {
+                        console.log('New ICE candidate:', event.candidate);
+                        signalingRef.current.sendIceCandidate(event.candidate);
+                    }
+                }
+
+                pcRef.current.oniceconnectionstatechange = () => {
+                    if (pcRef.current) {
+                        console.log('ICE connection state changed:', pcRef.current.iceConnectionState);
+                    }
+                };
+
+                signalingRef.current.handleMessages(pcRef.current);
+            }
 
         } catch (error) {
             console.error("Error starting signaling client:", error);
         }
-    };
+    }, [incrementRepCounter, resizeCanvas, stopCapture]);
 
     useEffect(() => {
-        pc = new RTCPeerConnection(pc_config);
-
-        webCamDisplay = document.getElementById("webCamDisplay") as HTMLVideoElement;
-        outputCanvas = document.getElementById("output_canvas") as HTMLCanvasElement;
-        outputCanvasCtx = outputCanvas.getContext("2d") as CanvasRenderingContext2D;
-        if (!outputCanvasCtx) {
-            throw new Error("Could not get 2D context from outputCanvas");
+        pcRef.current = new RTCPeerConnection(pc_config);
+        
+        if (outputCanvasRef.current) {
+            outputCanvasCtxRef.current = outputCanvasRef.current.getContext("2d");
+            if (!outputCanvasCtxRef.current) {
+                throw new Error("Could not get 2D context from outputCanvas");
+            }
         }
 
-        offScreenCanvas = document.createElement("canvas");
-        offScreenCanvasCtx = offScreenCanvas.getContext("2d")!;
+        offScreenCanvasRef.current = document.createElement("canvas");
+        offScreenCanvasCtxRef.current = offScreenCanvasRef.current.getContext("2d");
 
-        if (!offScreenCanvasCtx) {
+        if (!offScreenCanvasCtxRef.current) {
             throw new Error("Could not get 2D context from offScreenCanvas");
         }
 
-        drawingUtils = new DrawingUtils(offScreenCanvasCtx);
-        bodyDrawer = new BodyDrawer(drawingUtils);
+        drawingUtilsRef.current = new DrawingUtils(offScreenCanvasCtxRef.current);
+        bodyDrawerRef.current = new BodyDrawer(drawingUtilsRef.current);
 
         const setupResizeObserver = () => {
+            const webCamDisplay = webCamDisplayRef.current;
             if (webCamDisplay && !resizeObserverRef.current) {
                 resizeObserverRef.current = new ResizeObserver((entries) => {
                     for (const entry of entries) {
                         if (entry.target === webCamDisplay) {
-                            resizeCanvas();
+                            // Usar requestAnimationFrame para garantir que o resize acontece no próximo frame
+                            requestAnimationFrame(() => {
+                                resizeCanvas();
+                            });
                         }
                     }
                 });
@@ -204,7 +271,9 @@ export default function SingleWorkout() {
         };
 
         const handleWindowResize = () => {
-            resizeCanvas();
+            requestAnimationFrame(() => {
+                resizeCanvas();
+            });
         };
 
         window.addEventListener("resize", handleWindowResize);
@@ -212,44 +281,41 @@ export default function SingleWorkout() {
 
         startCapture();
 
+        const interval = setInterval(() => {
+            setRepCounter(counterRef.current);
+        }, 100);
+
         return () => {
             window.removeEventListener("resize", handleWindowResize);
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
                 resizeObserverRef.current = null;
             }
+            clearInterval(interval);
         };
 
-    }, []);
+    }, [startCapture, resizeCanvas]);
 
-    const resizeCanvas = () => {
-        const width = webCamDisplay!.clientWidth;
-        const height = webCamDisplay!.clientHeight;
-        outputCanvas.width = width;
-        outputCanvas.height = height;
-        offScreenCanvas.width = width;
-        offScreenCanvas.height = height;
-        outputCanvasCtx!.clearRect(0, 0, width, height);
-        offScreenCanvasCtx!.clearRect(0, 0, width, height);
-    };
-
-    const startArmsExercise = () => {
+    const startArmsExercise = useCallback(() => {
+        const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "arms" }));
         }
-    }
+    }, []);
 
-    const startLegsExercise = () => {
+    const startLegsExercise = useCallback(() => {
+        const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "legs" }));
         }
-    }
+    }, []);
 
-    const startWalkExercise = () => {
+    const startWalkExercise = useCallback(() => {
+        const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "walk" }));
         }
-    }
+    }, []);
 
     function BasePageLayout({ children }: { children: React.ReactNode | null }) {
         return (
@@ -258,20 +324,20 @@ export default function SingleWorkout() {
                     <div className='flex relative w-full h-full justify-center'>
                         <div className='flex relative justify-center'>
                             <video
-                                id="webCamDisplay"
+                                ref={webCamDisplayRef}
                                 className="max-w-full max-h-full object-contain"
                                 style={{ transform: 'scaleX(-1)' }}
                                 autoPlay
                                 playsInline
                                 muted
                             ></video>
-                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none">
+                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
                                 {children}
                             </div>
                             <canvas
                                 className="absolute max-w-full max-h-full object-contain pointer-events-none"
-                                style={{ transform: 'scaleX(-1)' }}
-                                id="output_canvas"
+                                style={{ transform: 'scaleX(-1)', zIndex: 1 }}
+                                ref={outputCanvasRef}
                             ></canvas>
                         </div>
                     </div>
@@ -286,8 +352,11 @@ export default function SingleWorkout() {
                     <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
                         Start Walk Exercise
                     </button>
-                    <button className="btn btn-soft" id="reloadButton" onClick={() => window.location.href = '/'}>
+                    <button className="btn btn-soft" id="reloadButton" onClick={() => router.push('/')}>
                         Reload
+                    </button>
+                    <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
+                        Increment Rep
                     </button>
                 </div>
             </main>
