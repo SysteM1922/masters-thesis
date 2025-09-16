@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
+import { ExerciseType } from '../utils/enums';
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +14,10 @@ const TURN_SERVER_HOST: string = process.env.TURN_SERVER_HOST ?? "";
 const TURN_SERVER_PORT: number = parseInt(process.env.TURN_SERVER_PORT ?? "0");
 const TURN_SERVER_USERNAME: string = process.env.TURN_SERVER_USERNAME ?? "";
 const TURN_SERVER_CREDENTIAL: string = process.env.TURN_SERVER_CREDENTIAL ?? "";
+
+const maxLegReps = 10;
+const maxArmReps = 10;
+const maxWalkSeconds = 60;
 
 const pc_config: RTCConfiguration = {
     iceServers: [
@@ -42,14 +46,19 @@ export default function SingleWorkout() {
     const dataChannelRef = useRef<RTCDataChannel | null>(null);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-    const counterRef = useRef(0);
+    const [isCapturing, setIsCapturing] = useState(false);
+
+    const [actualExercise, setActualExercise] = useState<ExerciseType>(ExerciseType.ARMS);
     const [repCounter, setRepCounter] = useState(0);
 
-    const router = useRouter();
+    const [minsTimer, setMinsTimer] = useState(0);
+    const [secsTimer, setSecsTimer] = useState(0);
 
-    function incrementRepCounter() {
-        counterRef.current += 1;
-        setRepCounter(counterRef.current);
+    const [walkSecondsLeft, setWalkSecondsLeft] = useState(maxWalkSeconds);
+    const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const incrementRepCounter = () => {
+        setRepCounter((prev) => prev + 1);
     }
 
     const stopCapture = useCallback(async () => {
@@ -110,12 +119,11 @@ export default function SingleWorkout() {
 
             if (webCamDisplayRef.current) {
                 webCamDisplayRef.current.srcObject = stream;
+                setIsCapturing(true);
 
                 webCamDisplayRef.current.addEventListener('loadedmetadata', () => {
                     resizeCanvas();
                 });
-
-                webCamDisplayRef.current.play();
             }
 
             const videoTrack = displayStreamRef.current.getVideoTracks()[0];
@@ -178,7 +186,7 @@ export default function SingleWorkout() {
                     }
 
                     // Verificar dimensões antes de copiar para o canvas de saída
-                    if (outputCanvas.width > 0 && outputCanvas.height > 0 && 
+                    if (outputCanvas.width > 0 && outputCanvas.height > 0 &&
                         offScreenCanvas.width > 0 && offScreenCanvas.height > 0) {
                         outputCanvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
                         outputCanvasCtx.drawImage(offScreenCanvas, 0, 0);
@@ -234,8 +242,46 @@ export default function SingleWorkout() {
     }, [incrementRepCounter, resizeCanvas, stopCapture]);
 
     useEffect(() => {
+        setMinsTimer(Math.floor(walkSecondsLeft / 60));
+        setSecsTimer(walkSecondsLeft % 60);
+    }, [walkSecondsLeft]);
+
+    useEffect(() => {
+        if (actualExercise === ExerciseType.WALK) {
+            setWalkSecondsLeft(maxWalkSeconds);
+
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+            }
+
+            timerIntervalRef.current = setInterval(() => {
+                setWalkSecondsLeft((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timerIntervalRef.current!);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        } else {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+            setWalkSecondsLeft(maxWalkSeconds);
+        }
+
+        return () => {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+        };
+    }, [actualExercise]);
+
+    useEffect(() => {
         pcRef.current = new RTCPeerConnection(pc_config);
-        
+
         if (outputCanvasRef.current) {
             outputCanvasCtxRef.current = outputCanvasRef.current.getContext("2d");
             if (!outputCanvasCtxRef.current) {
@@ -281,25 +327,22 @@ export default function SingleWorkout() {
 
         startCapture();
 
-        const interval = setInterval(() => {
-            setRepCounter(counterRef.current);
-        }, 100);
-
         return () => {
             window.removeEventListener("resize", handleWindowResize);
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
                 resizeObserverRef.current = null;
             }
-            clearInterval(interval);
         };
 
-    }, [startCapture, resizeCanvas]);
+    }, [resizeCanvas]);
 
     const startArmsExercise = useCallback(() => {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "arms" }));
+            setActualExercise(ExerciseType.ARMS);
+            setRepCounter(0);
         }
     }, []);
 
@@ -307,6 +350,8 @@ export default function SingleWorkout() {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "legs" }));
+            setActualExercise(ExerciseType.LEGS);
+            setRepCounter(0);
         }
     }, []);
 
@@ -314,94 +359,96 @@ export default function SingleWorkout() {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "walk" }));
+
         }
+        setActualExercise(ExerciseType.WALK);
+        setRepCounter(0);
+        setWalkSecondsLeft(maxWalkSeconds);
     }, []);
 
-    function BasePageLayout({ children }: { children: React.ReactNode | null }) {
-        return (
-            <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
-                <div className="flex justify-center gap-2 relative overflow-hidden">
-                    <div className='flex relative w-full h-full justify-center'>
-                        <div className='flex relative justify-center'>
-                            <video
-                                ref={webCamDisplayRef}
-                                className="max-w-full max-h-full object-contain"
-                                style={{ transform: 'scaleX(-1)' }}
-                                autoPlay
-                                playsInline
-                                muted
-                            ></video>
-                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
-                                {children}
-                            </div>
-                            <canvas
-                                className="absolute max-w-full max-h-full object-contain pointer-events-none"
-                                style={{ transform: 'scaleX(-1)', zIndex: 1 }}
-                                ref={outputCanvasRef}
-                            ></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
-                    <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
-                        Start Arms Exercise
-                    </button>
-                    <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
-                        Start Legs Exercise
-                    </button>
-                    <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
-                        Start Walk Exercise
-                    </button>
-                    <button className="btn btn-soft" id="reloadButton" onClick={() => router.push('/')}>
-                        Reload
-                    </button>
-                    <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
-                        Increment Rep
-                    </button>
-                </div>
-            </main>
-        );
-    }
-
-    function ArmsExercise() {
-        return (
-            <BasePageLayout children={
-                <main className='w-full h-full'>
-                    <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-
-                        <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                            <div className="w-full flex h-full">
-                                <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/10</p>
-                            </div>
-                        </div>
-
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                    </div>
-                </main>
-            } />
-        )
-    }
-
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<ArmsExercise />} />
-                <Route path="/arms" element={<ArmsExercise />} />
-            </Routes>
-        </BrowserRouter>
+        <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
+            <div className="flex justify-center gap-2 relative overflow-hidden">
+                <div className='flex relative w-full h-full justify-center'>
+                    <div className='flex relative justify-center'>
+                        <video
+                            ref={webCamDisplayRef}
+                            className="max-w-full max-h-full object-contain"
+                            style={{ transform: 'scaleX(-1)' }}
+                            autoPlay
+                            playsInline
+                            muted
+                        ></video>
+                        {isCapturing && (
+                            <>
+                                <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
+                                    <main className='w-full h-full'>
+                                        <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            {actualExercise === ExerciseType.ARMS && (
+                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                    <div className="w-full flex h-full">
+                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxArmReps}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {actualExercise === ExerciseType.LEGS && (
+                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                    <div className="w-full flex h-full">
+                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxLegReps}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {actualExercise === ExerciseType.WALK && (
+                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                    <div className="w-full flex h-full">
+                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">
+                                                            {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                            <div></div>
+                                        </div>
+                                    </main>
+                                </div>
+                                <canvas
+                                    className="absolute max-w-full max-h-full object-contain pointer-events-none"
+                                    style={{ transform: 'scaleX(-1)', zIndex: 1 }}
+                                    ref={outputCanvasRef}
+                                ></canvas>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
+                <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
+                    Start Arms Exercise
+                </button>
+                <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
+                    Start Legs Exercise
+                </button>
+                <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
+                    Start Walk Exercise
+                </button>
+                <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
+                    Increment Rep
+                </button>
+            </div>
+        </main>
     );
 }
