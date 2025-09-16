@@ -6,6 +6,7 @@ import { ExerciseType } from '../utils/enums';
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useRouter } from 'next/navigation';
+import { start } from 'repl';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -35,6 +36,7 @@ export default function SingleWorkout() {
     // Usar refs para evitar re-renders
     const signalingRef = useRef<WebSocketSignalingClient | null>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
+    const videoSenderRef = useRef<RTCRtpSender | null>(null);
     const displayStreamRef = useRef<MediaStream | null>(null);
     const webCamDisplayRef = useRef<HTMLVideoElement | null>(null);
     const outputCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -110,12 +112,13 @@ export default function SingleWorkout() {
             };
 
             const stream = await navigator.mediaDevices.getUserMedia(constrains);
+            const stream2 = stream.clone(); // Clonar o stream para usar na exibição e não pausar com a pausa do sender
 
             if (!stream) {
                 throw new Error("Could not get user media");
             }
 
-            displayStreamRef.current = stream;
+            displayStreamRef.current = stream2;
 
             if (webCamDisplayRef.current) {
                 webCamDisplayRef.current.srcObject = stream;
@@ -133,14 +136,19 @@ export default function SingleWorkout() {
             }
 
             if (pcRef.current) {
-                pcRef.current.addTrack(videoTrack, displayStreamRef.current);
+                videoSenderRef.current = pcRef.current.addTrack(videoTrack, displayStreamRef.current);
             }
+
+            await startConnection();
 
         } catch (error) {
             console.error("Error accessing media devices.", error);
             return;
         }
 
+    }, [resizeCanvas]);
+
+    const startConnection = async () => {
         try {
             signalingRef.current = new WebSocketSignalingClient(
                 SIGNALING_SERVER_HOST,
@@ -165,6 +173,7 @@ export default function SingleWorkout() {
                     const bodyDrawer = bodyDrawerRef.current;
 
                     if (!offScreenCanvas || !offScreenCanvasCtx || !outputCanvas || !outputCanvasCtx || !bodyDrawer) {
+                        console.error("Canvas or BodyDrawer not initialized");
                         return;
                     }
 
@@ -210,7 +219,6 @@ export default function SingleWorkout() {
                             if (videoSettings.height) {
                                 parameters.encodings[0].scaleResolutionDownBy = videoSettings.height / 480;
                                 await sender.setParameters(parameters);
-                                console.log('Set max bitrate for video sender:', sender.getParameters());
                             }
                         }
 
@@ -222,7 +230,6 @@ export default function SingleWorkout() {
 
                 pcRef.current.onicecandidate = (event: { candidate: RTCIceCandidate | null; }) => {
                     if (event.candidate && signalingRef.current) {
-                        console.log('New ICE candidate:', event.candidate);
                         signalingRef.current.sendIceCandidate(event.candidate);
                     }
                 }
@@ -239,45 +246,7 @@ export default function SingleWorkout() {
         } catch (error) {
             console.error("Error starting signaling client:", error);
         }
-    }, [incrementRepCounter, resizeCanvas, stopCapture]);
-
-    useEffect(() => {
-        setMinsTimer(Math.floor(walkSecondsLeft / 60));
-        setSecsTimer(walkSecondsLeft % 60);
-    }, [walkSecondsLeft]);
-
-    useEffect(() => {
-        if (actualExercise === ExerciseType.WALK) {
-            setWalkSecondsLeft(maxWalkSeconds);
-
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-            }
-
-            timerIntervalRef.current = setInterval(() => {
-                setWalkSecondsLeft((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timerIntervalRef.current!);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        } else {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
-            setWalkSecondsLeft(maxWalkSeconds);
-        }
-
-        return () => {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
-        };
-    }, [actualExercise]);
+    };
 
     useEffect(() => {
         pcRef.current = new RTCPeerConnection(pc_config);
@@ -337,6 +306,58 @@ export default function SingleWorkout() {
 
     }, [resizeCanvas]);
 
+    useEffect(() => {
+        if (actualExercise === ExerciseType.WALK) {
+            setWalkSecondsLeft(maxWalkSeconds);
+
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+            }
+
+            timerIntervalRef.current = setInterval(() => {
+                setWalkSecondsLeft((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timerIntervalRef.current!);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        } else {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+            setWalkSecondsLeft(maxWalkSeconds);
+        }
+
+        return () => {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+        };
+    }, [actualExercise]);
+
+    useEffect(() => {
+        if (actualExercise === ExerciseType.LEGS && repCounter >= maxLegReps) {
+            // Coloca aqui o que queres executar quando atingir o máximo de repetições de pernas
+            console.log("Atingiste o máximo de repetições de pernas!");
+            // Por exemplo, podes parar o exercício, mostrar uma mensagem, etc.
+        }
+        else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
+            console.log("Atingiste o máximo de repetições de braços!");
+        }
+        else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
+            console.log("Atingiste o tempo máximo de caminhada!");
+        }
+    }, [repCounter, actualExercise, walkSecondsLeft]);
+
+    useEffect(() => {
+        setMinsTimer(Math.floor(walkSecondsLeft / 60));
+        setSecsTimer(walkSecondsLeft % 60);
+    }, [walkSecondsLeft]);
+
     const startArmsExercise = useCallback(() => {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
@@ -366,6 +387,18 @@ export default function SingleWorkout() {
         setWalkSecondsLeft(maxWalkSeconds);
     }, []);
 
+    const pauseStreaming = () => {
+        if (videoSenderRef.current) {
+            videoSenderRef.current.track!.enabled = false;
+        }
+    };
+
+    const resumeStreaming = () => {
+        if (videoSenderRef.current) {
+            videoSenderRef.current.track!.enabled = true;
+        }
+    };
+
     return (
         <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
             <div className="flex justify-center gap-2 relative overflow-hidden">
@@ -380,58 +413,56 @@ export default function SingleWorkout() {
                             muted
                         ></video>
                         {isCapturing && (
-                            <>
-                                <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
-                                    <main className='w-full h-full'>
-                                        <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            {actualExercise === ExerciseType.ARMS && (
-                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                    <div className="w-full flex h-full">
-                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxArmReps}</p>
-                                                    </div>
+                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
+                                <main className='w-full h-full'>
+                                    <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        {actualExercise === ExerciseType.ARMS && (
+                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                <div className="w-full flex h-full">
+                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxArmReps}</p>
                                                 </div>
-                                            )}
-                                            {actualExercise === ExerciseType.LEGS && (
-                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                    <div className="w-full flex h-full">
-                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxLegReps}</p>
-                                                    </div>
+                                            </div>
+                                        )}
+                                        {actualExercise === ExerciseType.LEGS && (
+                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                <div className="w-full flex h-full">
+                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxLegReps}</p>
                                                 </div>
-                                            )}
-                                            {actualExercise === ExerciseType.WALK && (
-                                                <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                    <div className="w-full flex h-full">
-                                                        <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">
-                                                            {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
-                                                        </p>
-                                                    </div>
+                                            </div>
+                                        )}
+                                        {actualExercise === ExerciseType.WALK && (
+                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
+                                                <div className="w-full flex h-full">
+                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">
+                                                        {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
+                                                    </p>
                                                 </div>
-                                            )}
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
+                                            </div>
+                                        )}
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
 
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                        </div>
-                                    </main>
-                                </div>
-                                <canvas
-                                    className="absolute max-w-full max-h-full object-contain pointer-events-none"
-                                    style={{ transform: 'scaleX(-1)', zIndex: 1 }}
-                                    ref={outputCanvasRef}
-                                ></canvas>
-                            </>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                        <div></div>
+                                    </div>
+                                </main>
+                            </div>
                         )}
+                        <canvas
+                            className="absolute max-w-full max-h-full object-contain pointer-events-none"
+                            style={{ transform: 'scaleX(-1)', zIndex: 1 }}
+                            ref={outputCanvasRef}
+                        ></canvas>
                     </div>
                 </div>
             </div>
@@ -447,6 +478,12 @@ export default function SingleWorkout() {
                 </button>
                 <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
                     Increment Rep
+                </button>
+                <button className="btn btn-soft" id="pauseButton" onClick={pauseStreaming}>
+                    Pause
+                </button>
+                <button className="btn btn-soft" id="resumeButton" onClick={resumeStreaming}>
+                    Resume
                 </button>
             </div>
         </main>

@@ -76,7 +76,6 @@ class WebSocketSignalingClient {
         };
 
         this.sendMessage(message);
-        console.log('Sent ICE candidate:', candidate);
     }
 
     handleMessages(pc: RTCPeerConnection) {
