@@ -41,8 +41,8 @@ def walk_exercise(landmarks, others):
     right_ankle_y = landmarks[27]['y']
     left_ankle_y = landmarks[28]['y']   
     right_hip_x = landmarks[23]['x']
-    left_hip_x = landmarks[24]['x'] 
-    print("e")  
+    left_hip_x = landmarks[24]['x']
+    
     if right_wrist["x"] < right_hip_x:
         if right_arm_angle_amp < 140:
         
