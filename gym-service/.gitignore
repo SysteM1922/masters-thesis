@@ -1,0 +1,4 @@
+# audio files should go in storage
+*.mp3
+*.wav
+*.ogg

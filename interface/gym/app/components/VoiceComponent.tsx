@@ -21,13 +21,65 @@ export default function VoiceComponent() {
     const {
         keywordDetection,
         isLoaded,
-        isListening,
+        //isListening,
         error,
         init,
         start,
         stop,
         release,
     } = usePorcupine();
+
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const ws = useRef<WebSocket | null>(null);
+
+    useEffect(() => {
+        if (ws.current) {
+            return;
+        }
+
+        ws.current = new WebSocket("ws://localhost:8100/ws/session");
+        ws.current.binaryType = "arraybuffer";
+
+        const audio = audioRef.current;
+        const mediaSource = new MediaSource();
+        audio!.src = URL.createObjectURL(mediaSource);
+
+        let sourceBuffer: SourceBuffer | null = null;
+        const queue: ArrayBuffer[] = [];
+
+        const processQueue = () => {
+            if (!sourceBuffer || sourceBuffer.updating || queue.length === 0) return;
+            sourceBuffer.appendBuffer(queue.shift()!);
+        }
+
+        mediaSource.addEventListener('sourceopen', () => {
+            sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+
+            sourceBuffer.addEventListener("updateend", processQueue);
+
+            ws.current!.onmessage = (event) => {
+                queue.push(event.data);
+                processQueue();
+            };
+        });
+
+        ws.current.onopen = () => {
+            console.log("WebSocket connection established");
+        };
+
+        ws.current.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
+
+        ws.current.onclose = () => {
+            console.log("WebSocket connection closed");
+            mediaSource.endOfStream();
+        };
+        
+        return () => {
+            ws.current?.close();
+        }
+    }, []);
 
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -68,6 +120,8 @@ export default function VoiceComponent() {
             if (finalTranscript) {
                 // acrescenta ao final consolidado
                 setFinalText((prev: string) => (prev ? prev + " " + finalTranscript : finalTranscript));
+
+                ws.current!.send(JSON.stringify({ type: "new_command", command: finalTranscript }));
             }
             setInterim(interimTranscript);
         };
@@ -131,7 +185,6 @@ export default function VoiceComponent() {
 
     useEffect(() => {
         if (keywordDetection) {
-            console.log("Detected:", keywordDetection.label);
             startListening();
         }
     }, [keywordDetection]);
@@ -144,6 +197,7 @@ export default function VoiceComponent() {
 
     return (
         <>
+            <audio ref={audioRef} controls autoPlay className="hidden" />
             {listening && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">

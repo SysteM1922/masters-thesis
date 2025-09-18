@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { ExerciseType } from '../utils/enums';
-import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
+import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
-import { useRouter } from 'next/navigation';
 import VoiceComponent from './VoiceComponent';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
@@ -102,55 +101,7 @@ export default function SingleWorkout() {
         }
     }, []);
 
-    const startCapture = useCallback(async () => {
-        try {
-            const constrains = {
-                video: {
-                    width: { ideal: 3840 },
-                    height: { ideal: 2160 },
-                    frameRate: { ideal: 30 }
-                },
-                audio: false
-            };
-
-            const stream = await navigator.mediaDevices.getUserMedia(constrains);
-            const stream2 = stream.clone(); // Clonar o stream para usar na exibição e não pausar com a pausa do sender
-
-            if (!stream) {
-                throw new Error("Could not get user media");
-            }
-
-            displayStreamRef.current = stream2;
-
-            if (webCamDisplayRef.current) {
-                webCamDisplayRef.current.srcObject = stream;
-                setIsCapturing(true);
-
-                webCamDisplayRef.current.addEventListener('loadedmetadata', () => {
-                    resizeCanvas();
-                });
-            }
-
-            const videoTrack = displayStreamRef.current.getVideoTracks()[0];
-
-            if (!videoTrack) {
-                throw new Error("No video track found");
-            }
-
-            if (pcRef.current) {
-                videoSenderRef.current = pcRef.current.addTrack(videoTrack, displayStreamRef.current);
-            }
-
-            await startConnection();
-
-        } catch (error) {
-            console.error("Error accessing media devices.", error);
-            return;
-        }
-
-    }, [resizeCanvas]);
-
-    const startConnection = async () => {
+    const startConnection = useCallback(async () => {
         try {
             signalingRef.current = new WebSocketSignalingClient(
                 SIGNALING_SERVER_HOST,
@@ -250,7 +201,55 @@ export default function SingleWorkout() {
         } catch (error) {
             console.error("Error starting signaling client:", error);
         }
-    };
+    }, [stopCapture]);
+
+    const startCapture = useCallback(async () => {
+        try {
+            const constrains = {
+                video: {
+                    width: { ideal: 3840 },
+                    height: { ideal: 2160 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: false
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constrains);
+            const stream2 = stream.clone(); // Clonar o stream para usar na exibição e não pausar com a pausa do sender
+
+            if (!stream) {
+                throw new Error("Could not get user media");
+            }
+
+            displayStreamRef.current = stream2;
+
+            if (webCamDisplayRef.current) {
+                webCamDisplayRef.current.srcObject = stream;
+                setIsCapturing(true);
+
+                webCamDisplayRef.current.addEventListener('loadedmetadata', () => {
+                    resizeCanvas();
+                });
+            }
+
+            const videoTrack = displayStreamRef.current.getVideoTracks()[0];
+
+            if (!videoTrack) {
+                throw new Error("No video track found");
+            }
+
+            if (pcRef.current) {
+                videoSenderRef.current = pcRef.current.addTrack(videoTrack, displayStreamRef.current);
+            }
+
+            await startConnection();
+
+        } catch (error) {
+            console.error("Error accessing media devices.", error);
+            return;
+        }
+
+    }, [resizeCanvas, startConnection]);
 
     useEffect(() => {
         if (pcRef.current !== null) return;
@@ -301,7 +300,7 @@ export default function SingleWorkout() {
         setupResizeObserver();
 
         startCapture();
-    }, [resizeCanvas]);
+    }, [resizeCanvas, startCapture]);
 
     useEffect(() => {
         if (actualExercise === ExerciseType.WALK) {
@@ -405,14 +404,33 @@ export default function SingleWorkout() {
     };
 
     return (
-        <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
-            <VoiceComponent />
+        <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
+            <div id="buttons" className="flex flex-col justify-center items-center gap-10 flex-shrink-0">
+                <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
+                    Start Arms Exercise
+                </button>
+                <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
+                    Start Legs Exercise
+                </button>
+                <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
+                    Start Walk Exercise
+                </button>
+                <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
+                    Increment Rep
+                </button>
+                <button className="btn btn-soft" id="pauseButton" onClick={pauseStreaming}>
+                    Pause
+                </button>
+                <button className="btn btn-soft" id="resumeButton" onClick={resumeStreaming}>
+                    Resume
+                </button>
+            </div>
             <div className="flex justify-center gap-2 relative overflow-hidden">
                 <div className='flex relative w-full h-full justify-center'>
                     <div className='flex relative justify-center'>
                         <video
                             ref={webCamDisplayRef}
-                            className="max-w-full max-h-full object-contain"
+                            className="max-w-full max-h-full object-contain rounded-4xl"
                             style={{ transform: 'scaleX(-1)' }}
                             autoPlay
                             playsInline
@@ -427,12 +445,11 @@ export default function SingleWorkout() {
                                         <div></div>
                                         <div></div>
                                         {!loading && (
-
                                             <div className="bg-gray-800/90 rounded-4xl p-5 text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
                                                 {actualExercise === ExerciseType.ARMS && (
                                                     <div className="w-full flex h-full flex-col justify-evenly">
                                                         <div className='flex'>
-                                                            <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.ARMS}</p>
+                                                            <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.ARMS}</p>
                                                         </div>
                                                         <div className='flex'>
                                                             <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxArmReps}</p>
@@ -441,19 +458,19 @@ export default function SingleWorkout() {
                                                 )}
                                                 {actualExercise === ExerciseType.RIGHT_LEG && (
                                                     <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.RIGHT_LEG}</p>
+                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.RIGHT_LEG}</p>
                                                         <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
                                                     </div>
                                                 )}
                                                 {actualExercise === ExerciseType.LEFT_LEG && (
                                                     <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.LEFT_LEG}</p>
+                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.LEFT_LEG}</p>
                                                         <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
                                                     </div>
                                                 )}
                                                 {actualExercise === ExerciseType.WALK && (
                                                     <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.WALK}</p>
+                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.WALK}</p>
                                                         <p className="font-bold leading-none text-center w-full" style={{ fontSize: "1.5em" }}>
                                                             {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
                                                         </p>
@@ -497,26 +514,6 @@ export default function SingleWorkout() {
                         ></canvas>
                     </div>
                 </div>
-            </div>
-            <div id="buttons" className="flex justify-center items-center w-full gap-10 flex-shrink-0">
-                <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
-                    Start Arms Exercise
-                </button>
-                <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
-                    Start Legs Exercise
-                </button>
-                <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
-                    Start Walk Exercise
-                </button>
-                <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
-                    Increment Rep
-                </button>
-                <button className="btn btn-soft" id="pauseButton" onClick={pauseStreaming}>
-                    Pause
-                </button>
-                <button className="btn btn-soft" id="resumeButton" onClick={resumeStreaming}>
-                    Resume
-                </button>
             </div>
         </main>
     );

@@ -19,7 +19,7 @@ export default function Root() {
           return true;
         }
       } catch (error) {
-        console.log("Permission API not supported, proceeding with media request");
+        console.log("Permission API not supported", error);
       }
 
       // Request permissions if not already granted

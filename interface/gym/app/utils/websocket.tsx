@@ -21,7 +21,7 @@ class WebSocketSignalingClient {
     }
 
     sendMessage(obj: any) {
-        var message = Object.create(null);
+        let message = Object.create(null);
 
         if (obj.sdp) {
             message = {
@@ -79,7 +79,7 @@ class WebSocketSignalingClient {
     }
 
     handleMessages(pc: RTCPeerConnection) {
-        var errors = 0;
+        let errors = 0;
 
         this.websocket!.onmessage = (event) => {
             try {
