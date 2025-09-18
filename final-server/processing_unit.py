@@ -49,6 +49,7 @@ end_process_times = []
 send_times = []
 
 exercise_function = arms_exercise
+right_leg = True
 
 base_options = mp.tasks.BaseOptions(
     model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
@@ -71,7 +72,7 @@ def handle_results(results, _, frame_pts):
 
     # dummy for arms_exercise
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
-    styled_connections, new_rep = exercise_function(landmarks, True)
+    styled_connections, new_rep = exercise_function(landmarks, right_leg)
 
     data = json.dumps({
         "landmarks": landmarks,
@@ -349,12 +350,13 @@ async def run(host, port, identifier):
                         if "test_id" in data:
                             test_id = data["test_id"]
                         elif "exercise" in data:
-                            global exercise_function
+                            global exercise_function, right_leg
                             match data["exercise"]:
                                 case "arms":
                                     exercise_function = arms_exercise
                                 case "legs":
                                     exercise_function = legs_exercise
+                                    right_leg = data.get("right_leg")
                                 case "walk":
                                     exercise_function = walk_exercise
                                 case _:
