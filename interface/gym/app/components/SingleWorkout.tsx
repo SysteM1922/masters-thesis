@@ -59,6 +59,8 @@ export default function SingleWorkout() {
     const [walkSecondsLeft, setWalkSecondsLeft] = useState(maxWalkSeconds);
     const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    const [loading, setLoading] = useState(true);
+
     const incrementRepCounter = () => {
         setRepCounter((prev) => prev + 1);
     }
@@ -162,6 +164,7 @@ export default function SingleWorkout() {
                 dataChannelRef.current = pcRef.current.createDataChannel("data");
 
                 dataChannelRef.current.onopen = () => {
+                    setLoading(false);
                     console.log("Data channel opened");
                 };
 
@@ -224,6 +227,7 @@ export default function SingleWorkout() {
 
                     } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                         console.log('WebRTC connection closed or failed');
+                        setIsCapturing(false);
                         stopCapture();
                     }
                 };
@@ -249,6 +253,8 @@ export default function SingleWorkout() {
     };
 
     useEffect(() => {
+        if (pcRef.current !== null) return;
+
         pcRef.current = new RTCPeerConnection(pc_config);
 
         if (outputCanvasRef.current) {
@@ -295,15 +301,6 @@ export default function SingleWorkout() {
         setupResizeObserver();
 
         startCapture();
-
-        return () => {
-            window.removeEventListener("resize", handleWindowResize);
-            if (resizeObserverRef.current) {
-                resizeObserverRef.current.disconnect();
-                resizeObserverRef.current = null;
-            }
-        };
-
     }, [resizeCanvas]);
 
     useEffect(() => {
@@ -340,7 +337,7 @@ export default function SingleWorkout() {
     }, [actualExercise]);
 
     useEffect(() => {
-        if (actualExercise === ExerciseType.LEGS && repCounter >= maxLegReps) {
+        if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
             // Coloca aqui o que queres executar quando atingir o máximo de repetições de pernas
             console.log("Atingiste o máximo de repetições de pernas!");
             // Por exemplo, podes parar o exercício, mostrar uma mensagem, etc.
@@ -367,24 +364,32 @@ export default function SingleWorkout() {
         }
     }, []);
 
-    const startLegsExercise = useCallback(() => {
+    const startLegsExercise = () => {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
-            dataChannel.send(JSON.stringify({ exercise: "legs" }));
-            setActualExercise(ExerciseType.LEGS);
-            setRepCounter(0);
+            if (actualExercise === ExerciseType.RIGHT_LEG) {
+                console.log("Iniciando exercício de pernas - perna direita");
+                dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: false }));
+                setActualExercise(ExerciseType.LEFT_LEG);
+                setRepCounter(0);
+            } else {
+                console.log("Iniciando exercício de pernas - perna esquerda");
+                dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: true }));
+                setActualExercise(ExerciseType.RIGHT_LEG);
+                setRepCounter(0);
+            }
+            console.log(actualExercise);
         }
-    }, []);
+    };
 
     const startWalkExercise = useCallback(() => {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             dataChannel.send(JSON.stringify({ exercise: "walk" }));
-
+            setActualExercise(ExerciseType.WALK);
+            setRepCounter(0);
+            setWalkSecondsLeft(maxWalkSeconds);
         }
-        setActualExercise(ExerciseType.WALK);
-        setRepCounter(0);
-        setWalkSecondsLeft(maxWalkSeconds);
     }, []);
 
     const pauseStreaming = () => {
@@ -421,27 +426,40 @@ export default function SingleWorkout() {
                                         <div></div>
                                         <div></div>
                                         <div></div>
-                                        {actualExercise === ExerciseType.ARMS && (
-                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                <div className="w-full flex h-full">
-                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxArmReps}</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {actualExercise === ExerciseType.LEGS && (
-                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                <div className="w-full flex h-full">
-                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">{repCounter}/{maxLegReps}</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {actualExercise === ExerciseType.WALK && (
-                                            <div className="bg-black bg-opacity-60 rounded-lg p-3 text-white pointer-events-auto w-full">
-                                                <div className="w-full flex h-full">
-                                                    <p className="text-[clamp(1rem,8vw,4rem)] font-bold leading-none text-center w-full">
-                                                        {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
-                                                    </p>
-                                                </div>
+                                        {!loading && (
+
+                                            <div className="bg-gray-800/90 rounded-4xl p-5 text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
+                                                {actualExercise === ExerciseType.ARMS && (
+                                                    <div className="w-full flex h-full flex-col justify-evenly">
+                                                        <div className='flex'>
+                                                            <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.ARMS}</p>
+                                                        </div>
+                                                        <div className='flex'>
+                                                            <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxArmReps}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {actualExercise === ExerciseType.RIGHT_LEG && (
+                                                    <div className="w-full flex h-full flex-col justify-evenly">
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.RIGHT_LEG}</p>
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
+                                                    </div>
+                                                )}
+                                                {actualExercise === ExerciseType.LEFT_LEG && (
+                                                    <div className="w-full flex h-full flex-col justify-evenly">
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.LEFT_LEG}</p>
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
+                                                    </div>
+                                                )}
+                                                {actualExercise === ExerciseType.WALK && (
+                                                    <div className="w-full flex h-full flex-col justify-evenly">
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.WALK}</p>
+                                                        <p className="font-bold leading-none text-center w-full" style={{ fontSize: "1.5em" }}>
+                                                            {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
+                                                        </p>
+                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         <div></div>
@@ -457,6 +475,19 @@ export default function SingleWorkout() {
                                         <div></div>
                                     </div>
                                 </main>
+
+                                {loading && (
+                                    <div>
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70">
+                                        </div>
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center">
+                                            <div className="flex flex-col items-center">
+                                                <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
+                                                <span className="loading loading-dots w-40"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <canvas
