@@ -7,7 +7,50 @@ import { useEffect } from "react";
 export default function Root() {
 
   useEffect(() => {
-    redirect("/workout");
+
+    const checkAndRequestPermissions = async () => {
+      try {
+        // Check if permissions are already granted
+        const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        const microphonePermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+
+        if (cameraPermission.state === 'granted' && microphonePermission.state === 'granted') {
+          console.log("Permissions already granted");
+          return true;
+        }
+      } catch (error) {
+        console.log("Permission API not supported, proceeding with media request");
+      }
+
+      // Request permissions if not already granted
+      const askPermissions = async () => {
+        return new Promise<void>((resolve, reject) => {
+          navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+            .then(() => {
+              resolve()
+            })
+            .catch((error) => {
+              reject(error)
+            })
+        })
+      }
+
+      askPermissions().then(() => {
+        console.log("Microphone and camera permission granted");
+        return true;
+      }).catch((error) => {
+        console.error("Microphone permission denied", error);
+        alert("Microphone permission is required for voice commands. Please allow microphone access and refresh the page.");
+        return false;
+      });
+    };
+
+    checkAndRequestPermissions().then((granted) => {
+      if (granted) {
+        redirect("/workout");
+      }
+    });
+
   }, []);
 
   return (

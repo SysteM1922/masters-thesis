@@ -6,7 +6,7 @@ import { ExerciseType } from '../utils/enums';
 import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useRouter } from 'next/navigation';
-import { start } from 'repl';
+import VoiceComponent from './VoiceComponent';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -401,6 +401,7 @@ export default function SingleWorkout() {
 
     return (
         <main className="flex justify-center items-center h-screen flex-col w-full gap-5 p-5">
+            <VoiceComponent />
             <div className="flex justify-center gap-2 relative overflow-hidden">
                 <div className='flex relative w-full h-full justify-center'>
                     <div className='flex relative justify-center'>
