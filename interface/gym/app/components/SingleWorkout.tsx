@@ -453,7 +453,9 @@ export default function SingleWorkout() {
                 else if (actualExercise === ExerciseType.WALK) {
                     pauseStreaming();
                     sendMessage({ type: "goodbye" });
-                    redirect("/bye");
+                    setTimeout(() => {
+                        redirect("/bye");
+                    }, 5000);
                 }
 
             } else if (actualExercise === ExerciseType.WALK) {
@@ -494,7 +496,9 @@ export default function SingleWorkout() {
         else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
             pauseStreaming();
             sendMessage({ type: "goodbye" });
-            redirect("/bye");
+            setTimeout(() => {
+                redirect("/bye");
+            }, 5000);
         }
     }, [repCounter, actualExercise, walkSecondsLeft]);
 
