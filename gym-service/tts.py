@@ -35,3 +35,121 @@ async def text_to_speech(text: str, intent: str):
     filename = f"{AUDIO_FOLDER}/{intent}/{intent}_{current_audio_folder_size}.mp3"
     response.write_to_file(filename)
     return filename
+
+async def greet(): # intent
+    texts = [
+        "Olá! Como posso ajudar?",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "greet")
+    return filename
+
+async def affirm(): # intent
+    texts = [
+        "Entendido!",
+    ]
+    full_text = random.choice(texts)
+    filename = await text_to_speech(full_text, "affirm")
+    return filename
+
+async def next_exercise(): # intent
+    texts = [
+        "Tem a certeza que quer passar este exercício?",
+    ]
+    full_text = " ".join(texts)
+    print(full_text)
+    filename = await text_to_speech(full_text, "next_exercise")
+    return filename
+
+async def help(): # intent
+    texts = [
+        "Estou aqui para ajudar. De momento apenas posso explicar-lhe o exercício que estamos a fazer ou então podemos passar para o próximo exercício.",
+        "Se precisar de ajuda, é só dizer Olá Jim!",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "help")
+    return filename
+
+async def help_exercise(exercise_nr: int): # intent
+    if (exercise_nr == 1):
+        return await arms_exercise()
+    elif (exercise_nr == 2):
+        return await legs_exercise()
+    elif (exercise_nr == 3):
+        return await walk_exercise()
+
+async def presentation():   # intent
+    texts = [
+        "Olá! Eu sou o Jim, o seu assistente de treino virtual. Bem-vindo ao seu ginásio em casa!",
+        "Estou aqui para ajudar a guiá-lo através dos seus exercícios, fornecer motivação e garantir que você mantenha a forma correta durante o treino.",
+        "Em breve daremos início ao nosso treino. Sempre que precisar de ajuda é só dizer Olá Jim!",
+        "Está pronto para começar? Não se esqueça, para falar comigo, basta dizer Olá Jim!",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation")
+    return filename
+
+async def arms_exercise():
+    texts = [
+        "Para este exercício coloque-se à frente da tela.",
+        "Mantenha sempre as costas direitas e levante os braços esticados até acima dos ombros.",
+        "Abra os braços até ficarem paralelos ao chão, como se fosse um avião.",
+        "Repita o movimento 10 vezes. Vamos começar?"
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, f"arms_exercise")
+    return filename
+
+async def legs_exercise():
+    texts = [
+        "Para este exercício irá precisar de uma cadeira.",
+        "Coloque a cadeira numa posição diagonal relativamente à tela de forma a ver as suas duas pernas.",
+        "Sente-se na cadeira e levante uma perna de cada vez, esticando-a para a frente.",
+        "Primeiro irá só fazer o movimento com uma perna e após 10 repetições, troca para a outra perna.",
+        "Vamos começar?"
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, f"legs_exercise")
+    return filename
+
+async def walk_exercise():
+    texts = [
+        "Para este exercício, fique em pé e comece a marchar no lugar.",
+        "Levante os joelhos o mais alto que conseguir, como se estivesse a caminhar.",
+        "Balance os braços para ajudar no movimento e manter o equilíbrio.",
+        "As mãos devem balançar o suficiente para ficarem por cima da perna contrária.",
+        "mantenha a coordenação e levante sempre a perna do lado contrário do braço que baloiçou.",
+        "Terá de caminhar durante 60 segundos e os seus passos corretos serão contados.",
+        "Vamos começar?"
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, f"walk_exercise")
+    return filename
+
+async def exercise_done():
+    texts = [
+        "Parabéns por ter completado o exercício!",
+        "Ótimo trabalho! Está a ir muito bem.",
+        "Lembre-se de manter-se hidratado e fazer pausas quando necessário.",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "exercise_done")
+    return filename
+
+async def goodbye(): # intent
+    texts = [
+        "Até logo! Foi ótimo treinar consigo hoje.",
+        "Lembre-se de manter-se ativo e cuidar do seu corpo.",
+        "Estou ansioso para o nosso próximo treino juntos. Adeus!",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "goodbye")
+    return filename
+
+async def change_legs():
+    texts = [
+        "Vamos trocar de perna. Prepare-se!",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "change_legs")
+    return filename

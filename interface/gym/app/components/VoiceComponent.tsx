@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useRef } from "react"
 import { usePorcupine } from "@picovoice/porcupine-react"
+import { redirect } from "next/navigation";
+import { useColor } from "../contexts/ColorContext";
+import { useVoice } from "../contexts/VoiceContext";
 
 const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
 const modelFilePath = "/porcupine_params_pt.pv";
@@ -13,6 +16,8 @@ if (ACCESS_KEY === "") {
 
 export default function VoiceComponent() {
 
+    const { setTextColor } = useColor();
+    const { sendMessage, setWebSocket,  } = useVoice();
     const [listening, setListening] = useState(false);
     const [interim, setInterim] = useState("");
     const [finalText, setFinalText] = useState("");
@@ -39,6 +44,8 @@ export default function VoiceComponent() {
 
         ws.current = new WebSocket("ws://localhost:8100/ws/session");
         ws.current.binaryType = "arraybuffer";
+
+        setWebSocket(ws.current);
 
         const audio = audioRef.current;
         const mediaSource = new MediaSource();
@@ -121,7 +128,7 @@ export default function VoiceComponent() {
                 // acrescenta ao final consolidado
                 setFinalText((prev: string) => (prev ? prev + " " + finalTranscript : finalTranscript));
 
-                ws.current!.send(JSON.stringify({ type: "new_command", command: finalTranscript }));
+                sendMessage({ type: "new_command", command: finalTranscript });
             }
             setInterim(interimTranscript);
         };
@@ -185,7 +192,17 @@ export default function VoiceComponent() {
 
     useEffect(() => {
         if (keywordDetection) {
-            startListening();
+            console.log("Keyword detected:", keywordDetection);
+            if (window.location.pathname === "/") {
+                setTextColor("text-green-600");
+                sendMessage({ type: "presentation" });
+                setTimeout(() => {
+                    redirect("/workout");
+                }, 15000);
+            }
+            else {
+                startListening();
+            }
         }
     }, [keywordDetection]);
 

@@ -3,89 +3,134 @@ version: "3.1"
 nlu:
 - intent: greet
   examples: |
-    - hey
-    - hello
-    - hi
-    - hello there
-    - good morning
-    - good evening
-    - moin
-    - hey there
-    - let's go
-    - hey dude
-    - goodmorning
-    - goodevening
-    - good afternoon
+    - Olá
+    - Oi
+    - Tudo bem?
+    - Como estás?
+    - Espero que esteja tudo bem
+    - Bom dia
+    - Boa tarde
+    - Boa noite
+    - Saudações
 
 - intent: goodbye
   examples: |
-    - cu
-    - good by
-    - cee you later
-    - good night
-    - bye
-    - goodbye
-    - have a nice day
-    - see you around
-    - bye bye
-    - see you later
+    - Tchau
+    - Adeus
+    - Até logo
+    - Até à próxima
+    - Fica bem
+    - Fica bem, até à próxima
+    - Até mais ver
+    - Até mais
+    - Até já
+    - Até breve
+    - Até amanhã
+    - Até à vista
+    - Até depois
+    - Até à próxima vez
+    - Até à próxima semana
+    - Até à próxima aula
+    - Até à próxima sessão
 
 - intent: affirm
   examples: |
-    - yes
-    - y
-    - indeed
-    - of course
-    - that sounds good
-    - correct
+    - Ok
+    - Confirmo
+    - Confirmar
+    - Parece-me bem
+    - Sim
+    - Perfeito
+    - Ya
+    - Yeah
+    - Yep
+    - Vamos a isso
+    - Com certeza
+    - Claro que sim
+    - Certo
+    - Isso mesmo
+    - Exato
+    - Correcto
+    - De acordo
+    - Vamos lá
 
 - intent: deny
   examples: |
-    - no
-    - n
-    - never
-    - I don't think so
-    - don't like that
-    - no way
-    - not really
+    - Não
+    - Não quero
+    - Não quero isso
+    - Não me apetece
+    - Não estou interessado
+    - Não obrigado
+    - Não obrigada
+    - Não quero fazer isso
+    - Não me Parece
+    - Não acho
+    - Negativo
+    - De maneira nenhuma
+    - De forma alguma
+    - De jeito nenhum
+    - Nem pensar
+    - De modo nenhum
+    - De jeito nenhum
+    - De forma nenhuma
+    - De maneira nenhuma
+    - Nem pensar
+    - De maneira alguma
 
-- intent: mood_great
+- intent: next_exercise
   examples: |
-    - perfect
-    - great
-    - amazing
-    - feeling like a king
-    - wonderful
-    - I am feeling very good
-    - I am great
-    - I am amazing
-    - I am going to save the world
-    - super stoked
-    - extremely good
-    - so so perfect
-    - so good
-    - so perfect
+    - Próximo exercício
+    - Passa o exercício à frente
+    - Passa para o próximo exercício
+    - Próximo
+    - Não quero fazer este exercício
+    - Quero fazer o próximo exercício
+    - Avança para o próximo exercício
+    - Avança
+    - Seguinte
+    - Passa para o seguinte
+    - Passa para o exercício seguinte
+    - Quero fazer o exercício seguinte
+    - Quero fazer o seguinte
+    - Avança para o seguinte
 
-- intent: mood_unhappy
+- intent: help
   examples: |
-    - my day was horrible
-    - I am sad
-    - I don't feel very well
-    - I am disappointed
-    - super sad
-    - I'm so sad
-    - sad
-    - very sad
-    - unhappy
-    - not good
-    - not very good
-    - extremly sad
-    - so saad
-    - so sad
+    - Ajuda
+    - Preciso de ajuda
+    - Podes ajudar-me?
+    - Podes ajudar-me
+    - O que consegues fazer?
+    - Por favor ajuda-me
+    - O que podes fazer?
 
-- intent: bot_challenge
+- intent: help_exercise
   examples: |
-    - are you a bot?
-    - are you a human?
-    - am I talking to a bot?
-    - am I talking to a human?
+    - Ajuda com o exercício
+    - Preciso de ajuda com o exercício
+    - Podes ajudar-me com o exercício?
+    - Podes ajudar-me com o exercício?
+    - Podes ajudar-me com este exercício?
+    - Preciso de ajuda com este exercício
+    - Ajuda com este exercício
+    - Podes explicar o exercício?
+    - Podes explicar este exercício?
+    - Explica o exercício
+    - Explica este exercício
+    - Explica o exercício, por favor
+    - Explica este exercício, por favor
+    - Podes explicar o exercício, por favor?
+    - Podes explicar este exercício, por favor?
+    - Podes explicar o exercício?
+
+- intent: presentation
+  examples: |
+    - Quem és tu?
+    - O que és tu?
+    - Quem és?
+    - O que és?
+    - Quem és tu, por favor?
+    - O que é isto?
+    - Quem és tu?
+    - Para que serves?

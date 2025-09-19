@@ -3,7 +3,7 @@ from asyncio.log import logger
 import logging
 import sys
 import time
-import threading
+import multiprocessing
 from pystray import Icon, MenuItem, Menu
 from PIL import Image
 import uvicorn
@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import tts
+from agent import Agent
 import asyncio
 
 load_dotenv(".env")
@@ -44,6 +45,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def send_audio_ws(websocket: WebSocket, filename: str):
+    with open(filename, "rb") as audio_file:
+        chunk = audio_file.read(4096)
+        while chunk:
+            await websocket.send_bytes(chunk)
+            chunk = audio_file.read(4096)
+
 @app.get("/", tags=["Root"])
 async def read_root():
     """Root endpoint to verify server is running."""
@@ -72,14 +80,74 @@ async def websocket_session(websocket: WebSocket):
             logger.info(f"Received message from client: {data}")
             match data.get("type"):
                 case "new_command":
-                    filename = await tts.text_to_speech("Olá tudo bem?", "greeting")
-                    
-                    with open(filename, "rb") as audio_file:
-                        chunk = audio_file.read(4096)
-                        while chunk:
-                            await websocket.send_bytes(chunk)
-                            chunk = audio_file.read(4096)
+                    command = data.get("command", "")
+                    response = await Agent.parse_message(command)
 
+                    intent = response.get("intent", {}).get("name", "")
+                    Agent.update_intent(intent)
+                    print(f"Predicted intent: {intent}")
+
+                    match intent:
+                        case "greet":
+                            filename = await tts.greet()
+                            await send_audio_ws(websocket, filename)
+
+                        case "affirm":
+                            if Agent._previous_intent == "next_exercise":
+                                Agent._actual_exercise += 1
+
+                            filename = await tts.affirm()
+                            await send_audio_ws(websocket, filename)
+
+                        case "deny":
+                            filename = await tts.affirm()
+                            await send_audio_ws(websocket, filename)
+
+                        case "next_exercise":
+                            filename = await tts.next_exercise()
+                            print(filename)
+                            await send_audio_ws(websocket, filename)
+
+                        case "help":
+                            filename = await tts.help()
+                            await send_audio_ws(websocket, filename)
+                            
+                        case "help_exercise":
+                            filename = await tts.help_exercise(Agent._actual_exercise)
+                            await send_audio_ws(websocket, filename)
+
+                        case "presentation":
+                            filename = await tts.presentation()
+                            await send_audio_ws(websocket, filename)
+
+                        case "goodbye":
+                            filename = await tts.goodbye()
+                            await send_audio_ws(websocket, filename)
+                            
+                case "arms_exercise":
+                    filename = await tts.arms_exercise()
+                    await send_audio_ws(websocket, filename)
+
+                case "legs_exercise":
+                    filename = await tts.legs_exercise()
+                    await send_audio_ws(websocket, filename)
+
+                case "walk_exercise":
+                    filename = await tts.walk_exercise()
+                    await send_audio_ws(websocket, filename)
+
+                case "change_legs":
+                    filename = await tts.change_legs()
+                    await send_audio_ws(websocket, filename)
+
+                case "exercise_done":
+                    filename = await tts.exercise_done()
+                    await send_audio_ws(websocket, filename)
+
+                case "presentation":
+                    filename = await tts.presentation()
+                    await send_audio_ws(websocket, filename)
+                
                 case _:
                     logger.warning(f"Unknown message type: {data.get('type')}")
 
@@ -90,7 +158,8 @@ async def websocket_session(websocket: WebSocket):
         await websocket.close()
         logger.info("WebSocket connection closed")
 
-def main():
+def start_server():
+    
     parser = argparse.ArgumentParser(description="Gym Service for managing workout sessions")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload on code changes")
     parser.add_argument("--log-level", type=str, default="info", choices=["debug", "info", "warning", "error", "critical"], help="Set the logging level")
@@ -109,12 +178,17 @@ def main():
 
 if __name__ == "__main__":
 
+    server_process = None
+
     def create_image():
         image = Image.open("images/py-logo.png")
         return image
 
-    def quit_app(icon, item):
+    def quit_app(icon):
         icon.stop()
+        if server_process is not None:
+            server_process.terminate()
+            server_process.join()
         sys.exit(0)
 
     menu = Menu(
@@ -123,6 +197,8 @@ if __name__ == "__main__":
 
     icon = Icon("py-logo", create_image(), "Gym Service", menu)
 
-    threading.Thread(target=icon.run, daemon=True).start()
+    server_process = multiprocessing.Process(target=start_server)
+    server_process.start()
 
-    main()
+    icon.run()
+    

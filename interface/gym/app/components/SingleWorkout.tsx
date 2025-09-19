@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, use } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
-import VoiceComponent from './VoiceComponent';
+import { useVoice } from '../contexts/VoiceContext';
+import { start } from 'repl';
+import { send } from 'process';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -47,6 +49,10 @@ export default function SingleWorkout() {
     const dataChannelRef = useRef<RTCDataChannel | null>(null);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
+    const [showingExerciseModal, setShowingExerciseModal] = useState(false);
+
+    const videoPath = useRef<string>("/exercise1.mp4");
+
     const [isCapturing, setIsCapturing] = useState(false);
 
     const [actualExercise, setActualExercise] = useState<ExerciseType>(ExerciseType.ARMS);
@@ -59,6 +65,8 @@ export default function SingleWorkout() {
     const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const [loading, setLoading] = useState(true);
+
+    const { sendMessage } = useVoice();
 
     const incrementRepCounter = () => {
         setRepCounter((prev) => prev + 1);
@@ -116,6 +124,8 @@ export default function SingleWorkout() {
 
                 dataChannelRef.current.onopen = () => {
                     setLoading(false);
+                    setShowingExerciseModal(true);
+                    sendMessage({ type: "arms_exercise" });
                     console.log("Data channel opened");
                 };
 
@@ -240,6 +250,7 @@ export default function SingleWorkout() {
 
             if (pcRef.current) {
                 videoSenderRef.current = pcRef.current.addTrack(videoTrack, displayStreamRef.current);
+                videoSenderRef.current.track!.enabled = false;
             }
 
             await startConnection();
@@ -336,20 +347,6 @@ export default function SingleWorkout() {
     }, [actualExercise]);
 
     useEffect(() => {
-        if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
-            // Coloca aqui o que queres executar quando atingir o máximo de repetições de pernas
-            console.log("Atingiste o máximo de repetições de pernas!");
-            // Por exemplo, podes parar o exercício, mostrar uma mensagem, etc.
-        }
-        else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
-            console.log("Atingiste o máximo de repetições de braços!");
-        }
-        else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
-            console.log("Atingiste o tempo máximo de caminhada!");
-        }
-    }, [repCounter, actualExercise, walkSecondsLeft]);
-
-    useEffect(() => {
         setMinsTimer(Math.floor(walkSecondsLeft / 60));
         setSecsTimer(walkSecondsLeft % 60);
     }, [walkSecondsLeft]);
@@ -390,6 +387,22 @@ export default function SingleWorkout() {
             setWalkSecondsLeft(maxWalkSeconds);
         }
     }, []);
+
+    useEffect(() => {
+        if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
+            sendMessage({ type: "exercise_done" });
+            if (actualExercise === ExerciseType.RIGHT_LEG) {
+                startLegsExercise();
+                sendMessage({ type: "change_legs" });
+            }
+        }
+        else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
+            sendMessage({ type: "exercise_done" });
+        }
+        else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
+            sendMessage({ type: "exercise_done" });
+        }
+    }, [repCounter, actualExercise, walkSecondsLeft]);
 
     const pauseStreaming = () => {
         if (videoSenderRef.current) {
@@ -515,6 +528,14 @@ export default function SingleWorkout() {
                     </div>
                 </div>
             </div>
+            {showingExerciseModal && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black bg-opacity-70">
+                    <video className="max-w-full max-h-full" muted autoPlay loop>
+                        <source src={videoPath.current} type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            )}
         </main>
     );
 }
