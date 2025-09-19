@@ -8,6 +8,7 @@ import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
 import { start } from 'repl';
 import { send } from 'process';
+import { redirect } from 'next/navigation';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -66,7 +67,30 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage } = useVoice();
+    const { sendMessage, onVoiceCommand } = useVoice();
+    const [confirmation, setConfirmation] = useState(false);
+
+    const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = onVoiceCommand((command: string) => {
+            if (command === "affirm") {
+                setConfirmation(true);
+            }
+            else if (command === "deny") {
+                setConfirmation(false);
+            }
+            else if (command === "next_exercise") {
+                if (!waitingForConfirmation) {
+                    setWaitingForConfirmation(true);
+                }
+            }
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [onVoiceCommand]);
 
     const incrementRepCounter = () => {
         setRepCounter((prev) => prev + 1);
@@ -388,22 +412,6 @@ export default function SingleWorkout() {
         }
     }, []);
 
-    useEffect(() => {
-        if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
-            sendMessage({ type: "exercise_done" });
-            if (actualExercise === ExerciseType.RIGHT_LEG) {
-                startLegsExercise();
-                sendMessage({ type: "change_legs" });
-            }
-        }
-        else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
-            sendMessage({ type: "exercise_done" });
-        }
-        else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
-            sendMessage({ type: "exercise_done" });
-        }
-    }, [repCounter, actualExercise, walkSecondsLeft]);
-
     const pauseStreaming = () => {
         if (videoSenderRef.current) {
             videoSenderRef.current.track!.enabled = false;
@@ -415,6 +423,87 @@ export default function SingleWorkout() {
             videoSenderRef.current.track!.enabled = true;
         }
     };
+
+    useEffect(() => {
+        if (confirmation) {
+            if (waitingForConfirmation) {
+                setWaitingForConfirmation(false);
+                if (actualExercise === ExerciseType.ARMS) {
+                    pauseStreaming();
+                    videoPath.current = "/exercise1.mp4";
+                    setTimeout(() => {
+                        setShowingExerciseModal(true);
+                        setActualExercise(ExerciseType.RIGHT_LEG);
+                        sendMessage({ type: "legs_exercise" });
+                    }, 5000);
+                }
+                else if (actualExercise === ExerciseType.RIGHT_LEG) {
+                    sendMessage({ type: "change_legs" });
+                    startLegsExercise();
+                }
+                else if (actualExercise === ExerciseType.LEFT_LEG) {
+                    pauseStreaming();
+                    videoPath.current = "/exercise1.mp4";
+                    setTimeout(() => {
+                        setShowingExerciseModal(true);
+                        setActualExercise(ExerciseType.WALK);
+                        sendMessage({ type: "walk_exercise" });
+                    }, 5000);
+                }
+                else if (actualExercise === ExerciseType.WALK) {
+                    pauseStreaming();
+                    sendMessage({ type: "goodbye" });
+                    redirect("/bye");
+                }
+
+            }
+            else if (actualExercise === ExerciseType.ARMS) {
+                startArmsExercise();
+            }
+            else if (actualExercise === ExerciseType.RIGHT_LEG || actualExercise === ExerciseType.LEFT_LEG) {
+                startLegsExercise();
+            }
+            else if (actualExercise === ExerciseType.WALK) {
+                startWalkExercise();
+            }
+            setShowingExerciseModal(false);
+            resumeStreaming();
+            setConfirmation(false);
+        }
+    }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise]);
+
+    useEffect(() => {
+        if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
+            if (actualExercise === ExerciseType.RIGHT_LEG) {
+                sendMessage({ type: "change_legs" });
+                startLegsExercise();
+            } else {
+                sendMessage({ type: "exercise_done" });
+                pauseStreaming();
+                videoPath.current = "/exercise1.mp4";
+                setTimeout(() => {
+                    setShowingExerciseModal(true);
+                    setActualExercise(ExerciseType.WALK);
+                    sendMessage({ type: "walk_exercise" });
+                }, 5000);
+            }
+        }
+        else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
+            sendMessage({ type: "exercise_done" });
+            pauseStreaming();
+            videoPath.current = "/exercise1.mp4";
+            setTimeout(() => {
+                setShowingExerciseModal(true);
+                setActualExercise(ExerciseType.RIGHT_LEG);
+                sendMessage({ type: "legs_exercise" });
+            }, 5000);
+        }
+        else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
+            pauseStreaming();
+            sendMessage({ type: "goodbye" });
+            redirect("/bye");
+        }
+    }, [repCounter, actualExercise, walkSecondsLeft]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">

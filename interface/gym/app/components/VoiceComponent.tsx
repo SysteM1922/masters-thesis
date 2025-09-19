@@ -17,7 +17,7 @@ if (ACCESS_KEY === "") {
 export default function VoiceComponent() {
 
     const { setTextColor } = useColor();
-    const { sendMessage, setWebSocket,  } = useVoice();
+    const { sendMessage, setWebSocket, notifyVoiceCommand } = useVoice();
     const [listening, setListening] = useState(false);
     const [interim, setInterim] = useState("");
     const [finalText, setFinalText] = useState("");
@@ -65,6 +65,19 @@ export default function VoiceComponent() {
             sourceBuffer.addEventListener("updateend", processQueue);
 
             ws.current!.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "audio") {
+                        console.log("Received audio intent:", data.intent);
+                        // Notificar os callbacks quando receber uma intent
+                        if (data.intent) {
+                            notifyVoiceCommand(data.intent);
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    // Not JSON, assume binary audio data
+                }
                 queue.push(event.data);
                 processQueue();
             };
@@ -82,11 +95,11 @@ export default function VoiceComponent() {
             console.log("WebSocket connection closed");
             mediaSource.endOfStream();
         };
-        
+
         return () => {
             ws.current?.close();
         }
-    }, []);
+    }, [setWebSocket, notifyVoiceCommand]);
 
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -198,7 +211,7 @@ export default function VoiceComponent() {
                 sendMessage({ type: "presentation" });
                 setTimeout(() => {
                     redirect("/workout");
-                }, 15000);
+                }, 20000);
             }
             else {
                 startListening();
@@ -227,21 +240,21 @@ export default function VoiceComponent() {
                                 </div>
                                 <h3 className="text-lg font-semibold text-gray-900">A escutar...</h3>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 {interim && (
                                     <div className="p-3 bg-gray-100 rounded-lg">
                                         <p className="text-gray-800 italic">{interim}</p>
                                     </div>
                                 )}
-                                
+
                                 {finalText && (
                                     <div className="p-3 bg-green-50 rounded-lg">
                                         <p className="text-green-600 font-medium">{finalText}</p>
                                     </div>
                                 )}
                             </div>
-                            
+
                             <div className="mt-4">
                                 <p className="text-xs text-gray-500">Fale claramente para melhor reconhecimento</p>
                             </div>

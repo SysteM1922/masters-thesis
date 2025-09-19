@@ -45,7 +45,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-async def send_audio_ws(websocket: WebSocket, filename: str):
+async def send_audio_ws(websocket: WebSocket, filename: str, intent: str = None):
+    if intent:
+        await websocket.send_json({"type": "audio", "intent": intent})
     with open(filename, "rb") as audio_file:
         chunk = audio_file.read(4096)
         while chunk:
@@ -90,40 +92,40 @@ async def websocket_session(websocket: WebSocket):
                     match intent:
                         case "greet":
                             filename = await tts.greet()
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "affirm":
                             if Agent._previous_intent == "next_exercise":
                                 Agent._actual_exercise += 1
 
                             filename = await tts.affirm()
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "deny":
                             filename = await tts.affirm()
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "next_exercise":
                             filename = await tts.next_exercise()
                             print(filename)
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "help":
                             filename = await tts.help()
-                            await send_audio_ws(websocket, filename)
-                            
+                            await send_audio_ws(websocket, filename, intent)
+
                         case "help_exercise":
                             filename = await tts.help_exercise(Agent._actual_exercise)
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "presentation":
                             filename = await tts.presentation()
-                            await send_audio_ws(websocket, filename)
+                            await send_audio_ws(websocket, filename, intent)
 
                         case "goodbye":
                             filename = await tts.goodbye()
-                            await send_audio_ws(websocket, filename)
-                            
+                            await send_audio_ws(websocket, filename, intent)
+
                 case "arms_exercise":
                     filename = await tts.arms_exercise()
                     await send_audio_ws(websocket, filename)

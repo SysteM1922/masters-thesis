@@ -6,6 +6,7 @@ interface VoiceContextType {
     sendMessage: (message: any) => void;
     setWebSocket: (ws: WebSocket) => void;
     onVoiceCommand: (callback: (command: string) => void) => () => void;
+    notifyVoiceCommand: (command: string) => void;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
@@ -35,7 +36,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const notifyVoiceCommand = useCallback((command: string) => {
-        callbacksRef.current.forEach(callback => callback(command));
+        callbacksRef.current.forEach(callback => {
+            callback(command);
+        });
     }, []);
 
     return (
@@ -43,6 +46,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             sendMessage, 
             setWebSocket, 
             onVoiceCommand,
+            notifyVoiceCommand,
         }}>
             {children}
         </VoiceContext.Provider>
