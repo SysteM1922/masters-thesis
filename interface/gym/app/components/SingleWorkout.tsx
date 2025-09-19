@@ -388,12 +388,12 @@ export default function SingleWorkout() {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
-                console.log("Iniciando exercício de pernas - perna direita");
+                console.log("Iniciando exercício de pernas - perna esquerda");
                 dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: false }));
                 setActualExercise(ExerciseType.LEFT_LEG);
                 setRepCounter(0);
             } else {
-                console.log("Iniciando exercício de pernas - perna esquerda");
+                console.log("Iniciando exercício de pernas - perna direita");
                 dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: true }));
                 setActualExercise(ExerciseType.RIGHT_LEG);
                 setRepCounter(0);
@@ -433,7 +433,7 @@ export default function SingleWorkout() {
                     videoPath.current = "/exercise1.mp4";
                     setTimeout(() => {
                         setShowingExerciseModal(true);
-                        setActualExercise(ExerciseType.RIGHT_LEG);
+                        startLegsExercise();
                         sendMessage({ type: "legs_exercise" });
                     }, 5000);
                 }
@@ -456,18 +456,11 @@ export default function SingleWorkout() {
                     redirect("/bye");
                 }
 
-            }
-            else if (actualExercise === ExerciseType.ARMS) {
-                startArmsExercise();
-            }
-            else if (actualExercise === ExerciseType.RIGHT_LEG || actualExercise === ExerciseType.LEFT_LEG) {
-                startLegsExercise();
-            }
-            else if (actualExercise === ExerciseType.WALK) {
+            } else if (actualExercise === ExerciseType.WALK) {
                 startWalkExercise();
             }
-            setShowingExerciseModal(false);
             resumeStreaming();
+            setShowingExerciseModal(false);
             setConfirmation(false);
         }
     }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise]);
@@ -494,7 +487,7 @@ export default function SingleWorkout() {
             videoPath.current = "/exercise1.mp4";
             setTimeout(() => {
                 setShowingExerciseModal(true);
-                setActualExercise(ExerciseType.RIGHT_LEG);
+                startLegsExercise();
                 sendMessage({ type: "legs_exercise" });
             }, 5000);
         }

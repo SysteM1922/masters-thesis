@@ -121,10 +121,14 @@ async def websocket_session(websocket: WebSocket):
                         case "presentation":
                             filename = await tts.presentation()
                             await send_audio_ws(websocket, filename, intent)
-
+                        
                         case "goodbye":
                             filename = await tts.goodbye()
                             await send_audio_ws(websocket, filename, intent)
+
+                case "goodbye":
+                    filename = await tts.goodbye()
+                    await send_audio_ws(websocket, filename, intent)
 
                 case "arms_exercise":
                     filename = await tts.arms_exercise()
