@@ -153,6 +153,14 @@ async def websocket_session(websocket: WebSocket):
                 case "presentation":
                     filename = await tts.presentation()
                     await send_audio_ws(websocket, filename)
+
+                case "simple_exercise_done":
+                    filename = await tts.simple_exercise_done()
+                    await send_audio_ws(websocket, filename)
+
+                case "lets_go":
+                    filename = await tts.lets_go()
+                    await send_audio_ws(websocket, filename)
                 
                 case _:
                     logger.warning(f"Unknown message type: {data.get('type')}")

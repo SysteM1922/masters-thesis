@@ -153,3 +153,23 @@ async def change_legs():
     full_text = " ".join(texts)
     filename = await text_to_speech(full_text, "change_legs")
     return filename
+
+async def simple_exercise_done():
+    texts = [
+        "Excelente! Concluiu o exercício com sucesso.",
+        "Bom trabalho, concluiu o exercício!",
+        "Ótimo esforço! Terminou o exercício.",
+    ]
+    full_text = random.choice(texts)
+    filename = await text_to_speech(full_text, "simple_exercise_done")
+    return filename
+
+async def lets_go():
+    texts = [
+        "Vamos lá!",
+        "Vamos lá começar!",
+        "Vamos a isto!",
+    ]
+    full_text = random.choice(texts)
+    filename = await text_to_speech(full_text, "lets_go")
+    return filename
