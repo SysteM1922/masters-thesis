@@ -48,13 +48,23 @@ export default function SingleWorkout() {
 
     const [restart, setRestart] = useState(false);
 
+    const waitTimer = 30000; // 30 segundos
+
     const resetTimer = () => {
         if (timer) clearTimeout(timer);
         const newTimer = setTimeout(() => {
             setShowSecondVideo(true);
-        }, 30000); // 30 segundos
+        }, waitTimer);
         setTimer(newTimer);
     };
+
+    const setNewTimer = (newTimer: number) => {
+        if (timer) clearTimeout(timer);
+        const updatedTimer = setTimeout(() => {
+            setShowSecondVideo(true);
+        }, newTimer);
+        setTimer(updatedTimer);
+    }
 
     const incrementRepCounter = () => {
         resetTimer();
@@ -322,22 +332,19 @@ export default function SingleWorkout() {
             }, 3000);
 
             setTimeout(() => {
-                sendMessage({ type: "lets_go" });
                 resumeStreaming();
                 setRepCounter(0);
                 setRestart(false);
-            }, 13000);
+            }, 8000);
         }
     }, [repCounter]);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !restart) {
             sendMessage({ type: "lets_go" });
-            setTimeout(() => {
-                setShowSecondVideo(true);
-            }, 3000);
+            setNewTimer(3000);
         }
-    }, [loading]);
+    }, [loading, restart]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
