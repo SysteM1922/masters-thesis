@@ -73,6 +73,10 @@ export default function VoiceComponent() {
                         if (data.intent) {
                             notifyVoiceCommand(data.intent);
                         }
+                        queue.length = 0;
+                        if (sourceBuffer && !sourceBuffer.updating) {
+                            sourceBuffer.abort();
+                        }
                         return;
                     }
                 } catch (e) {
