@@ -12,7 +12,7 @@ import { redirect } from 'next/navigation';
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
 
-const maxArmReps = 10;
+const maxArmReps = 5;
 
 const pc_config: RTCConfiguration = {
     bundlePolicy: "max-bundle" as RTCBundlePolicy,
@@ -44,26 +44,26 @@ export default function SingleWorkout() {
     const { sendMessage, onVoiceCommand } = useVoice();
 
     const [showSecondVideo, setShowSecondVideo] = useState(false);
-    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+    const timer = useRef<NodeJS.Timeout | null>(null);
 
     const [restart, setRestart] = useState(false);
 
     const waitTimer = 30000; // 30 segundos
 
     const resetTimer = () => {
-        if (timer) clearTimeout(timer);
+        if (timer.current) clearTimeout(timer.current);
         const newTimer = setTimeout(() => {
             setShowSecondVideo(true);
         }, waitTimer);
-        setTimer(newTimer);
+        timer.current = newTimer;
     };
 
     const setNewTimer = (newTimer: number) => {
-        if (timer) clearTimeout(timer);
+        if (timer.current) clearTimeout(timer.current);
         const updatedTimer = setTimeout(() => {
             setShowSecondVideo(true);
         }, newTimer);
-        setTimer(updatedTimer);
+        timer.current = updatedTimer;
     }
 
     const incrementRepCounter = () => {
