@@ -1,9 +1,11 @@
 "use client"
 import { useEffect } from "react";
 import { useColor } from "../contexts/ColorContext";
+import { useLandPage } from "../contexts/LandPageContext";
 
 export default function LandPage() {
     const { textColor } = useColor();
+    const { landPageStep, setLandPageStep } = useLandPage();
 
     useEffect(() => {
 
@@ -55,7 +57,7 @@ export default function LandPage() {
                     Bem-vindo!
                     <br />
                     <br />
-                    Para iniciar por favor diga "Olá Jim"
+                    Para iniciar por favor diga &quot;Olá Jim&quot;
                 </p>
             </div>
         </main>

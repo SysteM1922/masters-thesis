@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { usePorcupine } from "@picovoice/porcupine-react"
-import { redirect } from "next/navigation";
 import { useColor } from "../contexts/ColorContext";
 import { useVoice } from "../contexts/VoiceContext";
+import { useLandPage } from "../contexts/LandPageContext";
 
 const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
 const modelFilePath = "/porcupine_params_pt.pv";
@@ -16,12 +16,13 @@ if (ACCESS_KEY === "") {
 
 export default function VoiceComponent() {
 
+    const { landPageStep, setLandPageStep } = useLandPage();
     const { setTextColor } = useColor();
     const { sendMessage, setWebSocket, notifyVoiceCommand } = useVoice();
     const [listening, setListening] = useState(false);
     const [interim, setInterim] = useState("");
     const [finalText, setFinalText] = useState("");
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     const {
         keywordDetection,
@@ -79,11 +80,11 @@ export default function VoiceComponent() {
                         }
                         return;
                     }
-                } catch (e) {
+                } catch {
                     // Not JSON, assume binary audio data
+                    queue.push(event.data);
+                    processQueue();
                 }
-                queue.push(event.data);
-                processQueue();
             };
         });
 
@@ -106,29 +107,18 @@ export default function VoiceComponent() {
     }, [setWebSocket, notifyVoiceCommand]);
 
     useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognition) {
+        const SpeechRecognitionAPI = (window as Window & typeof globalThis).SpeechRecognition ||
+                                    (window as Window & typeof globalThis).webkitSpeechRecognition;
+        if (!SpeechRecognitionAPI) {
             console.error("Speech Recognition API not supported in this browser.");
             return;
         }
 
-        const recognition = new SpeechRecognition();
+        const recognition = new SpeechRecognitionAPI();
         recognitionRef.current = recognition;
         recognition.lang = 'pt-PT';
         recognition.continuous = false;
         recognition.interimResults = true;
-
-        interface SpeechRecognitionResult {
-            isFinal: boolean;
-            [index: number]: {
-                transcript: string;
-            };
-        }
-
-        interface SpeechRecognitionEvent extends Event {
-            resultIndex: number;
-            results: SpeechRecognitionResult[];
-        }
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
             let interimTranscript = "";
@@ -150,14 +140,14 @@ export default function VoiceComponent() {
             setInterim(interimTranscript);
         };
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
             console.error("Speech recognition error:", event.error);
         };
 
         recognition.onend = () => {
             setTimeout(() => {
                 setListening(false);
-                recognitionRef.current.stop();
+                recognitionRef.current?.stop();
                 setInterim("");
                 setFinalText("");
             }, 1000);
@@ -166,7 +156,7 @@ export default function VoiceComponent() {
         return () => {
             recognition.abort();
         }
-    }, []);
+    }, [sendMessage]);
 
     useEffect(() => {
         async function initPorcupine() {
@@ -195,7 +185,7 @@ export default function VoiceComponent() {
         }
     }, [stop, release]);
 
-    const startListening = () => {
+    const startListening = useCallback(() => {
         if (recognitionRef.current && !listening) {
             try {
                 recognitionRef.current.start();
@@ -205,7 +195,7 @@ export default function VoiceComponent() {
                 console.error("Error starting recognition:", e);
             }
         }
-    };
+    }, [listening]);
 
     useEffect(() => {
         if (keywordDetection) {
@@ -214,14 +204,14 @@ export default function VoiceComponent() {
                 setTextColor("text-green-600");
                 sendMessage({ type: "presentation" });
                 setTimeout(() => {
-                    redirect("/workout");
-                }, 20000);
+                    setLandPageStep(landPageStep + 1);
+                }, 10000);
             }
             else {
                 startListening();
             }
         }
-    }, [keywordDetection]);
+    }, [keywordDetection, sendMessage, setTextColor, startListening, landPageStep, setLandPageStep]);
 
     useEffect(() => {
         if (error) {

@@ -20,10 +20,10 @@ class WebSocketSignalingClient {
         };
     }
 
-    sendMessage(obj: any) {
+    sendMessage(obj: RTCSessionDescription | { type: string; candidate: RTCIceCandidate } | null) {
         let message = Object.create(null);
 
-        if (obj.sdp) {
+        if (obj && 'sdp' in obj) {
             message = {
                 type: obj.type,
                 sdp: obj.sdp,
@@ -34,7 +34,7 @@ class WebSocketSignalingClient {
 
         try {
             this.websocket!.send(JSON.stringify(message));
-            const type = obj.type || message.type || 'unknown';
+            const type = obj!.type || message.type || 'unknown';
             console.log('Sent message:', type);
         } catch (error) {
             console.error('Error sending message:', error);

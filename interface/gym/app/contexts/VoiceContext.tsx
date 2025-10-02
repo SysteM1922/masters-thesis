@@ -3,7 +3,7 @@
 import { createContext, useContext, useRef, ReactNode, useCallback } from 'react';
 
 interface VoiceContextType {
-    sendMessage: (message: any) => void;
+    sendMessage: (message: Record<string, string>) => void;
     setWebSocket: (ws: WebSocket) => void;
     onVoiceCommand: (callback: (command: string) => void) => () => void;
     notifyVoiceCommand: (command: string) => void;
@@ -19,7 +19,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         wsRef.current = ws;
     };
 
-    const sendMessage = (message: any) => {
+    const sendMessage = (message: Record<string, string>) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify(message));
         } else {

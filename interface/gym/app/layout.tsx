@@ -4,6 +4,7 @@ import "./globals.css";
 import VoiceComponent from "./components/VoiceComponent";
 import { ColorProvider } from "./contexts/ColorContext";
 import { VoiceProvider } from "./contexts/VoiceContext";
+import { LandPageProvider } from "./contexts/LandPageContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,12 +31,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ColorProvider>
-          <VoiceProvider>
-            {children}
-            <VoiceComponent />
-          </VoiceProvider>
-        </ColorProvider>
+        <LandPageProvider>
+          <ColorProvider>
+            <VoiceProvider>
+              {children}
+              <VoiceComponent />
+            </VoiceProvider>
+          </ColorProvider>
+        </LandPageProvider>
       </body>
     </html>
   );

@@ -1,13 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, use } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
 import { motion, AnimatePresence } from "framer-motion";
-import { redirect } from 'next/navigation';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -41,7 +40,7 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand } = useVoice();
+    const { sendMessage } = useVoice();
 
     const [showSecondVideo, setShowSecondVideo] = useState(false);
     const timer = useRef<NodeJS.Timeout | null>(null);
@@ -50,13 +49,13 @@ export default function SingleWorkout() {
 
     const waitTimer = 30000; // 30 segundos
 
-    const resetTimer = () => {
+    const resetTimer = useCallback(() => {
         if (timer.current) clearTimeout(timer.current);
         const newTimer = setTimeout(() => {
             setShowSecondVideo(true);
         }, waitTimer);
         timer.current = newTimer;
-    };
+    }, []);
 
     const setNewTimer = (newTimer: number) => {
         if (timer.current) clearTimeout(timer.current);
@@ -66,11 +65,11 @@ export default function SingleWorkout() {
         timer.current = updatedTimer;
     }
 
-    const incrementRepCounter = () => {
+    const incrementRepCounter = useCallback(() => {
         resetTimer();
         setShowSecondVideo(false);
         setRepCounter((prev) => prev + 1);
-    }
+    }, [resetTimer]);
 
     const stopCapture = useCallback(async () => {
         if (displayStreamRef.current) {
@@ -209,7 +208,7 @@ export default function SingleWorkout() {
         } catch (error) {
             console.error("Error starting signaling client:", error);
         }
-    }, [stopCapture]);
+    }, [stopCapture, incrementRepCounter]);
 
     const startCapture = useCallback(async () => {
         try {
@@ -337,14 +336,14 @@ export default function SingleWorkout() {
                 setRestart(false);
             }, 8000);
         }
-    }, [repCounter]);
+    }, [repCounter, sendMessage, resetTimer]);
 
     useEffect(() => {
         if (!loading && !restart) {
             sendMessage({ type: "lets_go" });
             setNewTimer(3000);
         }
-    }, [loading, restart]);
+    }, [loading, restart, sendMessage]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">

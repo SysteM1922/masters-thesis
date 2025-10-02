@@ -1,13 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, use } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../utils/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
-import { start } from 'repl';
-import { send } from 'process';
 import { redirect } from 'next/navigation';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
@@ -90,7 +88,7 @@ export default function SingleWorkout() {
         return () => {
             unsubscribe();
         };
-    }, [onVoiceCommand]);
+    }, [onVoiceCommand, waitingForConfirmation]);
 
     const incrementRepCounter = () => {
         setRepCounter((prev) => prev + 1);
@@ -235,7 +233,7 @@ export default function SingleWorkout() {
         } catch (error) {
             console.error("Error starting signaling client:", error);
         }
-    }, [stopCapture]);
+    }, [stopCapture, sendMessage]);
 
     const startCapture = useCallback(async () => {
         try {
@@ -384,7 +382,7 @@ export default function SingleWorkout() {
         }
     }, []);
 
-    const startLegsExercise = () => {
+    const startLegsExercise = useCallback(() => {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
@@ -400,7 +398,7 @@ export default function SingleWorkout() {
             }
             console.log(actualExercise);
         }
-    };
+    }, [actualExercise]);
 
     const startWalkExercise = useCallback(() => {
         const dataChannel = dataChannelRef.current;
@@ -465,7 +463,7 @@ export default function SingleWorkout() {
             setShowingExerciseModal(false);
             setConfirmation(false);
         }
-    }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise]);
+    }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise, sendMessage, waitingForConfirmation]);
 
     useEffect(() => {
         if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
@@ -500,7 +498,7 @@ export default function SingleWorkout() {
                 redirect("/bye");
             }, 5000);
         }
-    }, [repCounter, actualExercise, walkSecondsLeft]);
+    }, [repCounter, actualExercise, walkSecondsLeft, sendMessage, startLegsExercise]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
@@ -594,7 +592,7 @@ export default function SingleWorkout() {
 
                                 {loading && (
                                     <div>
-                                        <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70">
+                                        <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70 rounded-4xl">
                                         </div>
                                         <div className="absolute inset-0 z-50 flex items-center justify-center">
                                             <div className="flex flex-col items-center">
