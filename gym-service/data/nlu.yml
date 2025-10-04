@@ -78,6 +78,7 @@ nlu:
     - Correcto
     - De acordo
     - Vamos lá
+    - Vamos
 
 - intent: deny
   examples: |

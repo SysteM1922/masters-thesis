@@ -21,7 +21,7 @@ export default function LandPage() {
         const newTimer = setTimeout(() => {
             setTimerFlag(true);
             setTypewritter2(true);
-        }, 3000);
+        }, 30000);
         timer.current = newTimer;
     }, []);
 
@@ -77,7 +77,9 @@ export default function LandPage() {
     }, []);
 
     useEffect(() => {
-        setTypewritter(true);
+        if (landPageStep !== 6) {
+            setTypewritter(true);
+        }
         if (landPageStep > 1 && landPageStep < 6) {
             resetTimer();
         } else {
