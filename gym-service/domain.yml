@@ -5,6 +5,7 @@ intents:
   - goodbye
   - affirm
   - deny
+  - start_training_session
   - next_exercise
   - help
   - help_exercise

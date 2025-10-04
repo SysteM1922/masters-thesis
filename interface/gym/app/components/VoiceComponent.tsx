@@ -5,6 +5,8 @@ import { usePorcupine } from "@picovoice/porcupine-react"
 import { useColor } from "../contexts/ColorContext";
 import { useVoice } from "../contexts/VoiceContext";
 import { useLandPage } from "../contexts/LandPageContext";
+import { redirect } from "next/navigation";
+import AudioStreamManager from "../classes/AudioStreamManager";
 
 const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
 const modelFilePath = "/porcupine_params_pt.pv";
@@ -20,9 +22,18 @@ export default function VoiceComponent() {
     const { setTextColor } = useColor();
     const { sendMessage, setWebSocket, notifyVoiceCommand } = useVoice();
     const [listening, setListening] = useState(false);
+    const [speaking, setSpeaking] = useState(true);
+    const speakingRef = useRef(speaking);
     const [interim, setInterim] = useState("");
     const [finalText, setFinalText] = useState("");
     const recognitionRef = useRef<SpeechRecognition | null>(null);
+    const shouldSendMessage = useRef(false);
+    const landPageStepRef = useRef(landPageStep);
+    const managerRef = useRef<AudioStreamManager | null>(null);
+
+    useEffect(() => {
+        landPageStepRef.current = landPageStep;
+    }, [landPageStep]);
 
     const {
         keywordDetection,
@@ -35,58 +46,65 @@ export default function VoiceComponent() {
         release,
     } = usePorcupine();
 
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const ws = useRef<WebSocket | null>(null);
+    
+    useEffect(() => {
+        speakingRef.current = speaking;
+    }, [speaking]);
 
     useEffect(() => {
         if (ws.current) {
             return;
         }
 
+        managerRef.current = new AudioStreamManager();
+
+        managerRef.current.onAudioStart = () => {
+            setSpeaking(true);
+        };
+
+        managerRef.current.onAudioEnd = () => {
+            setSpeaking(false);
+        };
+
+        managerRef.current.onAudioStop = () => {
+            setSpeaking(false);
+        };
+
         ws.current = new WebSocket("ws://localhost:8100/ws/session");
         ws.current.binaryType = "arraybuffer";
 
         setWebSocket(ws.current);
 
-        const audio = audioRef.current;
-        const mediaSource = new MediaSource();
-        audio!.src = URL.createObjectURL(mediaSource);
-
-        let sourceBuffer: SourceBuffer | null = null;
-        const queue: ArrayBuffer[] = [];
-
-        const processQueue = () => {
-            if (!sourceBuffer || sourceBuffer.updating || queue.length === 0) return;
-            sourceBuffer.appendBuffer(queue.shift()!);
-        }
-
-        mediaSource.addEventListener('sourceopen', () => {
-            sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-
-            sourceBuffer.addEventListener("updateend", processQueue);
-
-            ws.current!.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === "audio") {
-                        console.log("Received audio intent:", data.intent);
-                        // Notificar os callbacks quando receber uma intent
-                        if (data.intent) {
-                            notifyVoiceCommand(data.intent);
+        ws.current!.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === "audio") {
+                    // Notificar os callbacks quando receber uma intent
+                    if (data.intent) {
+                        notifyVoiceCommand(data.intent);
+                        if (speakingRef.current) {
+                            managerRef.current?.stopCurrentAudio();
                         }
-                        queue.length = 0;
-                        if (sourceBuffer && !sourceBuffer.updating) {
-                            sourceBuffer.abort();
+                        if (landPageStepRef.current === 4 && (data.intent === "start_training_session")) {
+                            setTimeout(() => {
+                                setLandPageStep(5);
+                            }, 1000);
                         }
-                        return;
+                        if (landPageStepRef.current === 5) {
+                            if (data.intent === "affirm") {
+                                setLandPageStep(6);
+                            } else if (data.intent === "deny") {
+                                setLandPageStep(4);
+                            }
+                        }
                     }
-                } catch {
-                    // Not JSON, assume binary audio data
-                    queue.push(event.data);
-                    processQueue();
                 }
-            };
-        });
+            } catch {
+                // Not JSON, assume binary audio data
+                managerRef.current?.addAudioChunk(event.data);
+            }
+        };
 
         ws.current.onopen = () => {
             console.log("WebSocket connection established");
@@ -98,17 +116,22 @@ export default function VoiceComponent() {
 
         ws.current.onclose = () => {
             console.log("WebSocket connection closed");
-            mediaSource.endOfStream();
         };
 
         return () => {
             ws.current?.close();
         }
-    }, [setWebSocket, notifyVoiceCommand]);
+    }, [setWebSocket]);
 
     useEffect(() => {
+
+        if (typeof window === 'undefined') {
+            return;
+        }
+
         const SpeechRecognitionAPI = (window as Window & typeof globalThis).SpeechRecognition ||
-                                    (window as Window & typeof globalThis).webkitSpeechRecognition;
+            (window as Window & typeof globalThis).webkitSpeechRecognition;
+
         if (!SpeechRecognitionAPI) {
             console.error("Speech Recognition API not supported in this browser.");
             return;
@@ -119,6 +142,7 @@ export default function VoiceComponent() {
         recognition.lang = 'pt-PT';
         recognition.continuous = false;
         recognition.interimResults = true;
+        recognition.maxAlternatives = 5;
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
             let interimTranscript = "";
@@ -132,10 +156,16 @@ export default function VoiceComponent() {
                 }
             }
             if (finalTranscript) {
-                // acrescenta ao final consolidado
                 setFinalText((prev: string) => (prev ? prev + " " + finalTranscript : finalTranscript));
 
-                sendMessage({ type: "new_command", command: finalTranscript });
+                if (shouldSendMessage.current) {
+                    sendMessage({ type: "new_command", command: finalTranscript });
+                }
+                else {
+                    setTimeout(() => {
+                        setLandPageStep(landPageStepRef.current + 1);
+                    }, 1000);
+                }
             }
             setInterim(interimTranscript);
         };
@@ -147,16 +177,17 @@ export default function VoiceComponent() {
         recognition.onend = () => {
             setTimeout(() => {
                 setListening(false);
+                setTextColor("text-white");
                 recognitionRef.current?.stop();
                 setInterim("");
                 setFinalText("");
             }, 1000);
-        }
 
-        return () => {
-            recognition.abort();
-        }
-    }, [sendMessage]);
+            return () => {
+                recognition.abort();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         async function initPorcupine() {
@@ -198,20 +229,67 @@ export default function VoiceComponent() {
     }, [listening]);
 
     useEffect(() => {
-        if (keywordDetection) {
-            console.log("Keyword detected:", keywordDetection);
-            if (window.location.pathname === "/") {
-                setTextColor("text-green-600");
-                sendMessage({ type: "presentation" });
+        if (!speaking) {
+            if (landPageStep === 0) {
+                sendMessage({ type: "presentation1" });
                 setTimeout(() => {
-                    setLandPageStep(landPageStep + 1);
-                }, 10000);
+                    setLandPageStep(1);
+                }, 1000);
+            } else if (landPageStep === 5) {
+                startListening();
+            }
+        }
+    }, [speaking]);
+
+    const handleKeywordDetection = useCallback(() => {
+        if (window.location.pathname === "/") {
+            setTextColor("text-green-600");
+            if (landPageStep === 0) {
+                sendMessage({ type: "presentation0" });
+            }
+            else if (landPageStep === 1) {
+                sendMessage({ type: "presentation2" });
+                setTimeout(() => {
+                    setLandPageStep(2);
+                }, 1000);
+            }
+            else if (landPageStep === 2) {
+                shouldSendMessage.current = false;
+                startListening();
             }
             else {
                 startListening();
             }
         }
-    }, [keywordDetection, sendMessage, setTextColor, startListening, landPageStep, setLandPageStep]);
+        else {
+            startListening();
+        }
+    }, [sendMessage, setTextColor, startListening, landPageStep, setLandPageStep]);
+
+    useEffect(() => {
+        if (landPageStep < 3) {
+            setTextColor("text-white");
+        }
+        if (landPageStep === 3) {
+            sendMessage({ type: "presentation3" });
+        } else if (landPageStep === 4) {
+            if (!shouldSendMessage.current) {
+                sendMessage({ type: "presentation4" });
+            }
+            shouldSendMessage.current = true;
+        } else if (landPageStep === 6) {
+            sendMessage({ type: "lets_go" });
+            setTimeout(() => {
+                redirect("/workout");
+            }, 1000);
+        }
+    }, [landPageStep]);
+
+    useEffect(() => {
+        if (keywordDetection) {
+            handleKeywordDetection();
+        }
+    }, [keywordDetection]);
 
     useEffect(() => {
         if (error) {
@@ -221,7 +299,6 @@ export default function VoiceComponent() {
 
     return (
         <>
-            <audio ref={audioRef} controls autoPlay className="hidden" />
             {listening && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">

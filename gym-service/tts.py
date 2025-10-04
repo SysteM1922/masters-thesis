@@ -78,15 +78,66 @@ async def help_exercise(exercise_nr: int): # intent
     elif (exercise_nr == 3):
         return await walk_exercise()
 
-async def presentation():   # intent
+async def presentation():
     texts = [
-        "Olá! Eu sou o Jim, o seu assistente de treino virtual. Bem-vindo ao seu ginásio em casa!",
-        "Estou aqui para ajudar a guiá-lo através dos seus exercícios, fornecer motivação e garantir que você mantenha a forma correta durante o treino.",
-        "Em breve daremos início ao nosso treino. Sempre que precisar de ajuda é só dizer Olá Jim!",
-        "Está pronto para começar? Não se esqueça, para falar comigo, basta dizer Olá Jim!",
+        "Eu sou o Jim, o seu assistente de treino virtual.",
+        "Estou aqui para ajudar a guiá-lo através dos seus exercícios, dar-lhe motivação e garantir que mantenha uma execução correta durante o treino.",
+        "Para falar comigo, basta dizer Olá Jim!",
+        "Se precisar de ajuda, é só dizer!"
     ]
     full_text = " ".join(texts)
     filename = await text_to_speech(full_text, "presentation")
+    return filename
+
+async def presentation_0():
+    texts = [
+        "Olá! Eu sou o Jim, o seu assistente de treino virtual. Bem-vindo ao seu ginásio em casa!",
+        "Estou aqui para ajudar a guiá-lo através dos seus exercícios, dar-lhe motivação e garantir que mantenha uma execução correta durante o treino.",
+        "Antes de começarmos vamos conversar um pouco!"
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation_0")
+    return filename
+
+async def presentation_1():
+    texts = [
+        "Sempre que quiser falar comigo basta dizer; Olá Jim!",
+        "Vamos tentar? Diga Olá Jim!",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation_1")
+    return filename
+
+async def presentation_2():
+    texts = [
+        "Muito bem! Diga-me o que comeu hoje de manhã.",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation_2")
+    return filename
+
+async def presentation_3():
+    texts = [
+        "Ótimo! Agora diga-me, qual é a sua cor preferida?",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation_3")
+    return filename
+
+async def presentation_4():
+    texts = [
+        "Excelente! Agora que percebeu como falar comigo. Diga-me quando quiser começar o treino.",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "presentation_4")
+    return filename
+
+async def start_training_session():
+    texts = [
+        "Tem a certeza que quer começar o treino?",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, f"start_training_session")
     return filename
 
 async def arms_exercise():
@@ -172,4 +223,14 @@ async def lets_go():
     ]
     full_text = random.choice(texts)
     filename = await text_to_speech(full_text, "lets_go")
+    return filename
+
+async def unknown():
+    texts = [
+        "Desculpe, não entendi. Pode repetir, por favor?",
+        "Não percebi o que disse. Pode tentar novamente?",
+        "Pode repetir? Não consegui compreender.",
+    ]
+    full_text = random.choice(texts)
+    filename = await text_to_speech(full_text, "unknown")
     return filename

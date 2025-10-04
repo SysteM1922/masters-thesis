@@ -33,6 +33,31 @@ nlu:
     - Até à próxima aula
     - Até à próxima sessão
 
+- intent: start_training_session
+  examples: |
+    - Vamos começar
+    - Quero começar
+    - Começar exercício
+    - Iniciar exercício
+    - Iniciar treino
+    - Começar treino
+    - Vamos iniciar
+    - Quero iniciar
+    - Vamos lá
+    - Estou pronto
+    - Pronto para começar
+    - Pronto para iniciar
+    - Pronto para o exercício
+    - Pronto para o treino
+    - Vamos começar o exercício
+    - Vamos começar o treino
+    - Quero começar o exercício
+    - Quero começar o treino
+    - Quero iniciar o exercício
+    - Quero iniciar o treino
+    - Iniciar o exercício
+    - Iniciar o treino
+
 - intent: affirm
   examples: |
     - Ok
