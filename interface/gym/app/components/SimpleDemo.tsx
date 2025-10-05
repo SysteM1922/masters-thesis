@@ -336,14 +336,14 @@ export default function SingleWorkout() {
                 setRestart(false);
             }, 8000);
         }
-    }, [repCounter, sendMessage, resetTimer]);
+    }, [repCounter]);
 
     useEffect(() => {
         if (!loading && !restart) {
             sendMessage({ type: "lets_go" });
             setNewTimer(3000);
         }
-    }, [loading, restart, sendMessage]);
+    }, [loading, restart]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
