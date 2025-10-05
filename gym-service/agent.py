@@ -7,29 +7,16 @@ class Agent:
     _previous_intent = None
 
     def __new__(cls):
-        if cls._instance is None:
+        if not hasattr(cls, 'instance'):
             cls._instance = super(Agent, cls).__new__(cls)
+            cls._agent = RasaAgent.load("models")  # ou caminho para a pasta do modelo treinado
         return cls._instance
 
-    @classmethod
-    def init(cls):
-        instance = cls()
-        if instance._agent is None:
-            instance._agent = RasaAgent.load("models")  # ou caminho para a pasta do modelo treinado
-        return instance
-
-    @staticmethod
-    async def parse_message(message):
-        instance = Agent.get_instance()
-        return await instance._agent.parse_message(message)
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None or cls._instance._agent is None:
-            return cls.init()
-        return cls._instance
+    async def parse_message(self, message):
+        return await self._agent.parse_message(message)
     
-    @classmethod
-    def update_intent(cls, new_intent):
-        instance = cls.get_instance()
-        instance._previous_intent = new_intent
+    def update_intent(self, new_intent):
+        self._previous_intent = new_intent
+
+    def get_previous_intent(self):
+        return self._previous_intent

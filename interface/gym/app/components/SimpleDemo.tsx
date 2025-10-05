@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketSignalingClient } from '../utils/websocket'
+import { WebSocketSignalingClient } from '../classes/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';

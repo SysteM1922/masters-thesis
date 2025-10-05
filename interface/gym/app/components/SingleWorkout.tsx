@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketSignalingClient } from '../utils/websocket'
+import { WebSocketSignalingClient } from '../classes/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
@@ -65,15 +65,35 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand } = useVoice();
+    const { sendMessage, onVoiceCommand, onSpeakingChange, startListening } = useVoice();
     const [confirmation, setConfirmation] = useState(false);
 
     const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
+    const [waitingForListening, setWaitingForListening] = useState(false);
+
+    const waitingForListeningRef = useRef<boolean>(false);
+
+    useEffect(() => {
+        waitingForListeningRef.current = waitingForListening;
+    }, [waitingForListening]);
+
+    useEffect(() => {
+        const unsubscribe = onSpeakingChange((speaking: boolean) => {
+            if (waitingForListeningRef.current && !speaking) {
+                startListening();
+                setWaitingForListening(false);
+            }
+        });
+
+        return unsubscribe;
+    }, [onSpeakingChange, startListening]);
 
     useEffect(() => {
         const unsubscribe = onVoiceCommand((command: string) => {
-            if (command === "affirm") {
-                setConfirmation(true);
+            if (command === "affirm" || command === "start_training_session") {
+                setTimeout(() => {
+                    setConfirmation(true);
+                }, 1000);
             }
             else if (command === "deny") {
                 setConfirmation(false);
@@ -81,6 +101,7 @@ export default function SingleWorkout() {
             else if (command === "next_exercise") {
                 if (!waitingForConfirmation) {
                     setWaitingForConfirmation(true);
+                    setWaitingForListening(true);
                 }
             }
         });
@@ -88,7 +109,7 @@ export default function SingleWorkout() {
         return () => {
             unsubscribe();
         };
-    }, [onVoiceCommand, waitingForConfirmation]);
+    }, [onVoiceCommand]);
 
     const incrementRepCounter = () => {
         setRepCounter((prev) => prev + 1);
@@ -146,9 +167,12 @@ export default function SingleWorkout() {
 
                 dataChannelRef.current.onopen = () => {
                     setLoading(false);
-                    setShowingExerciseModal(true);
-                    sendMessage({ type: "arms_exercise" });
-                    console.log("Data channel opened");
+                    setTimeout(() => {
+                        setShowingExerciseModal(true);
+                        sendMessage({ type: "arms_exercise" });
+                        setWaitingForListening(true);
+                        console.log("Data channel opened");
+                    }, 1000);
                 };
 
                 dataChannelRef.current.onmessage = (event: { data: string; }) => {
@@ -333,40 +357,63 @@ export default function SingleWorkout() {
         setupResizeObserver();
 
         startCapture();
-    }, [resizeCanvas, startCapture]);
+
+        return () => {
+            window.removeEventListener("resize", handleWindowResize);
+            if (resizeObserverRef.current && webCamDisplayRef.current) {
+                resizeObserverRef.current.unobserve(webCamDisplayRef.current);
+                resizeObserverRef.current.disconnect();
+                resizeObserverRef.current = null;
+            }
+            if (pcRef.current) {
+                pcRef.current.close();
+                pcRef.current = null;
+            }
+            if (signalingRef.current) {
+                signalingRef.current.close();
+                signalingRef.current = null;
+            }
+            stopCapture();
+            setIsCapturing(false);
+        };
+    }, [resizeCanvas]);
+
+    const clearWalkTimer = useCallback(() => {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
+    }, []);
+
+    const startWalkTimer = useCallback(() => {
+        clearWalkTimer();
+
+        setWalkSecondsLeft(maxWalkSeconds);
+
+        timerIntervalRef.current = setInterval(() => {
+            setWalkSecondsLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timerIntervalRef.current!);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+
+    }, [maxWalkSeconds, clearWalkTimer]);
 
     useEffect(() => {
-        if (actualExercise === ExerciseType.WALK) {
-            setWalkSecondsLeft(maxWalkSeconds);
-
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-            }
-
-            timerIntervalRef.current = setInterval(() => {
-                setWalkSecondsLeft((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timerIntervalRef.current!);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+        if (actualExercise === ExerciseType.WALK && !showingExerciseModal) {
+            startWalkTimer();
         } else {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
-            setWalkSecondsLeft(maxWalkSeconds);
+            clearWalkTimer();
         }
 
         return () => {
-            if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-            }
+            clearWalkTimer();
         };
-    }, [actualExercise]);
+    }, [actualExercise, showingExerciseModal]);
 
     useEffect(() => {
         setMinsTimer(Math.floor(walkSecondsLeft / 60));
@@ -386,17 +433,14 @@ export default function SingleWorkout() {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
-                console.log("Iniciando exercício de pernas - perna esquerda");
                 dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: false }));
                 setActualExercise(ExerciseType.LEFT_LEG);
                 setRepCounter(0);
             } else {
-                console.log("Iniciando exercício de pernas - perna direita");
                 dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: true }));
                 setActualExercise(ExerciseType.RIGHT_LEG);
                 setRepCounter(0);
             }
-            console.log(actualExercise);
         }
     }, [actualExercise]);
 
@@ -433,7 +477,8 @@ export default function SingleWorkout() {
                         setShowingExerciseModal(true);
                         startLegsExercise();
                         sendMessage({ type: "legs_exercise" });
-                    }, 5000);
+                        setWaitingForListening(true);
+                    }, 3000);
                 }
                 else if (actualExercise === ExerciseType.RIGHT_LEG) {
                     sendMessage({ type: "change_legs" });
@@ -446,14 +491,15 @@ export default function SingleWorkout() {
                         setShowingExerciseModal(true);
                         setActualExercise(ExerciseType.WALK);
                         sendMessage({ type: "walk_exercise" });
-                    }, 5000);
+                        setWaitingForListening(true);
+                    }, 3000);
                 }
                 else if (actualExercise === ExerciseType.WALK) {
                     pauseStreaming();
                     sendMessage({ type: "goodbye" });
                     setTimeout(() => {
                         redirect("/bye");
-                    }, 5000);
+                    }, 3000);
                 }
 
             } else if (actualExercise === ExerciseType.WALK) {
@@ -463,7 +509,7 @@ export default function SingleWorkout() {
             setShowingExerciseModal(false);
             setConfirmation(false);
         }
-    }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise, sendMessage, waitingForConfirmation]);
+    }, [confirmation, actualExercise, startArmsExercise, startLegsExercise, startWalkExercise]);
 
     useEffect(() => {
         if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
@@ -478,7 +524,8 @@ export default function SingleWorkout() {
                     setShowingExerciseModal(true);
                     setActualExercise(ExerciseType.WALK);
                     sendMessage({ type: "walk_exercise" });
-                }, 5000);
+                    setWaitingForListening(true);
+                }, 3000);
             }
         }
         else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
@@ -489,7 +536,8 @@ export default function SingleWorkout() {
                 setShowingExerciseModal(true);
                 startLegsExercise();
                 sendMessage({ type: "legs_exercise" });
-            }, 5000);
+                setWaitingForListening(true);
+            }, 3000);
         }
         else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
             pauseStreaming();
@@ -498,7 +546,7 @@ export default function SingleWorkout() {
                 redirect("/bye");
             }, 5000);
         }
-    }, [repCounter, actualExercise, walkSecondsLeft, sendMessage, startLegsExercise]);
+    }, [repCounter, actualExercise, walkSecondsLeft]);
 
     return (
         <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
@@ -514,12 +562,6 @@ export default function SingleWorkout() {
                 </button>
                 <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
                     Increment Rep
-                </button>
-                <button className="btn btn-soft" id="pauseButton" onClick={pauseStreaming}>
-                    Pause
-                </button>
-                <button className="btn btn-soft" id="resumeButton" onClick={resumeStreaming}>
-                    Resume
                 </button>
             </div>
             <div className="flex justify-center gap-2 relative overflow-hidden">
@@ -542,36 +584,32 @@ export default function SingleWorkout() {
                                         <div></div>
                                         <div></div>
                                         {!loading && (
-                                            <div className="bg-gray-800/90 rounded-4xl p-5 text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
+                                            <div className="bg-gray-800/90 rounded-4xl text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
                                                 {actualExercise === ExerciseType.ARMS && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <div className='flex'>
-                                                            <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.ARMS}</p>
-                                                        </div>
-                                                        <div className='flex'>
-                                                            <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxArmReps}</p>
-                                                        </div>
+                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.ARMS}</p>
+                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxArmReps}</p>
                                                     </div>
                                                 )}
                                                 {actualExercise === ExerciseType.RIGHT_LEG && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.RIGHT_LEG}</p>
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
+                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.RIGHT_LEG}</p>
+                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxLegReps}</p>
                                                     </div>
                                                 )}
                                                 {actualExercise === ExerciseType.LEFT_LEG && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.LEFT_LEG}</p>
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}/{maxLegReps}</p>
+                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.LEFT_LEG}</p>
+                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxLegReps}</p>
                                                     </div>
                                                 )}
                                                 {actualExercise === ExerciseType.WALK && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly">
-                                                        <p className="font-medium leading-none text-center w-full" style={{ fontSize: "1.5em" }}>{ExerciseType.WALK}</p>
-                                                        <p className="font-bold leading-none text-center w-full" style={{ fontSize: "1.5em" }}>
+                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.WALK}</p>
+                                                        <p className="font-bold leading-none text-center w-full text-1.5xl">
                                                             {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
                                                         </p>
-                                                        <p className="leading-none text-center w-full" style={{ fontSize: "5em" }}>{repCounter}</p>
+                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}</p>
                                                     </div>
                                                 )}
                                             </div>

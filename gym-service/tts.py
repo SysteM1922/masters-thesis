@@ -132,7 +132,7 @@ async def presentation_4():
     filename = await text_to_speech(full_text, "presentation_4")
     return filename
 
-async def start_training_session():
+async def presentation_5():
     texts = [
         "Tem a certeza que quer começar o treino?",
     ]

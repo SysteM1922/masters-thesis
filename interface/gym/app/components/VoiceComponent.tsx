@@ -20,14 +20,13 @@ export default function VoiceComponent() {
 
     const { landPageStep, setLandPageStep } = useLandPage();
     const { setTextColor } = useColor();
-    const { sendMessage, setWebSocket, notifyVoiceCommand } = useVoice();
+    const { sendMessage, setWebSocket, notifyVoiceCommand, speaking, setSpeaking, setStartListeningFunction } = useVoice();
     const [listening, setListening] = useState(false);
-    const [speaking, setSpeaking] = useState(true);
     const speakingRef = useRef(speaking);
     const [interim, setInterim] = useState("");
     const [finalText, setFinalText] = useState("");
     const recognitionRef = useRef<SpeechRecognition | null>(null);
-    const shouldSendMessage = useRef(false);
+    const shouldSendMessage = useRef(true);
     const landPageStepRef = useRef(landPageStep);
     const managerRef = useRef<AudioStreamManager | null>(null);
 
@@ -47,7 +46,7 @@ export default function VoiceComponent() {
     } = usePorcupine();
 
     const ws = useRef<WebSocket | null>(null);
-    
+
     useEffect(() => {
         speakingRef.current = speaking;
     }, [speaking]);
@@ -121,7 +120,7 @@ export default function VoiceComponent() {
         return () => {
             ws.current?.close();
         }
-    }, [setWebSocket]);
+    }, []);
 
     useEffect(() => {
 
@@ -171,7 +170,7 @@ export default function VoiceComponent() {
         };
 
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-            console.error("Speech recognition error:", event.error);
+            console.warn("Speech recognition error:", event.error);
         };
 
         recognition.onend = () => {
@@ -229,14 +228,20 @@ export default function VoiceComponent() {
     }, [listening]);
 
     useEffect(() => {
-        if (!speaking) {
-            if (landPageStep === 0) {
-                sendMessage({ type: "presentation1" });
-                setTimeout(() => {
-                    setLandPageStep(1);
-                }, 1000);
-            } else if (landPageStep === 5) {
-                startListening();
+        setStartListeningFunction(startListening);
+    }, [setStartListeningFunction, startListening]);
+
+    useEffect(() => {
+        if (window.location.pathname === "/") {
+            if (!speaking) {
+                if (landPageStep === 0) {
+                    sendMessage({ type: "presentation1" });
+                    setTimeout(() => {
+                        setLandPageStep(1);
+                    }, 1000);
+                } else if (landPageStep === 5) {
+                    startListening();
+                }
             }
         }
     }, [speaking]);

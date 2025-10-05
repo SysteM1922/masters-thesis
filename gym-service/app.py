@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 import os
 import tts
 from agent import Agent
-import asyncio
 
 load_dotenv(".env")
 
@@ -45,7 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Agent.init()
+agent = Agent()
 
 async def send_audio_ws(websocket: WebSocket, filename: str, intent: str = None):
     if intent:
@@ -87,7 +86,7 @@ async def websocket_session(websocket: WebSocket):
             match data.get("type"):
                 case "new_command":
                     command = data.get("command", "")
-                    response = await Agent.parse_message(command)
+                    response = await agent.parse_message(command)
 
                     intent = response.get("intent", {}).get("name", "")
                     confidence = response.get("intent", {}).get("confidence", 0)
@@ -96,21 +95,21 @@ async def websocket_session(websocket: WebSocket):
 
                         filename = await tts.unknown()
                         print(f"Confidence too low: {confidence}")
-                        Agent.update_intent("unknown")
+                        agent.update_intent("unknown")
                         await send_audio_ws(websocket, filename, "unknown")
                         continue
 
                     print(f"Predicted intent: {intent}")
 
-                    Agent.update_intent(intent)
+                    agent.update_intent(intent)
 
                     match intent:
                         case "greet":
                             filename = await tts.greet()
 
                         case "affirm":
-                            if Agent._previous_intent == "next_exercise":
-                                Agent._actual_exercise += 1
+                            if agent.get_previous_intent() == "next_exercise":
+                                agent._actual_exercise += 1
 
                             filename = await tts.affirm()
 
@@ -118,7 +117,12 @@ async def websocket_session(websocket: WebSocket):
                             filename = await tts.affirm()
 
                         case "start_training_session":
-                            filename = await tts.start_training_session()
+                            if agent.get_previous_intent() == None:
+                                filename = await tts.presentation_5()
+                            else:
+                                if agent.get_previous_intent() == "next_exercise":
+                                    agent._actual_exercise += 1
+                                filename = await tts.affirm()
 
                         case "next_exercise":
                             filename = await tts.next_exercise()
@@ -127,7 +131,7 @@ async def websocket_session(websocket: WebSocket):
                             filename = await tts.help()
 
                         case "help_exercise":
-                            filename = await tts.help_exercise(Agent._actual_exercise)
+                            filename = await tts.help_exercise(agent._actual_exercise)
 
                         case "presentation":
                             filename = await tts.presentation()
