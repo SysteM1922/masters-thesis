@@ -145,7 +145,9 @@ async def arms_exercise():
         "Para este exercício coloque-se à frente da tela.",
         "Mantenha sempre as costas direitas e levante os braços esticados até acima dos ombros.",
         "Abra os braços até ficarem paralelos ao chão, como se fosse um avião.",
-        "Repita o movimento 10 vezes. Vamos começar?"
+        "Repita o movimento 10 vezes.",
+        "Certifique-se de que está no centro da imagem e que todo o seu corpo está visível.",
+        "Vamos começar?"
     ]
     full_text = " ".join(texts)
     filename = await text_to_speech(full_text, f"arms_exercise")
@@ -157,6 +159,7 @@ async def legs_exercise():
         "Coloque a cadeira numa posição diagonal relativamente à tela de forma a ver as suas duas pernas.",
         "Sente-se na cadeira e levante uma perna de cada vez, esticando-a para a frente.",
         "Primeiro irá só fazer o movimento com uma perna e após 10 repetições, troca para a outra perna.",
+        "Certifique-se de que está no centro da imagem e que todo o seu corpo está visível.",
         "Vamos começar?"
     ]
     full_text = " ".join(texts)
@@ -171,6 +174,7 @@ async def walk_exercise():
         "As mãos devem balançar o suficiente para ficarem por cima da perna contrária.",
         "mantenha a coordenação e levante sempre a perna do lado contrário do braço que baloiçou.",
         "Terá de caminhar durante 60 segundos e os seus passos corretos serão contados.",
+        "Certifique-se de que está no centro da imagem e que todo o seu corpo está visível.",
         "Vamos começar?"
     ]
     full_text = " ".join(texts)

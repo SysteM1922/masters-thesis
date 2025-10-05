@@ -70,7 +70,6 @@ def handle_results(results, _, frame_pts):
     global end_process_times, exercise_function
     end_process_times.append((frame_pts, time.time()))
 
-    # dummy for arms_exercise
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
     styled_connections, new_rep = exercise_function(landmarks, right_leg)
 
