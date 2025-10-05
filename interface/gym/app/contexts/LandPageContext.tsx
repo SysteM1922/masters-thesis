@@ -10,7 +10,7 @@ interface LandPageContextType {
 const LandPageContext = createContext<LandPageContextType | undefined>(undefined);
 
 export const LandPageProvider = ({ children }: { children: ReactNode }) => {
-    const [landPageStep, setLandPageStep] = useState(0);
+    const [landPageStep, setLandPageStep] = useState(-1);
     
     return (
         <LandPageContext.Provider value={{ landPageStep, setLandPageStep }}>

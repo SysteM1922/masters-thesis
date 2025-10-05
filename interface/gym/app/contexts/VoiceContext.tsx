@@ -21,7 +21,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const callbacksRef = useRef<Set<(command: string) => void>>(new Set());
     const speakingCallbacksRef = useRef<Set<(speaking: boolean) => void>>(new Set());
     const startListeningFunctionRef = useRef<(() => void) | null>(null);
-    const [speaking, setSpeakingState] = useState(true);
+    const [speaking, setSpeakingState] = useState(false);
 
     const setWebSocket = (ws: WebSocket) => {
         wsRef.current = ws;

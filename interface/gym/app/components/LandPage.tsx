@@ -77,7 +77,7 @@ export default function LandPage() {
     }, []);
 
     useEffect(() => {
-        if (landPageStep !== 6) {
+        if (landPageStep !== 6 && landPageStep !== 0) {
             setTypewritter(true);
         }
         if (landPageStep > 1 && landPageStep < 6) {
@@ -116,7 +116,7 @@ export default function LandPage() {
     return (
         <main className="flex min-h-screen flex-col items-center justify-center">
             <div className="z-10 w-full max-w-5xl items-center font-mono">
-                {landPageStep === 0 && (
+                {landPageStep < 1 && (
                     typewriterAnimation(
                         "Bem-vindo!<br /><br />Para iniciar por favor diga \"Olá Jim\"",
                         "text-4xl",

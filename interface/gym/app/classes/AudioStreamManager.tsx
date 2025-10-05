@@ -6,6 +6,7 @@ class AudioStreamManager {
     private audioQueue: ArrayBuffer[] = [];
     private isPlaying: boolean = false;
     private playbackTimeout: NodeJS.Timeout | null = null;
+    private streamDestination: MediaStreamAudioDestinationNode | null = null;
 
     public onAudioStart?: () => void;
     public onAudioEnd?: () => void;
@@ -14,6 +15,7 @@ class AudioStreamManager {
     constructor() {
         if (typeof window !== "undefined") {
             this.audioContext = new (window.AudioContext)();
+            this.streamDestination = this.audioContext.createMediaStreamDestination();
         }
     }
 
@@ -70,6 +72,10 @@ class AudioStreamManager {
             this.currentSource.buffer = audioBuffer;
             this.currentSource.connect(this.audioContext.destination);
 
+            if (this.streamDestination) {
+                this.currentSource.connect(this.streamDestination);
+            }
+
             this.currentSource.onended = () => {
                 this.isPlaying = false;
                 this.currentSource = null;
@@ -102,6 +108,14 @@ class AudioStreamManager {
         }
 
         return combined.buffer;
+    }
+
+    public getAudioContext() {
+        return this.audioContext;
+    }
+
+    public getOutputStream(): MediaStream | null {
+        return this.streamDestination ? this.streamDestination.stream : null;
     }
 
     cleanup() {

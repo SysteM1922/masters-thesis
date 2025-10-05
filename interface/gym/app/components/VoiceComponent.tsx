@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, use } from "react"
+import { motion, scale, useAnimation } from "framer-motion";
 import { usePorcupine } from "@picovoice/porcupine-react"
 import { useColor } from "../contexts/ColorContext";
 import { useVoice } from "../contexts/VoiceContext";
@@ -29,6 +30,17 @@ export default function VoiceComponent() {
     const shouldSendMessage = useRef(true);
     const landPageStepRef = useRef(landPageStep);
     const managerRef = useRef<AudioStreamManager | null>(null);
+    
+    const [micStream, setMicStream] = useState<MediaStream | null>(null);
+
+    useEffect(() => {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then((stream) => {
+                setMicStream(stream);
+            }).catch((err) => {
+                console.error("Error accessing microphone:", err);
+            });
+    }, []);
 
     useEffect(() => {
         landPageStepRef.current = landPageStep;
@@ -249,8 +261,10 @@ export default function VoiceComponent() {
     const handleKeywordDetection = useCallback(() => {
         if (window.location.pathname === "/") {
             setTextColor("text-green-600");
-            if (landPageStep === 0) {
+            if (landPageStep === -1) {
                 sendMessage({ type: "presentation0" });
+                setSpeaking(true);
+                setLandPageStep(0);
             }
             else if (landPageStep === 1) {
                 sendMessage({ type: "presentation2" });
@@ -302,9 +316,101 @@ export default function VoiceComponent() {
         }
     }, [error]);
 
+
+    // Animation
+
+    const controls = useAnimation();
+    const [outPutLevel, setOutPutLevel] = useState(0);
+    const [micLevel, setMicLevel] = useState(0);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+
+    const audioContext = managerRef.current?.getAudioContext();
+    const outPutStream = managerRef.current?.getOutputStream();
+
+    useEffect(() => {
+
+        if (!audioContext || !outPutStream) return;
+
+        const source = audioContext.createMediaStreamSource(outPutStream);
+
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        function tick() {
+            analyser.getByteFrequencyData(dataArray);
+            const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+            setOutPutLevel(avg / 256); // Normaliza para 0-1
+
+            requestAnimationFrame(tick);
+        }
+
+        tick();
+
+        return () => {
+            analyser.disconnect();
+            source.disconnect();
+            analyserRef.current = null;
+        };
+    }, [outPutStream]);
+
+    useEffect(() => {
+
+        if (!audioContext || !micStream) return;
+
+        const source = audioContext.createMediaStreamSource(micStream);
+
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        function tick() {
+            analyser.getByteFrequencyData(dataArray);
+            const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+            setMicLevel(avg / 256); // Normaliza para 0-1
+
+            requestAnimationFrame(tick);
+        }
+
+        tick();
+
+        return () => {
+            analyser.disconnect();
+            source.disconnect();
+            analyserRef.current = null;
+            micStream.getTracks().forEach(track => track.stop());
+        };
+    }, [micStream]);
+
+    useEffect(() => {
+        if (speaking) {
+            controls.start({
+                scale: 1 + 2 * outPutLevel,
+                transition: { duration: 0.1, ease: "easeOut" }
+            });
+        }
+        else if (listening) {
+            controls.start({
+                scale: 1 + 2 * micLevel,
+                transition: { duration: 0.1, ease: "easeOut" }
+            });
+        }
+        else {
+            controls.start({ scale: 1, transition: { duration: 0.3 } });
+        }
+    }, [speaking, listening, outPutLevel, micLevel]);
+
     return (
         <>
-            {listening && (
+            {/*listening && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
                         <div className="text-center">
@@ -337,7 +443,30 @@ export default function VoiceComponent() {
                         </div>
                     </div>
                 </div>
-            )}
+            )*/}
+            <div
+                className="fixed bottom-12 right-12 w-14 h-14 rounded-full z-50 flex items-center justify-center opacity-75"
+                style={{
+                    backgroundColor: speaking
+                        ? "rgba(47, 240, 45, 0.8)"
+                        : listening
+                            ? "rgba(245, 39, 67, 0.8)"
+                            : "rgba(16, 89, 231, 0.8)"
+                }}
+            >
+            </div>
+            <motion.div
+                animate={controls}
+                className="fixed bottom-12 right-12 w-14 h-14 rounded-full z-51 flex items-center justify-center shadow-lg opacity-25"
+                style={{
+                    backgroundColor: speaking
+                        ? "rgba(47, 240, 45, 0.8)"
+                        : listening
+                            ? "rgba(245, 39, 67, 0.8)"
+                            : "rgba(16, 89, 231, 0.8)"
+                }}
+            >
+            </motion.div>
         </>
     )
 }
