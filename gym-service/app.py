@@ -2,8 +2,8 @@ import argparse
 from asyncio.log import logger
 import logging
 import sys
+import threading
 import time
-import multiprocessing
 from pystray import Icon, MenuItem, Menu
 from PIL import Image
 import uvicorn
@@ -44,11 +44,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app_started = False
 agent = Agent()
 
 async def send_audio_ws(websocket: WebSocket, filename: str, intent: str = None):
     if intent:
         await websocket.send_json({"type": "audio", "intent": intent})
+    if filename is None:
+        return
     with open(filename, "rb") as audio_file:
         chunk = audio_file.read(4096)
         while chunk:
@@ -117,12 +120,7 @@ async def websocket_session(websocket: WebSocket):
                             filename = await tts.affirm()
 
                         case "start_training_session":
-                            if agent.get_previous_intent() == None:
-                                filename = await tts.presentation_5()
-                            else:
-                                if agent.get_previous_intent() == "next_exercise":
-                                    agent._actual_exercise += 1
-                                filename = await tts.affirm()
+                            filename = None
 
                         case "next_exercise":
                             filename = await tts.next_exercise()
@@ -176,6 +174,9 @@ async def websocket_session(websocket: WebSocket):
                 case "presentation4":
                     filename = await tts.presentation_4()
 
+                case "presentation5":
+                    filename = await tts.presentation_5()
+
                 case "simple_exercise_done":
                     filename = await tts.simple_exercise_done()
 
@@ -197,6 +198,7 @@ async def websocket_session(websocket: WebSocket):
         logger.info("WebSocket connection closed")
 
 def start_server():
+    global app_started
     
     parser = argparse.ArgumentParser(description="Gym Service for managing workout sessions")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload on code changes")
@@ -206,6 +208,8 @@ def start_server():
 
     logger.info(f"Starting Gym Service with log level {args.log_level}")
 
+    app_started = True
+
     uvicorn.run(
         "app:app" if args.reload else app,
         host="localhost",
@@ -214,9 +218,16 @@ def start_server():
         log_level=args.log_level,
     )
 
+def update_icon(icon):
+    while True:
+        time.sleep(1)
+        if icon and icon.visible:
+            icon.icon = create_image()
+            icon.update_menu()
+
 if __name__ == "__main__":
 
-    server_process = None
+    server_thread = None
 
     def create_image():
         image = Image.open("images/py-logo.png")
@@ -224,19 +235,34 @@ if __name__ == "__main__":
 
     def quit_app(icon):
         icon.stop()
-        if server_process is not None:
-            server_process.terminate()
-            server_process.join()
         sys.exit(0)
 
-    menu = Menu(
-        MenuItem("Sair", quit_app)
-    )
+    def get_status_text(icon):
+        return "Ready" if app_started else "Loading..."
+
+    def create_menu():
+
+        menu = Menu(
+            MenuItem(
+                text=get_status_text,
+                action=None,
+                enabled=False
+            ),
+            Menu.SEPARATOR,
+            MenuItem("Sair", quit_app),
+        )
+
+        return menu
+    
+    menu = create_menu()
 
     icon = Icon("py-logo", create_image(), "Gym Service", menu)
 
-    server_process = multiprocessing.Process(target=start_server)
-    server_process.start()
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    icon_thread = threading.Thread(target=update_icon, args=(icon,), daemon=True)
+    icon_thread.start()
 
     icon.run()
     

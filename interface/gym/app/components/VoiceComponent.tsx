@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback, use } from "react"
-import { motion, scale, useAnimation } from "framer-motion";
+import { useEffect, useState, useRef, useCallback } from "react"
+import { motion, useAnimation } from "framer-motion";
 import { usePorcupine } from "@picovoice/porcupine-react"
 import { useColor } from "../contexts/ColorContext";
 import { useVoice } from "../contexts/VoiceContext";
 import { useLandPage } from "../contexts/LandPageContext";
 import { redirect } from "next/navigation";
 import AudioStreamManager from "../classes/AudioStreamManager";
+import { div } from "framer-motion/client";
 
 const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
 const modelFilePath = "/porcupine_params_pt.pv";
@@ -30,7 +31,7 @@ export default function VoiceComponent() {
     const shouldSendMessage = useRef(true);
     const landPageStepRef = useRef(landPageStep);
     const managerRef = useRef<AudioStreamManager | null>(null);
-    
+
     const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
     useEffect(() => {
@@ -97,10 +98,11 @@ export default function VoiceComponent() {
                         if (speakingRef.current) {
                             managerRef.current?.stopCurrentAudio();
                         }
-                        if (landPageStepRef.current === 4 && (data.intent === "start_training_session")) {
+                        if (landPageStepRef.current === 4 && (data.intent === "start_training_session" || data.intent === "affirm" )) {
                             setTimeout(() => {
                                 setLandPageStep(5);
-                            }, 1000);
+                                sendMessage({ type: "presentation5" });
+                            }, 2000);
                         }
                         if (landPageStepRef.current === 5) {
                             if (data.intent === "affirm") {
@@ -175,7 +177,7 @@ export default function VoiceComponent() {
                 else {
                     setTimeout(() => {
                         setLandPageStep(landPageStepRef.current + 1);
-                    }, 1000);
+                    }, 2000);
                 }
             }
             setInterim(interimTranscript);
@@ -192,7 +194,7 @@ export default function VoiceComponent() {
                 recognitionRef.current?.stop();
                 setInterim("");
                 setFinalText("");
-            }, 1000);
+            }, 2000);
 
             return () => {
                 recognition.abort();
@@ -410,63 +412,53 @@ export default function VoiceComponent() {
 
     return (
         <>
-            {/*listening && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-                        <div className="text-center">
-                            <div className="mb-4">
-                                <div className="w-12 h-12 mx-auto bg-red-500 rounded-full flex items-center justify-center animate-pulse">
-                                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-                                    </svg>
+            {listening && (
+                <div className="fixed justify-center bottom-32 inset-x-0">
+                    <div className="flex items-center justify-center  shadow-lg">
+                        <div className="space-y-3 bg-white/90 rounded-xl">
+                            {interim && (
+                                <div className="p-3 bg-gray-100 rounded-lg m-2">
+                                    <p className="text-gray-800 italic font-medium">{interim}</p>
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-900">A escutar...</h3>
-                            </div>
-
-                            <div className="space-y-3">
-                                {interim && (
-                                    <div className="p-3 bg-gray-100 rounded-lg">
-                                        <p className="text-gray-800 italic">{interim}</p>
-                                    </div>
-                                )}
-
-                                {finalText && (
-                                    <div className="p-3 bg-green-50 rounded-lg">
-                                        <p className="text-green-600 font-medium">{finalText}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mt-4">
-                                <p className="text-xs text-gray-500">Fale claramente para melhor reconhecimento</p>
-                            </div>
+                            )}
+                            {finalText && (
+                                <div className="p-3 bg-green-50 rounded-lg m-2">
+                                    <p className="text-green-600 italic font-bold">{finalText}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-            )*/}
-            <div
-                className="fixed bottom-12 right-12 w-14 h-14 rounded-full z-50 flex items-center justify-center opacity-75"
-                style={{
-                    backgroundColor: speaking
-                        ? "rgba(47, 240, 45, 0.8)"
-                        : listening
-                            ? "rgba(245, 39, 67, 0.8)"
-                            : "rgba(16, 89, 231, 0.8)"
-                }}
-            >
+            )}
+            <div className="fixed justify-center bottom-12 inset-x-0">
+                <div className="flex items-center justify-center">
+                    <div
+                        className="w-14 h-14 rounded-full shadow-xl/20 z-50"
+                        style={{
+                            backgroundColor: speaking
+                                ? "rgba(47, 240, 45, 0.8)"
+                                : listening
+                                    ? "rgba(245, 39, 67, 0.8)"
+                                    : "rgba(16, 89, 231, 0.8)",
+                            transition: "background-color 1s ease"
+                        }}
+                    >
+                    </div>
+                    <motion.div
+                        animate={controls}
+                        className="fixed w-14 h-14 rounded-full z-51 opacity-25"
+                        style={{
+                            backgroundColor: speaking
+                                ? "rgba(47, 240, 45, 0.8)"
+                                : listening
+                                    ? "rgba(245, 39, 67, 0.8)"
+                                    : "rgba(16, 89, 231, 0.8)",
+                            transition: "background-color 1s ease"
+                        }}
+                    >
+                    </motion.div>
+                </div>
             </div>
-            <motion.div
-                animate={controls}
-                className="fixed bottom-12 right-12 w-14 h-14 rounded-full z-51 flex items-center justify-center shadow-lg opacity-25"
-                style={{
-                    backgroundColor: speaking
-                        ? "rgba(47, 240, 45, 0.8)"
-                        : listening
-                            ? "rgba(245, 39, 67, 0.8)"
-                            : "rgba(16, 89, 231, 0.8)"
-                }}
-            >
-            </motion.div>
         </>
     )
 }
