@@ -7,3 +7,4 @@ Projeto referente à minha tese de mestrado realizada em 2024/25
 - Dar feedback de voz após 3 execuções incorretas
 - Mostrar novamente o exercício quando for pedida ajuda
 - Testar se a passagem de exercícios está a ocorrer bem no service
+- Outras chamadas a APIs
