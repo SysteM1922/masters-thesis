@@ -310,7 +310,7 @@ export default function VoiceComponent() {
         else {
             startListening();
         }
-    }, [sendMessage, setTextColor, startListening, landPageStep, setLandPageStep]);
+    }, [sendMessage, setTextColor, startListening, landPageStep, setLandPageStep, setSpeaking]);
 
     useEffect(() => {
         if (landPageStep < 3) {

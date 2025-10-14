@@ -1,14 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, act } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketSignalingClient } from '../classes/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
 import { redirect } from 'next/navigation';
-import { send } from 'process';
-import { start } from 'repl';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -451,7 +449,7 @@ export default function SingleWorkout() {
         }, 1000);
 
 
-    }, [maxWalkSeconds, clearWalkTimer]);
+    }, [clearWalkTimer]);
 
     useEffect(() => {
         if (actualExercise === ExerciseType.WALK && !showingExerciseModal) {
