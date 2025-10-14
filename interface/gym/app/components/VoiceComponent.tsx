@@ -145,9 +145,9 @@ export default function VoiceComponent() {
 
         ws.current.onclose = () => {
             console.log("WebSocket connection closed");
-            if(alert("Ligação com o serviço local perdida. Por favor, reinicie a aplicação.") === null){
-                window.location.reload();
-            }
+            // Show an alert to the user and then reload the page
+            alert("Ligação com o serviço local perdida. Por favor, reinicie a aplicação.");
+            window.location.reload();
         };
 
         return () => {
@@ -270,6 +270,9 @@ export default function VoiceComponent() {
                 setIntent("");
                 startListening();
             } else if (intent === "next_exercise") {
+                setIntent("");
+                startListening();
+            } else if (intent === "help_exercise") {
                 setIntent("");
                 startListening();
             }
@@ -462,7 +465,7 @@ export default function VoiceComponent() {
                     </div>
                     <motion.div
                         animate={controls}
-                        className="fixed w-14 h-14 rounded-full z-51 opacity-25"
+                        className="fixed w-14 h-14 rounded-full z-51 opacity-50"
                         style={{
                             backgroundColor: speaking
                                 ? "rgba(47, 240, 45, 0.8)"

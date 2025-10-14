@@ -149,6 +149,11 @@ nlu:
     - Podes explicar o exercício, por favor?
     - Podes explicar este exercício, por favor?
     - Podes explicar o exercício?
+    - Quero ver o video do exercício
+    - Quero ver o video deste exercício
+    - Mostra o video do exercício
+    - Mostra o exercício
+    - Quero ver o exercício
 
 - intent: presentation
   examples: |

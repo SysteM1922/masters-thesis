@@ -92,6 +92,12 @@ export default function SingleWorkout() {
                     setWaitingForConfirmation(true);
                 }
             }
+            else if (command === "help_exercise") {
+                setTimeout(() => {
+                    setShowingExerciseModal(true);
+                    setWaitingForListening(true);
+                }, 1000);
+            }
         });
 
         return () => {
@@ -560,7 +566,7 @@ export default function SingleWorkout() {
                 <div className='relative inline-block'>
                     <video
                         ref={webCamDisplayRef}
-                        className="block w-auto h-auto object-contain rounded-4xl scale-x-[-1] max-w-[calc(100vw-80px)] max-h-[calc(100vh-80px)]"
+                        className="block w-auto h-auto object-contain rounded-4xl scale-x-[-1] max-w-[calc(100vw-40px)] max-h-[calc(100vh-40px)]"
                         autoPlay
                         playsInline
                         muted
@@ -640,7 +646,7 @@ export default function SingleWorkout() {
             </div>
             {showingExerciseModal && (
                 <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70 p-5">
-                    <video className="relative h-full object-contain" muted autoPlay loop>
+                    <video className="relative h-full object-contain rounded-4xl" muted autoPlay loop>
                         <source src={videoPath.current} type="video/mp4" />
                         Your browser does not support the video tag.
                     </video>
