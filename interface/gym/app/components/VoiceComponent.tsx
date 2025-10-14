@@ -8,7 +8,6 @@ import { useVoice } from "../contexts/VoiceContext";
 import { useLandPage } from "../contexts/LandPageContext";
 import { redirect } from "next/navigation";
 import AudioStreamManager from "../classes/AudioStreamManager";
-import { div } from "framer-motion/client";
 
 const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
 const modelFilePath = "/porcupine_params_pt.pv";
@@ -31,6 +30,7 @@ export default function VoiceComponent() {
     const shouldSendMessage = useRef(true);
     const landPageStepRef = useRef(landPageStep);
     const managerRef = useRef<AudioStreamManager | null>(null);
+    const [intent, setIntent] = useState("");
 
     const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
@@ -64,6 +64,22 @@ export default function VoiceComponent() {
         speakingRef.current = speaking;
     }, [speaking]);
 
+    const startListening = useCallback(() => {
+        if (recognitionRef.current && !listening) {
+            try {
+                recognitionRef.current.start();
+                setListening(true);
+                setInterim("");
+            } catch (e) {
+                console.error("Error starting recognition:", e);
+            }
+        }
+    }, [listening]);
+
+    useEffect(() => {
+        setStartListeningFunction(startListening);
+    }, [setStartListeningFunction, startListening]);
+
     useEffect(() => {
         if (ws.current) {
             return;
@@ -92,24 +108,24 @@ export default function VoiceComponent() {
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === "audio") {
-                    // Notificar os callbacks quando receber uma intent
-                    if (data.intent) {
-                        notifyVoiceCommand(data.intent);
-                        if (speakingRef.current) {
-                            managerRef.current?.stopCurrentAudio();
-                        }
-                        if (landPageStepRef.current === 4 && (data.intent === "start_training_session" || data.intent === "affirm" )) {
-                            setTimeout(() => {
-                                setLandPageStep(5);
-                                sendMessage({ type: "presentation5" });
-                            }, 2000);
-                        }
-                        if (landPageStepRef.current === 5) {
-                            if (data.intent === "affirm") {
-                                setLandPageStep(6);
-                            } else if (data.intent === "deny") {
-                                setLandPageStep(4);
-                            }
+                    if (speakingRef.current) {
+                        managerRef.current?.stopCurrentAudio();
+                    }
+                }
+                if (data.intent) {
+                    notifyVoiceCommand(data.intent);
+                    setIntent(data.intent);
+                    if (landPageStepRef.current === 4 && (data.intent === "start_training_session" || data.intent === "affirm")) {
+                        setTimeout(() => {
+                            setLandPageStep(5);
+                            sendMessage({ type: "presentation5" });
+                        }, 2000);
+                    }
+                    if (landPageStepRef.current === 5) {
+                        if (data.intent === "affirm") {
+                            setLandPageStep(6);
+                        } else if (data.intent === "deny") {
+                            setLandPageStep(4);
                         }
                     }
                 }
@@ -129,6 +145,9 @@ export default function VoiceComponent() {
 
         ws.current.onclose = () => {
             console.log("WebSocket connection closed");
+            if(alert("Ligação com o serviço local perdida. Por favor, reinicie a aplicação.") === null){
+                window.location.reload();
+            }
         };
 
         return () => {
@@ -229,22 +248,6 @@ export default function VoiceComponent() {
         }
     }, [stop, release]);
 
-    const startListening = useCallback(() => {
-        if (recognitionRef.current && !listening) {
-            try {
-                recognitionRef.current.start();
-                setListening(true);
-                setInterim("");
-            } catch (e) {
-                console.error("Error starting recognition:", e);
-            }
-        }
-    }, [listening]);
-
-    useEffect(() => {
-        setStartListeningFunction(startListening);
-    }, [setStartListeningFunction, startListening]);
-
     useEffect(() => {
         if (window.location.pathname === "/") {
             if (!speaking) {
@@ -253,9 +256,22 @@ export default function VoiceComponent() {
                     setTimeout(() => {
                         setLandPageStep(1);
                     }, 1000);
-                } else if (landPageStep === 5) {
-                    startListening();
                 }
+            }
+        }
+    }, [speaking]);
+
+    useEffect(() => {
+        if (!speaking) {
+            if (intent === "unknown") {
+                setIntent("");
+                startListening();
+            } else if (intent === "ask") {
+                setIntent("");
+                startListening();
+            } else if (intent === "next_exercise") {
+                setIntent("");
+                startListening();
             }
         }
     }, [speaking]);
@@ -417,12 +433,12 @@ export default function VoiceComponent() {
                     <div className="flex items-center justify-center">
                         <div className="space-y-3 bg-red-500/80 rounded-xl">
                             {interim && (
-                                <div className="p-3 bg-gray-100 rounded-lg m-2">
+                                <div className="p-3 bg-gray-100 rounded-lg m-1.5">
                                     <p className="text-gray-800 italic font-medium">{interim}</p>
                                 </div>
                             )}
                             {finalText && (
-                                <div className="p-3 bg-green-50 rounded-lg m-2">
+                                <div className="p-3 bg-green-50 rounded-lg m-1.5">
                                     <p className="text-green-600 italic font-bold">{finalText}</p>
                                 </div>
                             )}

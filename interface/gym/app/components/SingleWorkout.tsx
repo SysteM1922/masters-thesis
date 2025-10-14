@@ -65,7 +65,7 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand, onSpeakingChange, startListening } = useVoice();
+    const { sendMessage, onVoiceCommand } = useVoice();
     const [confirmation, setConfirmation] = useState(false);
 
     const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
@@ -76,17 +76,6 @@ export default function SingleWorkout() {
     useEffect(() => {
         waitingForListeningRef.current = waitingForListening;
     }, [waitingForListening]);
-
-    useEffect(() => {
-        const unsubscribe = onSpeakingChange((speaking: boolean) => {
-            if (waitingForListeningRef.current && !speaking) {
-                startListening();
-                setWaitingForListening(false);
-            }
-        });
-
-        return unsubscribe;
-    }, [onSpeakingChange, startListening]);
 
     useEffect(() => {
         const unsubscribe = onVoiceCommand((command: string) => {
@@ -101,7 +90,6 @@ export default function SingleWorkout() {
             else if (command === "next_exercise") {
                 if (!waitingForConfirmation) {
                     setWaitingForConfirmation(true);
-                    setWaitingForListening(true);
                 }
             }
         });
@@ -166,8 +154,8 @@ export default function SingleWorkout() {
                 dataChannelRef.current = pcRef.current.createDataChannel("data");
 
                 dataChannelRef.current.onopen = () => {
-                    setLoading(false);
                     setTimeout(() => {
+                        setLoading(false);
                         setShowingExerciseModal(true);
                         sendMessage({ type: "arms_exercise" });
                         setWaitingForListening(true);
@@ -551,110 +539,108 @@ export default function SingleWorkout() {
     }, [repCounter, actualExercise, walkSecondsLeft]);
 
     return (
-        <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
-            <div id="buttons" className="flex flex-col justify-center items-center gap-10 flex-shrink-0">
-                <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
-                    Start Arms Exercise
-                </button>
-                <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
-                    Start Legs Exercise
-                </button>
-                <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
-                    Start Walk Exercise
-                </button>
-                <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
-                    Increment Rep
-                </button>
-            </div>
-            <div className="flex justify-center gap-2 relative overflow-hidden">
-                <div className='flex relative w-full h-full justify-center'>
-                    <div className='flex relative justify-center'>
-                        <video
-                            ref={webCamDisplayRef}
-                            className="max-w-full max-h-full object-contain rounded-4xl"
-                            style={{ transform: 'scaleX(-1)' }}
-                            autoPlay
-                            playsInline
-                            muted
-                        ></video>
-                        {isCapturing && (
-                            <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
-                                <main className='w-full h-full'>
-                                    <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        {!loading && (
-                                            <div className="bg-gray-800/90 rounded-4xl text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
-                                                {actualExercise === ExerciseType.ARMS && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
-                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.ARMS}</p>
-                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxArmReps}</p>
-                                                    </div>
-                                                )}
-                                                {actualExercise === ExerciseType.RIGHT_LEG && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
-                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.RIGHT_LEG}</p>
-                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxLegReps}</p>
-                                                    </div>
-                                                )}
-                                                {actualExercise === ExerciseType.LEFT_LEG && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
-                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.LEFT_LEG}</p>
-                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxLegReps}</p>
-                                                    </div>
-                                                )}
-                                                {actualExercise === ExerciseType.WALK && (
-                                                    <div className="w-full flex h-full flex-col justify-evenly items-center">
-                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.WALK}</p>
-                                                        <p className="font-bold leading-none text-center w-full text-1.5xl">
-                                                            {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
-                                                        </p>
-                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
+        <main className="relative w-screen h-screen overflow-hidden">
+            <div className='absolute inset-5 flex items-center justify-center gap-5'>
+                {/*
+                <div id="buttons" className="flex flex-col justify-center items-center gap-10 flex-shrink-0">
+                    <button className="btn btn-soft" id="startButton" onClick={startArmsExercise}>
+                        Start Arms Exercise
+                    </button>
+                    <button className="btn btn-soft" id="startLegsButton" onClick={startLegsExercise}>
+                        Start Legs Exercise
+                    </button>
+                    <button className="btn btn-soft" id="startWalkButton" onClick={startWalkExercise}>
+                        Start Walk Exercise
+                    </button>
+                    <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
+                        Increment Rep
+                    </button>
+                </div>
+                */}
+                <div className='relative inline-block'>
+                    <video
+                        ref={webCamDisplayRef}
+                        className="block w-auto h-auto object-contain rounded-4xl scale-x-[-1] max-w-[calc(100vw-80px)] max-h-[calc(100vh-80px)]"
+                        autoPlay
+                        playsInline
+                        muted
+                    ></video>
+                    {isCapturing && (
+                        <div className="absolute inset-0 w-full h-full" style={{ zIndex: 2 }}>
+                            <main className='w-full h-full'>
+                                <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    {!loading && (
+                                        <div className="bg-gray-800/90 rounded-4xl text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
+                                            {actualExercise === ExerciseType.ARMS && (
+                                                <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                    <p className="font-medium leading-none text-center text-[clamp(0.8rem,2vw,1.85rem)]">{ExerciseType.ARMS}</p>
+                                                    <p className="font-semibold leading-none text-center w-full text-[clamp(0.8rem,4vw,4.5rem)]">{repCounter}/{maxArmReps}</p>
+                                                </div>
+                                            )}
+                                            {actualExercise === ExerciseType.RIGHT_LEG && (
+                                                <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                    <p className="font-medium leading-none text-center text-[clamp(0.8rem,2vw,1.85rem)]">{ExerciseType.RIGHT_LEG}</p>
+                                                    <p className="font-semibold leading-none text-center w-full text-[clamp(0.8rem,4vw,4.5rem)]">{repCounter}/{maxLegReps}</p>
+                                                </div>
+                                            )}
+                                            {actualExercise === ExerciseType.LEFT_LEG && (
+                                                <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                    <p className="font-medium leading-none text-center text-[clamp(0.8rem,2vw,1.85rem)]">{ExerciseType.LEFT_LEG}</p>
+                                                    <p className="font-semibold leading-none text-center w-full text-[clamp(0.8rem,4vw,4.5rem)]">{repCounter}/{maxLegReps}</p>
+                                                </div>
+                                            )}
+                                            {actualExercise === ExerciseType.WALK && (
+                                                <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                    <p className="font-medium leading-none text-center text-[clamp(0.8rem,2vw,1.85rem)]">{ExerciseType.WALK}</p>
+                                                    <p className="font-bold leading-none text-center w-full text-[clamp(0.5rem,2vw,1.5rem)]">
+                                                        {String(minsTimer).padStart(2, '0')}:{String(secsTimer).padStart(2, '0')}
+                                                    </p>
+                                                    <p className="font-semibold leading-none text-center w-full text-[clamp(0.8rem,4vw,4.5rem)]">{repCounter}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
 
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
-                                        <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                </div>
+                            </main>
+                            {loading && (
+                                <main>
+                                    <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black opacity-70 rounded-4xl scale-x-[-1]">
+                                    </div>
+                                    <div className="absolute inset-0 z-40 flex items-center justify-center">
+                                        <div className="flex flex-col items-center">
+                                            <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
+                                            <span className="loading loading-dots w-40"></span>
+                                        </div>
                                     </div>
                                 </main>
-
-                                {loading && (
-                                    <div>
-                                        <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black opacity-70 rounded-4xl">
-                                        </div>
-                                        <div className="absolute inset-0 z-40 flex items-center justify-center">
-                                            <div className="flex flex-col items-center">
-                                                <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
-                                                <span className="loading loading-dots w-40"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        <canvas
-                            className="absolute max-w-full max-h-full object-contain pointer-events-none"
-                            style={{ transform: 'scaleX(-1)', zIndex: 1 }}
-                            ref={outputCanvasRef}
-                        ></canvas>
-                    </div>
+                            )}
+                        </div>
+                    )}
+                    <canvas
+                        className="absolute inset-0 w-full h-full"
+                        style={{ transform: 'scaleX(-1)', zIndex: 1 }}
+                        ref={outputCanvasRef}
+                    ></canvas>
                 </div>
             </div>
             {showingExerciseModal && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70">
-                    <video className="max-w-full max-h-full" muted autoPlay loop>
+                <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70 p-5">
+                    <video className="relative h-full object-contain" muted autoPlay loop>
                         <source src={videoPath.current} type="video/mp4" />
                         Your browser does not support the video tag.
                     </video>

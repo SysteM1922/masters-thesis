@@ -47,9 +47,10 @@ app.add_middleware(
 app_started = False
 agent = Agent()
 
-async def send_audio_ws(websocket: WebSocket, filename: str, intent: str = None):
-    if intent:
-        await websocket.send_json({"type": "audio", "intent": intent})
+async def send_audio_ws(websocket: WebSocket, filename: str, intent: str):
+    
+    await websocket.send_json({"type": "audio", "intent": intent})
+    
     if filename is None:
         return
     with open(filename, "rb") as audio_file:
@@ -85,6 +86,7 @@ async def websocket_session(websocket: WebSocket):
             data = await websocket.receive_json()
             logger.info(f"Received message from client: {data}")
             filename = None
+            intent = None
 
             match data.get("type"):
                 case "new_command":
@@ -111,9 +113,6 @@ async def websocket_session(websocket: WebSocket):
                             filename = await tts.greet()
 
                         case "affirm":
-                            if agent.get_previous_intent() == "next_exercise":
-                                agent._actual_exercise += 1
-
                             filename = await tts.affirm()
 
                         case "deny":
@@ -145,13 +144,19 @@ async def websocket_session(websocket: WebSocket):
                     filename = await tts.goodbye()
 
                 case "arms_exercise":
+                    intent = "ask"
                     filename = await tts.arms_exercise()
+                    agent._actual_exercise = 1
 
                 case "legs_exercise":
+                    intent = "ask"
                     filename = await tts.legs_exercise()
+                    agent._actual_exercise = 2
 
                 case "walk_exercise":
+                    intent = "ask"
                     filename = await tts.walk_exercise()
+                    agent._actual_exercise = 3
 
                 case "change_legs":
                     filename = await tts.change_legs()
@@ -175,6 +180,7 @@ async def websocket_session(websocket: WebSocket):
                     filename = await tts.presentation_4()
 
                 case "presentation5":
+                    intent = "ask"
                     filename = await tts.presentation_5()
 
                 case "simple_exercise_done":
@@ -187,8 +193,8 @@ async def websocket_session(websocket: WebSocket):
                     logger.warning(f"Unknown message type: {data.get('type')}")
                     filename = await tts.unknown()
             
-            print(f"Sending audio file: {filename}")
-            await send_audio_ws(websocket, filename)
+            print(f"Sending audio file: {filename} for intent: {intent}")
+            await send_audio_ws(websocket, filename, intent)
 
     except Exception as e:
         logger.error(f"WebSocket connection error: {e}")

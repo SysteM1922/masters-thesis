@@ -185,11 +185,13 @@ async def walk_exercise():
 
 async def exercise_done():
     texts = [
-        "Parabéns por ter completado o exercício!",
-        "Ótimo trabalho! Está a ir muito bem.",
-        "Lembre-se de manter-se hidratado e fazer pausas quando necessário.",
+        "Parabéns por ter completado o exercício! Ótimo trabalho, está a ir muito bem. Lembre-se de manter-se hidratado e fazer pausas se achar necessário.",
+        "Excelente esforço! Terminou o exercício com sucesso. Continue assim!",
+        "Fantástico! Concluiu o exercício. Estou muito orgulhoso do seu progresso.",
+        "Ótimo trabalho! Terminou o exercício. Vamos continuar a manter o ritmo!",
+        "Muito bem! Completou o exercício. Se tiver sede faça uma pausa para beber água.",
     ]
-    full_text = " ".join(texts)
+    full_text = random.choice(texts)
     filename = await text_to_speech(full_text, "exercise_done")
     return filename
 

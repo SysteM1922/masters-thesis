@@ -161,6 +161,9 @@ class WebSocketSignalingClient {
             try {
                 this.websocket.close();
                 console.log('WebSocket connection closed');
+                if(alert("Ligação com o servidor perdida. Por favor, reinicie a aplicação.") === null){
+                    window.location.reload();
+                }
             }
             catch (error) {
                 console.error('Error closing WebSocket:', error);
