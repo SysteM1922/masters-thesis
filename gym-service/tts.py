@@ -242,3 +242,19 @@ async def unknown():
     full_text = random.choice(texts)
     filename = await text_to_speech(full_text, "unknown")
     return filename
+
+async def do_you_need_help():
+    texts = [
+        "Vejo que está com dificuldades no exercício. Precisa de ajuda?",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "do_you_need_help")
+    return filename
+
+async def help_requested():
+    texts = [
+        "Deseja ver o vídeo com explicação novamente?",
+    ]
+    full_text = " ".join(texts)
+    filename = await text_to_speech(full_text, "help_requested")
+    return filename

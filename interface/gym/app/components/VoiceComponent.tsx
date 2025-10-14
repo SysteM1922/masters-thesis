@@ -275,6 +275,12 @@ export default function VoiceComponent() {
             } else if (intent === "help_exercise") {
                 setIntent("");
                 startListening();
+            } else if (intent === "do_you_need_help") {
+                setIntent("");
+                startListening();
+            } else if (intent === "help_requested") {
+                setIntent("");
+                startListening();
             }
         }
     }, [speaking]);

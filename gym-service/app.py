@@ -106,14 +106,21 @@ async def websocket_session(websocket: WebSocket):
 
                     print(f"Predicted intent: {intent}")
 
-                    agent.update_intent(intent)
-
                     match intent:
                         case "greet":
                             filename = await tts.greet()
 
                         case "affirm":
-                            filename = await tts.affirm()
+                            if agent.get_previous_intent() == "deny":
+                                filename = await tts.affirm()
+                            elif agent.get_previous_intent() == "do_you_need_help":
+                                filename = await tts.help_requested()
+                                intent = "help_requested"
+                            elif agent.get_previous_intent() == "help_requested":
+                                filename = await tts.affirm()
+                                intent = "show_video"
+                            else:
+                                filename = await tts.affirm()
 
                         case "deny":
                             filename = await tts.affirm()
@@ -125,17 +132,26 @@ async def websocket_session(websocket: WebSocket):
                             filename = await tts.next_exercise()
 
                         case "help":
-                            filename = await tts.help()
+                            if agent.get_previous_intent() == "do_you_need_help":
+                                filename = await tts.help_requested()
+                                intent = "help_requested"
+                            else:
+                                filename = await tts.help()
 
                         case "help_exercise":
-                            filename = await tts.help_exercise(agent._actual_exercise)
+                            if agent.get_previous_intent() == "do_you_need_help":
+                                filename = await tts.help_requested()
+                                intent = "help_requested"
+                            else:
+                                filename = await tts.help_exercise(agent._actual_exercise)
 
                         case "presentation":
                             filename = await tts.presentation()
                         
                         case "goodbye":
                             filename = await tts.goodbye()
-                        
+                    
+                    agent.update_intent(intent)
                     print(f"Sending audio file: {filename} for intent: {intent}")
                     await send_audio_ws(websocket, filename, intent)
                     continue
@@ -185,6 +201,11 @@ async def websocket_session(websocket: WebSocket):
 
                 case "simple_exercise_done":
                     filename = await tts.simple_exercise_done()
+
+                case "do_you_need_help":
+                    intent = "do_you_need_help"
+                    agent.update_intent("do_you_need_help")
+                    filename = await tts.do_you_need_help()
 
                 case "lets_go":
                     filename = await tts.lets_go()

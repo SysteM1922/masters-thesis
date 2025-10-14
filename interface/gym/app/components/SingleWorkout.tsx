@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, act } from 'react';
 import { WebSocketSignalingClient } from '../classes/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
 import { redirect } from 'next/navigation';
+import { send } from 'process';
+import { start } from 'repl';
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
@@ -15,6 +17,8 @@ const TURN_SERVER_HOST: string = process.env.TURN_SERVER_HOST ?? "";
 const TURN_SERVER_PORT: number = parseInt(process.env.TURN_SERVER_PORT ?? "0");
 const TURN_SERVER_USERNAME: string = process.env.TURN_SERVER_USERNAME ?? "";
 const TURN_SERVER_CREDENTIAL: string = process.env.TURN_SERVER_CREDENTIAL ?? "";
+
+const NO_EXECUTIONS_TIMEOUT = 30; // segundos
 
 const maxLegReps = 10;
 const maxArmReps = 10;
@@ -73,9 +77,29 @@ export default function SingleWorkout() {
 
     const waitingForListeningRef = useRef<boolean>(false);
 
+    const noExecutionsTimer = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         waitingForListeningRef.current = waitingForListening;
     }, [waitingForListening]);
+
+
+    const startNoExecutionsTimeout = () => {
+        if (noExecutionsTimer.current) {
+            clearTimeout(noExecutionsTimer.current);
+        }
+        noExecutionsTimer.current = setTimeout(() => {
+            sendMessage({ type: "do_you_need_help" });
+            startNoExecutionsTimeout();
+        }, NO_EXECUTIONS_TIMEOUT * 1000);
+    }
+
+    const clearNoExecutionsTimeout = () => {
+        if (noExecutionsTimer.current) {
+            clearTimeout(noExecutionsTimer.current);
+            noExecutionsTimer.current = null;
+        }
+    }
 
     useEffect(() => {
         const unsubscribe = onVoiceCommand((command: string) => {
@@ -97,6 +121,37 @@ export default function SingleWorkout() {
                     setShowingExerciseModal(true);
                     setWaitingForListening(true);
                 }, 1000);
+            } else if (command === "do_you_need_help") {
+                startNoExecutionsTimeout();
+            } else if (command === "help_requested") {
+                startNoExecutionsTimeout();
+            } else if (command === "show_video") {
+                clearNoExecutionsTimeout();
+                if (actualExercise === ExerciseType.ARMS) {
+                    videoPath.current = "/exercise1.mp4";
+                    setTimeout(() => {
+                        pauseStreaming();
+                        setShowingExerciseModal(true);
+                        sendMessage({ type: "arms_exercise" });
+                        setWaitingForListening(true);
+                    }, 3000);
+                } else if (actualExercise === ExerciseType.RIGHT_LEG || actualExercise === ExerciseType.LEFT_LEG) {
+                    videoPath.current = "/exercise1.mp4";
+                    setTimeout(() => {
+                        pauseStreaming();
+                        setShowingExerciseModal(true);
+                        sendMessage({ type: "legs_exercise" });
+                        setWaitingForListening(true);
+                    }, 3000);
+                } else if (actualExercise === ExerciseType.WALK) {
+                    videoPath.current = "/exercise1.mp4";
+                    setTimeout(() => {
+                        pauseStreaming();
+                        setShowingExerciseModal(true);
+                        sendMessage({ type: "walk_exercise" });
+                        setWaitingForListening(true);
+                    }, 3000);
+                }
             }
         });
 
@@ -196,6 +251,7 @@ export default function SingleWorkout() {
 
                     if (data.new_rep) {
                         incrementRepCounter();
+                        startNoExecutionsTimeout();
                     }
 
                     // Verificar dimensões antes de copiar para o canvas de saída
@@ -465,6 +521,7 @@ export default function SingleWorkout() {
     useEffect(() => {
         if (confirmation) {
             if (waitingForConfirmation) {
+                clearNoExecutionsTimeout();
                 setWaitingForConfirmation(false);
                 if (actualExercise === ExerciseType.ARMS) {
                     pauseStreaming();
@@ -502,6 +559,7 @@ export default function SingleWorkout() {
                 startWalkExercise();
             }
             resumeStreaming();
+            startNoExecutionsTimeout();
             setShowingExerciseModal(false);
             setConfirmation(false);
         }
@@ -512,9 +570,11 @@ export default function SingleWorkout() {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
                 sendMessage({ type: "change_legs" });
                 startLegsExercise();
+                clearNoExecutionsTimeout();
             } else {
                 sendMessage({ type: "exercise_done" });
                 pauseStreaming();
+                clearNoExecutionsTimeout();
                 videoPath.current = "/exercise1.mp4";
                 setTimeout(() => {
                     setShowingExerciseModal(true);
@@ -527,6 +587,7 @@ export default function SingleWorkout() {
         else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
             sendMessage({ type: "exercise_done" });
             pauseStreaming();
+            clearNoExecutionsTimeout();
             videoPath.current = "/exercise1.mp4";
             setTimeout(() => {
                 setShowingExerciseModal(true);
@@ -537,6 +598,7 @@ export default function SingleWorkout() {
         }
         else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
             pauseStreaming();
+            clearNoExecutionsTimeout();
             sendMessage({ type: "goodbye" });
             setTimeout(() => {
                 redirect("/bye");

@@ -79,6 +79,10 @@ nlu:
     - De acordo
     - Vamos lá
     - Vamos
+    - Sim por favor
+    - Sim, por favor
+    - Sim, quero
+    - Sim se faz favor 
 
 - intent: deny
   examples: |
