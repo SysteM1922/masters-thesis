@@ -21,7 +21,7 @@ from exercises.walk_exercise import walk_exercise
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-load_dotenv("../.env")
+load_dotenv(".env")
 
 SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
 SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")

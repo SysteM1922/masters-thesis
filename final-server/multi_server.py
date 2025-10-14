@@ -5,7 +5,7 @@ import asyncio
 import websockets
 import json
 
-load_dotenv("../.env")
+load_dotenv(".env")
 
 ids_pool = []
 

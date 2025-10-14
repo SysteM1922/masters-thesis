@@ -3,7 +3,7 @@ import urllib3
 import os
 from dotenv import load_dotenv
 
-load_dotenv("../.env")
+load_dotenv(".env")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

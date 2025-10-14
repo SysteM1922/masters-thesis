@@ -16,7 +16,7 @@ from aiortc import RTCConfiguration, RTCIceCandidate, RTCIceServer, RTCPeerConne
 from av import VideoFrame
 from dotenv import load_dotenv
 
-load_dotenv("../.env")
+load_dotenv(".env")
 
 SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
 SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
