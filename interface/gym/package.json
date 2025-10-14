@@ -13,6 +13,7 @@
     "@picovoice/porcupine-react": "^3.0.3",
     "@picovoice/web-voice-processor": "^4.0.9",
     "@types/react-router-dom": "^5.3.3",
+    "axios": "^1.12.2",
     "daisyui": "^5.0.50",
     "framer-motion": "^12.23.22",
     "next": "^15.5.2",

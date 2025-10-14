@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useColor } from "../contexts/ColorContext";
 import { useLandPage } from "../contexts/LandPageContext";
 import Typewriter from 'typewriter-effect';
+import GymAPIClient from "../classes/apis/gymAPIClient";
 
 export default function LandPage() {
     const { textColor } = useColor();
@@ -34,6 +35,8 @@ export default function LandPage() {
     }, []);
 
     useEffect(() => {
+
+        GymAPIClient.startExercise();
 
         const checkAndRequestPermissions = async () => {
             try {
