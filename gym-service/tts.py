@@ -156,9 +156,10 @@ async def arms_exercise():
 async def legs_exercise():
     texts = [
         "Para este exercício irá precisar de uma cadeira.",
-        "Coloque a cadeira numa posição diagonal relativamente à tela de forma a ver as suas duas pernas.",
-        "Sente-se na cadeira e levante uma perna de cada vez, esticando-a para a frente.",
-        "Primeiro irá só fazer o movimento com uma perna e após 10 repetições, troca para a outra perna.",
+        "Coloque a cadeira centrada e o mais de frente possível relativamente à tela de forma a ver as suas duas pernas.",
+        "Sente-se na cadeira de pernas ligeiramente abertas e levante a perna, esticando-a para a frente.",
+        "Tente que consiga ver a parte de dentro da perna que está a levantar, como se vê na imagem.",
+        "Primeiro irá só fazer o movimento com uma perna e após 10 repetições, troca para a outra.",
         "Certifique-se de que está no centro da imagem e que todo o seu corpo está visível.",
         "Vamos começar?"
     ]
@@ -172,7 +173,8 @@ async def walk_exercise():
         "Levante os joelhos o mais alto que conseguir, como se estivesse a caminhar.",
         "Balance os braços para ajudar no movimento e manter o equilíbrio.",
         "As mãos devem balançar o suficiente para ficarem por cima da perna contrária.",
-        "mantenha a coordenação e levante sempre a perna do lado contrário do braço que baloiçou.",
+        "Mantenha a coordenação e levante sempre a perna do lado contrário do braço que baloiçou.",
+        "Braço esquerdo com perna direita e braço direito com perna esquerda.",
         "Terá de caminhar durante 60 segundos e os seus passos corretos serão contados.",
         "Certifique-se de que está no centro da imagem e que todo o seu corpo está visível.",
         "Vamos começar?"

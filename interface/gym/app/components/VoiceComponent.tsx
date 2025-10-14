@@ -413,9 +413,9 @@ export default function VoiceComponent() {
     return (
         <>
             {listening && (
-                <div className="fixed justify-center bottom-32 inset-x-0">
-                    <div className="flex items-center justify-center  shadow-lg">
-                        <div className="space-y-3 bg-white/90 rounded-xl">
+                <div className="fixed justify-center bottom-32 inset-x-0 z-50">
+                    <div className="flex items-center justify-center">
+                        <div className="space-y-3 bg-red-500/80 rounded-xl">
                             {interim && (
                                 <div className="p-3 bg-gray-100 rounded-lg m-2">
                                     <p className="text-gray-800 italic font-medium">{interim}</p>
@@ -430,7 +430,7 @@ export default function VoiceComponent() {
                     </div>
                 </div>
             )}
-            <div className="fixed justify-center bottom-12 inset-x-0">
+            <div className="fixed justify-center bottom-12 inset-x-0 z-50">
                 <div className="flex items-center justify-center">
                     <div
                         className="w-14 h-14 rounded-full shadow-xl/20 z-50"

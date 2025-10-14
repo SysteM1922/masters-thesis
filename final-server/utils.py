@@ -4,10 +4,10 @@ from mediapipe.python.solutions.drawing_utils import DrawingSpec
 import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
 import math
 from typing import Optional
-import ntplib
 from mediapipe.framework.formats.landmark_pb2 import NormalizedLandmark
+#import ntplib
 
-def ntp_sync():
+"""def ntp_sync():
     try:
         ntp_client = ntplib.NTPClient()
         response = ntp_client.request('pool.ntp.org', version=3)
@@ -16,7 +16,7 @@ def ntp_sync():
         return ntp_time
     except Exception as e:
         print("NTP synchronization failed:", e)
-        return None
+        return None"""
     
 def get_time_offset():
     with open("/tmp/ntp_offset.txt", "r") as f:

@@ -433,9 +433,11 @@ export default function SingleWorkout() {
         const dataChannel = dataChannelRef.current;
         if (dataChannel && dataChannel.readyState === "open") {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
-                dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: false }));
-                setActualExercise(ExerciseType.LEFT_LEG);
-                setRepCounter(0);
+                setTimeout(() => {
+                    dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: false }));
+                    setActualExercise(ExerciseType.LEFT_LEG);
+                    setRepCounter(0);
+                }, 1000);
             } else {
                 dataChannel.send(JSON.stringify({ exercise: "legs", right_leg: true }));
                 setActualExercise(ExerciseType.RIGHT_LEG);
@@ -630,9 +632,9 @@ export default function SingleWorkout() {
 
                                 {loading && (
                                     <div>
-                                        <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70 rounded-4xl">
+                                        <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black opacity-70 rounded-4xl">
                                         </div>
-                                        <div className="absolute inset-0 z-50 flex items-center justify-center">
+                                        <div className="absolute inset-0 z-40 flex items-center justify-center">
                                             <div className="flex flex-col items-center">
                                                 <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
                                                 <span className="loading loading-dots w-40"></span>
@@ -651,7 +653,7 @@ export default function SingleWorkout() {
                 </div>
             </div>
             {showingExerciseModal && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black bg-opacity-70">
+                <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70">
                     <video className="max-w-full max-h-full" muted autoPlay loop>
                         <source src={videoPath.current} type="video/mp4" />
                         Your browser does not support the video tag.
