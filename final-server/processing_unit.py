@@ -73,6 +73,9 @@ def handle_results(results, _, frame_pts):
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
     styled_connections, new_rep = exercise_function(landmarks, right_leg)
 
+    if len(landmarks) == 0:
+        return
+
     data = json.dumps({
         "landmarks": landmarks,
         "style": styled_connections,

@@ -213,6 +213,7 @@ export default function SingleWorkout() {
                 dataChannelRef.current = pcRef.current.createDataChannel("data");
 
                 dataChannelRef.current.onopen = () => {
+                    pauseStreaming();
                     setTimeout(() => {
                         setLoading(false);
                         setShowingExerciseModal(true);
@@ -698,13 +699,13 @@ export default function SingleWorkout() {
                         </div>
                     )}
                     <canvas
-                        className="absolute inset-0 w-full h-full"
+                        className="absolute inset-0 w-full h-full z-30"
                         style={{ transform: 'scaleX(-1)', zIndex: 1 }}
                         ref={outputCanvasRef}
                     ></canvas>
                 </div>
             </div>
-            {showingExerciseModal && (
+            {showingExerciseModal === null && (
                 <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70 p-5">
                     <video className="relative h-full object-contain rounded-4xl" muted autoPlay loop>
                         <source src={videoPath.current} type="video/mp4" />
