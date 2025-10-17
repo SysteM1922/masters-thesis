@@ -699,13 +699,13 @@ export default function SingleWorkout() {
                         </div>
                     )}
                     <canvas
-                        className="absolute inset-0 w-full h-full z-30"
+                        className="absolute inset-0 w-full h-full"
                         style={{ transform: 'scaleX(-1)', zIndex: 1 }}
                         ref={outputCanvasRef}
                     ></canvas>
                 </div>
             </div>
-            {showingExerciseModal === null && (
+            {showingExerciseModal && (
                 <div className="absolute inset-0 z-40 flex items-center justify-center w-full h-full bg-black bg-opacity-70 p-5">
                     <video className="relative h-full object-contain rounded-4xl" muted autoPlay loop>
                         <source src={videoPath.current} type="video/mp4" />
