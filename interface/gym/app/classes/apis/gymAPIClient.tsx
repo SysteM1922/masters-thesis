@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from "axios";
-import { timeStamp } from "console";
 
 const SERVICES_API_HOST: string = process.env.SERVICES_API_HOST ?? ""
 const SERVICES_API_PORT: number = parseInt(process.env.SERVICES_API_PORT ?? "0");
