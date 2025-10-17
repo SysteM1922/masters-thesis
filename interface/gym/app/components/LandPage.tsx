@@ -36,7 +36,7 @@ export default function LandPage() {
 
     useEffect(() => {
 
-        GymAPIClient.startExercise();
+        //GymAPIClient.startExercise();
 
         const checkAndRequestPermissions = async () => {
             try {
