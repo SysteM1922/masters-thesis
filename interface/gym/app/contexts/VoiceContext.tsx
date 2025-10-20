@@ -12,6 +12,9 @@ interface VoiceContextType {
     onSpeakingChange: (callback: (speaking: boolean) => void) => () => void;
     startListening: () => void;
     setStartListeningFunction: (fn: () => void) => void;
+    startNoExecutionsTimeout: () => void;
+    resetNoExecutionsTimeout: () => void;
+    clearNoExecutionsTimeout: () => void;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
@@ -22,6 +25,36 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const speakingCallbacksRef = useRef<Set<(speaking: boolean) => void>>(new Set());
     const startListeningFunctionRef = useRef<(() => void) | null>(null);
     const [speaking, setSpeakingState] = useState(false);
+
+    const NO_EXECUTIONS_TIMEOUT = 30; // seconds
+    const noExecutionsTimer = useRef<NodeJS.Timeout | null>(null);
+    const helpMessageCounter = useRef(0);
+    const MAX_HELP_MESSAGES = 2;
+
+    const startNoExecutionsTimeout = () => {
+        if (noExecutionsTimer.current) {
+            clearTimeout(noExecutionsTimer.current);
+        }
+        if (helpMessageCounter.current < MAX_HELP_MESSAGES) {
+            noExecutionsTimer.current = setTimeout(() => {
+                sendMessage({ type: "do_you_need_help" });
+                startNoExecutionsTimeout();
+            }, NO_EXECUTIONS_TIMEOUT * 1000);
+            helpMessageCounter.current += 1;
+        }
+    }
+
+    const clearNoExecutionsTimeout = () => {
+        if (noExecutionsTimer.current) {
+            clearTimeout(noExecutionsTimer.current);
+            noExecutionsTimer.current = null;
+        }
+    }
+
+    const resetNoExecutionsTimeout = () => {
+        helpMessageCounter.current = 0;
+        startNoExecutionsTimeout();
+    }
 
     const setWebSocket = (ws: WebSocket) => {
         wsRef.current = ws;
@@ -44,7 +77,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     const onVoiceCommand = useCallback((callback: (command: string) => void) => {
         callbacksRef.current.add(callback);
-        
+
         return () => {
             callbacksRef.current.delete(callback);
         };
@@ -77,9 +110,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <VoiceContext.Provider value={{ 
-            sendMessage, 
-            setWebSocket, 
+        <VoiceContext.Provider value={{
+            sendMessage,
+            setWebSocket,
             onVoiceCommand,
             notifyVoiceCommand,
             speaking,
@@ -87,6 +120,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             onSpeakingChange,
             startListening,
             setStartListeningFunction,
+            resetNoExecutionsTimeout,
+            startNoExecutionsTimeout,
+            clearNoExecutionsTimeout,
         }}>
             {children}
         </VoiceContext.Provider>

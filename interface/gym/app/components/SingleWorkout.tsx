@@ -73,7 +73,7 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand } = useVoice();
+    const { sendMessage, onVoiceCommand, startNoExecutionsTimeout, resetNoExecutionsTimeout } = useVoice();
     const [confirmation, setConfirmation] = useState(false);
 
     const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
@@ -82,28 +82,11 @@ export default function SingleWorkout() {
     const waitingForListeningRef = useRef<boolean>(false);
 
     const noExecutionsTimer = useRef<NodeJS.Timeout | null>(null);
+    const helpMessageCounter = useRef<number>(0);
 
     useEffect(() => {
         waitingForListeningRef.current = waitingForListening;
     }, [waitingForListening]);
-
-
-    const startNoExecutionsTimeout = () => {
-        if (noExecutionsTimer.current) {
-            clearTimeout(noExecutionsTimer.current);
-        }
-        noExecutionsTimer.current = setTimeout(() => {
-            sendMessage({ type: "do_you_need_help" });
-            startNoExecutionsTimeout();
-        }, NO_EXECUTIONS_TIMEOUT * 1000);
-    }
-
-    const clearNoExecutionsTimeout = () => {
-        if (noExecutionsTimer.current) {
-            clearTimeout(noExecutionsTimer.current);
-            noExecutionsTimer.current = null;
-        }
-    }
 
     useEffect(() => {
         const unsubscribe = onVoiceCommand((command: string) => {
@@ -130,7 +113,7 @@ export default function SingleWorkout() {
             } else if (command === "help_requested") {
                 startNoExecutionsTimeout();
             } else if (command === "show_video") {
-                clearNoExecutionsTimeout();
+                resetNoExecutionsTimeout();
                 if (actualExercise === ExerciseType.ARMS) {
                     videoPath.current = "/exercise1.mp4";
                     setTimeout(() => {
@@ -526,7 +509,7 @@ export default function SingleWorkout() {
     useEffect(() => {
         if (confirmation) {
             if (waitingForConfirmation) {
-                clearNoExecutionsTimeout();
+                resetNoExecutionsTimeout();
                 setWaitingForConfirmation(false);
                 if (actualExercise === ExerciseType.ARMS) {
                     pauseStreaming();
@@ -575,11 +558,11 @@ export default function SingleWorkout() {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
                 sendMessage({ type: "change_legs" });
                 startLegsExercise();
-                clearNoExecutionsTimeout();
+                resetNoExecutionsTimeout();
             } else {
                 sendMessage({ type: "exercise_done" });
                 pauseStreaming();
-                clearNoExecutionsTimeout();
+                resetNoExecutionsTimeout();
                 videoPath.current = "/exercise1.mp4";
                 setTimeout(() => {
                     setShowingExerciseModal(true);
@@ -592,7 +575,7 @@ export default function SingleWorkout() {
         else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
             sendMessage({ type: "exercise_done" });
             pauseStreaming();
-            clearNoExecutionsTimeout();
+            resetNoExecutionsTimeout();
             videoPath.current = "/exercise1.mp4";
             setTimeout(() => {
                 setShowingExerciseModal(true);
@@ -603,7 +586,7 @@ export default function SingleWorkout() {
         }
         else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
             pauseStreaming();
-            clearNoExecutionsTimeout();
+            resetNoExecutionsTimeout();
             sendMessage({ type: "goodbye" });
             setTimeout(() => {
                 redirect("/bye");

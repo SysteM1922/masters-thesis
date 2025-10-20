@@ -308,9 +308,6 @@ async def run(host, port, identifier):
                 credential=TURN_SERVER_CREDENTIAL
             ),
             RTCIceServer(
-                urls=f"stun:{TURN_SERVER_HOST}:{TURN_SERVER_PORT}",
-            ),
-            RTCIceServer(
                 urls="stun:stun1.l.google.com:3478"
             )
         ],

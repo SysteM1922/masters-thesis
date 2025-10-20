@@ -21,7 +21,7 @@ export default function VoiceComponent() {
 
     const { landPageStep, setLandPageStep } = useLandPage();
     const { setTextColor } = useColor();
-    const { sendMessage, setWebSocket, notifyVoiceCommand, speaking, setSpeaking, setStartListeningFunction } = useVoice();
+    const { sendMessage, setWebSocket, notifyVoiceCommand, speaking, setSpeaking, setStartListeningFunction, startNoExecutionsTimeout, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
     const [listening, setListening] = useState(false);
     const speakingRef = useRef(speaking);
     const [interim, setInterim] = useState("");
@@ -70,6 +70,7 @@ export default function VoiceComponent() {
                 recognitionRef.current.start();
                 setListening(true);
                 setInterim("");
+                resetNoExecutionsTimeout();
             } catch (e) {
                 console.error("Error starting recognition:", e);
             }
@@ -263,6 +264,7 @@ export default function VoiceComponent() {
 
     useEffect(() => {
         if (!speaking) {
+            resetNoExecutionsTimeout();
             if (intent === "unknown") {
                 setIntent("");
                 startListening();
@@ -282,6 +284,8 @@ export default function VoiceComponent() {
                 setIntent("");
                 startListening();
             }
+        } else {
+            clearNoExecutionsTimeout();
         }
     }, [speaking]);
 
