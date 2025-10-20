@@ -306,6 +306,12 @@ async def run(host, port, identifier):
                 urls=f"turn:{TURN_SERVER_HOST}:{TURN_SERVER_PORT}",
                 username=TURN_SERVER_USERNAME,
                 credential=TURN_SERVER_CREDENTIAL
+            ),
+            RTCIceServer(
+                urls=f"stun:{TURN_SERVER_HOST}:{TURN_SERVER_PORT}",
+            ),
+            RTCIceServer(
+                urls="stun:stun1.l.google.com:3478"
             )
         ],
         bundlePolicy="max-bundle",

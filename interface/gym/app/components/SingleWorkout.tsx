@@ -28,6 +28,12 @@ const pc_config: RTCConfiguration = {
             urls: `turn:${TURN_SERVER_HOST}:${TURN_SERVER_PORT}`,
             username: TURN_SERVER_USERNAME,
             credential: TURN_SERVER_CREDENTIAL
+        },
+        {
+            urls: `stun:${TURN_SERVER_HOST}:${TURN_SERVER_PORT}`,
+        },
+        {
+            urls: "stun:stun1.l.google.com:3478",
         }
     ],
     bundlePolicy: "max-bundle" as RTCBundlePolicy,
