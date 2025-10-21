@@ -11,6 +11,7 @@ import websockets
 import os
 from dotenv import load_dotenv
 import cv2
+import logging
 
 from api_interface import TestsAPI
 from utils import get_time_offset
@@ -22,6 +23,12 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv(".env")
+
+logging.basicConfig(
+    filename='processing.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
 SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
@@ -63,6 +70,7 @@ async def send_results(data, frame_pts):
         send_times.append((frame_pts, time.time()))
         if data_channel:
             data_channel.send(data)
+            logging.debug(f"Sent frame {frame_pts}")
     except Exception as e:
         print(f"Error in send_results: {e}")
 
@@ -254,6 +262,7 @@ def process_frame():
             continue
         with last_frame_lock:
             last_frame_pts = last_frame.pts
+            logging.debug(f"Processing frame {last_frame_pts}")
             start_process_times.append((last_frame_pts, time.time()))
 
             try:

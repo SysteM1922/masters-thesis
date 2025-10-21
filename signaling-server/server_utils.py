@@ -319,7 +319,10 @@ class SignalingServer:
             await websocket.close()
             raise ValueError("Server not found")
 
-        await self.register_processing_unit(unit, server)
+        try:
+            await self.register_processing_unit(unit, server)
+        except Exception as e:
+            logger.error(f"Error registering Processing Unit {unit.id}: {e}")
 
         return unit
 

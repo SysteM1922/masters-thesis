@@ -8,8 +8,9 @@ import uvicorn
 from server_utils import Client, ProcessingUnit, SignalingServer, MultiServer
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename='server.log',
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 

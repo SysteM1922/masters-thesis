@@ -15,11 +15,23 @@ from copy import deepcopy
 from aiortc import RTCConfiguration, RTCIceCandidate, RTCIceServer, RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 from dotenv import load_dotenv
+import logging
 
 load_dotenv(".env")
 
+logging.basicConfig(
+    filename='client.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 SIGNALING_IP = os.getenv("SIGNALING_SERVER_HOST")
 SIGNALING_PORT = os.getenv("SIGNALING_SERVER_PORT")
+
+TURN_SERVER_HOST = os.getenv("TURN_SERVER_HOST")
+TURN_SERVER_PORT = os.getenv("TURN_SERVER_PORT")
+TURN_SERVER_USERNAME = os.getenv("TURN_SERVER_USERNAME")
+TURN_SERVER_CREDENTIAL = os.getenv("TURN_SERVER_CREDENTIAL")
 
 FPS = 30
 
@@ -32,342 +44,10 @@ id = "client_id"
 send_times = []
 arrival_times = []
 
-actual_frame = None
-right_arm_state_repetition = 0
-right_arm_state = None
-
 resume_display = threading.Event()
 stop_display = threading.Event()
 
-def right_arm_angle(right_shoulder: dict, right_elbow: dict, right_wrist: dict):
-    global right_arm_state_repetition, right_arm_state
-    right_arm = None
-    if right_shoulder['visibility'] > 0.5 and right_elbow['visibility'] > 0.5 and right_wrist['visibility'] > 0.5:
-        new_right_shoulder = deepcopy(right_shoulder)
-        new_right_shoulder['x'] = -right_shoulder['x']
-        new_right_wrist = deepcopy(right_wrist)
-        new_right_wrist['x'] = -right_wrist['x']
-        right_arm_angle = utils.get_angle_2_points_x_axis(new_right_shoulder, new_right_wrist)
-        right_elbow_angle = utils.get_angle_3_points(right_shoulder, right_elbow, right_wrist)
-
-        if right_arm_angle < 10 and right_elbow_angle > 140:
-            right_arm = True
-        elif right_arm_angle > 60:
-            right_arm = None
-        else:
-            right_arm = False
-
-    if right_arm != right_arm_state:
-        right_arm_state_repetition -= 1
-
-        if right_arm == False and right_arm_state_repetition < -20:
-            right_arm_state_repetition = 0
-            right_arm_state = right_arm
-        elif right_arm_state_repetition < 0:
-            right_arm_state_repetition = 0
-            right_arm_state = right_arm
-
-    else: 
-        if right_arm_state_repetition < 10:
-            right_arm_state_repetition += 1
-
-    return right_arm_state
-
-left_arm_state_repetition = 0
-left_arm_state = None
-
-def left_arm_angle(left_shoulder, left_elbow, left_wrist):
-    global left_arm_state_repetition, left_arm_state
-    left_arm = None
-
-    if left_shoulder['visibility'] > 0.5 and left_elbow['visibility'] > 0.5 and left_wrist['visibility'] > 0.5:
-        left_arm_angle = utils.get_angle_2_points_x_axis(left_shoulder, left_wrist)
-        left_elbow_angle = utils.get_angle_3_points(left_shoulder, left_elbow, left_wrist)
-
-        if left_arm_angle < 10 and left_elbow_angle > 140:
-            left_arm = True
-        elif left_arm_angle > 60:
-            left_arm = None
-        else:
-            left_arm = False
-
-    if left_arm != left_arm_state:
-        left_arm_state_repetition -= 1
-
-        if left_arm == False and left_arm_state_repetition < -20:
-            left_arm_state_repetition = 0
-            left_arm_state = left_arm
-        elif left_arm_state_repetition < 0:
-            left_arm_state_repetition = 0
-            left_arm_state = left_arm
-
-    else:   
-        if left_arm_state_repetition < 10:
-            left_arm_state_repetition += 1
-
-    return left_arm_state
-    
-
-def arms_angle(right_shoulder, left_shoulder, right_elbow, left_elbow, right_wrist, left_wrist):
-    right_arm_state = right_arm_angle(right_shoulder, right_elbow, right_wrist) 
-    left_arm_state = left_arm_angle(left_shoulder, left_elbow, left_wrist)
-
-    return right_arm_state, left_arm_state
-
-spine_state_repetition = 0
-spine_state = None
-
-def spine_straight(right_shoulder: dict, left_shoulder: dict, right_hip: dict, left_hip: dict):
-    global spine_state_repetition, spine_state
-    spine = None
-    if right_shoulder['visibility'] > 0.5 and left_shoulder['visibility'] > 0.5 and right_hip['visibility'] > 0.5 and left_hip['visibility'] > 0.5:
-        angle_shoulder_hip = utils.get_angle_4_points(right_shoulder, left_shoulder, right_hip, left_hip)
-        angle_left_shoulder_hip = abs(utils.get_angle_3_points(left_shoulder, right_shoulder, right_hip) % 90)
-        angle_right_shoulder_hip = abs(utils.get_angle_3_points(right_shoulder, left_shoulder, left_hip) % 90)
-        if angle_shoulder_hip < 7 and angle_left_shoulder_hip - angle_right_shoulder_hip < 15:
-            spine = True
-        else:
-            spine = False
-    
-    if spine != spine_state:
-        spine_state_repetition -= 1
-
-        if spine_state_repetition < 0:
-            spine_state_repetition = 0
-            spine_state = spine
-
-    else:
-        if spine_state_repetition < 10:
-            spine_state_repetition += 1
-
-    return spine_state
-
-arms_exercise_state_repetition = 0
-arms_exercise_state = None
-old_arms_exercise_state = None
 arms_exercise_reps = 0
-
-def arms_exercise(landmarks):
-    global arms_exercise_state_repetition, arms_exercise_state, arms_exercise_reps, old_arms_exercise_state
-
-    spine_state = spine_straight(
-        landmarks[12],
-        landmarks[11],
-        landmarks[24],
-        landmarks[23]
-    )
-
-    right_arm_state, left_arm_state = arms_angle(
-        landmarks[12],
-        landmarks[11],
-        landmarks[14],
-        landmarks[13],
-        landmarks[16],
-        landmarks[15]
-    )
-
-    arms_exercise = None
-
-    if right_arm_state is None and left_arm_state is None:
-        arms_exercise = None
-
-    elif right_arm_state and left_arm_state and spine_state:
-        arms_exercise = True
-
-    elif not right_arm_state or not left_arm_state or not spine_state:
-        arms_exercise = False
-
-    if arms_exercise != arms_exercise_state:
-        arms_exercise_state_repetition -= 1
-
-        if arms_exercise_state_repetition < 0:
-            arms_exercise_state_repetition = 0
-            if arms_exercise == True and (old_arms_exercise_state is None or arms_exercise_state is None):
-                arms_exercise_reps += 1
-                
-            old_arms_exercise_state = arms_exercise_state
-            arms_exercise_state = arms_exercise
-    else:
-        if arms_exercise_state_repetition < 5:
-            arms_exercise_state_repetition += 1
-
-    right_arm_style = utils.GREEN_STYLE if right_arm_state else utils.RED_STYLE
-    left_arm_style = utils.GREEN_STYLE if left_arm_state else utils.RED_STYLE
-    torso_style = utils.GREEN_STYLE if spine_state else utils.RED_STYLE
-    
-    styled_connections = utils.get_colored_style(
-        right_arm= None if arms_exercise is None else right_arm_style,
-        left_arm= None if arms_exercise is None is None else left_arm_style,
-        torso= None if arms_exercise is None else torso_style,
-    )
-    return styled_connections
-
-angle = 0
-leg_exercise_reps = 0
-leg_exercise_started = None
-start_clock = 0
-
-def leg_exercise(landmarks, right_leg: bool):
-    global angle, leg_exercise_reps, leg_exercise_started, start_clock
-
-    if time.time() - start_clock < 1:
-        return utils.get_colored_style(
-        left_leg=utils.GREEN_STYLE if right_leg else utils.WHITE_STYLE,
-        right_leg=utils.GREEN_STYLE if not right_leg else utils.WHITE_STYLE
-        )
-
-
-    hip, knee, ankle = (23, 25, 27) if right_leg else (24, 26, 28)
-    if landmarks[hip]['visibility'] > 0.5 and landmarks[knee]['visibility'] > 0.5 and landmarks[ankle]['visibility'] > 0.5:
-        angle = utils.get_angle_3_points(
-            landmarks[hip], landmarks[knee], landmarks[ankle]
-        )
-        angle = int(angle)
-    
-    else:
-        angle = 0
-        leg_exercise_started = None
-        return utils.get_colored_style(
-            right_leg=utils.WHITE_STYLE,
-            left_leg=utils.WHITE_STYLE,
-        )
-
-    leg_style = utils.WHITE_STYLE
-
-    if angle > 170 and leg_exercise_started is not None:
-
-        if not leg_exercise_started:
-            leg_style = utils.GREEN_STYLE
-            leg_exercise_reps += 1
-            start_clock = time.time()
-
-        leg_exercise_started = True
-    elif angle < 140:
-        leg_exercise_started = False
-    else:
-        leg_style = utils.WHITE_STYLE
-
-    styled_connections = utils.get_colored_style(
-        left_leg=leg_style if right_leg else utils.WHITE_STYLE,
-        right_leg=leg_style if not right_leg else utils.WHITE_STYLE
-    )
-
-    return styled_connections
-
-correct_steps = 0
-right_arm_angle_amp = 0
-left_arm_angle_amp = 0
-right_arm_rep_state = False
-left_arm_rep_state = False
-
-def walk_exercise(landmarks):
-
-    global correct_steps, right_arm_angle_amp, left_arm_angle_amp, right_arm_rep_state, left_arm_rep_state, start_clock
-
-    if landmarks[23]['visibility'] < 0.5 or landmarks[24]['visibility'] < 0.5 or landmarks[25]['visibility'] < 0.5 or landmarks[26]['visibility'] < 0.5 or landmarks[27]['visibility'] < 0.5 or landmarks[28]['visibility'] < 0.5:
-        right_arm_angle_amp = 0
-        left_arm_angle_amp = 0
-        return None
-
-    right_arm_angle_amp = utils.get_angle_3_points(
-        landmarks[11], landmarks[13], landmarks[15]
-    )
-
-    left_arm_angle_amp = utils.get_angle_3_points(
-        landmarks[12], landmarks[14], landmarks[16]
-    )
-
-    right_shoulder = landmarks[11]
-    left_shoulder = landmarks[12]
-
-    right_wrist = landmarks[15]
-    left_wrist = landmarks[16]
-
-    right_knee_y = landmarks[25]['y']
-    left_knee_y = landmarks[26]['y']
-
-    right_ankle_y = landmarks[27]['y']
-    left_ankle_y = landmarks[28]['y']
-
-    right_hip_x = landmarks[23]['x']
-    left_hip_x = landmarks[24]['x']
-
-    if right_wrist["x"] < right_hip_x:
-        if right_arm_angle_amp < 140:
-        
-            left_arm_rep_state = False
-
-            if time.time() - start_clock < 1:
-                if right_arm_rep_state:
-                
-                    return utils.get_colored_style(
-                        left_arm=utils.GREEN_STYLE,
-                        right_leg=utils.GREEN_STYLE,
-                    )
-
-            elif right_arm_rep_state:
-                return None
-
-            right_arm_style = utils.RED_STYLE
-            left_leg_style = utils.RED_STYLE
-
-            if utils.get_distance_2_points(right_wrist, left_shoulder) < utils.get_distance_2_points(right_wrist, right_shoulder):
-                right_arm_style = utils.GREEN_STYLE
-
-            if left_knee_y + 0.02 < right_knee_y and left_ankle_y + 0.02 < right_ankle_y:
-                left_leg_style = utils.GREEN_STYLE
-
-            if left_leg_style == utils.GREEN_STYLE and right_arm_style == utils.GREEN_STYLE:
-                correct_steps += 1
-                right_arm_rep_state = True
-                start_clock = time.time()
-
-            return utils.get_colored_style(
-                left_arm=right_arm_style,
-                right_leg=left_leg_style
-            )
-    elif left_knee_y + 0.02 > right_knee_y:
-        right_arm_rep_state = False
-
-    if left_wrist["x"] > left_hip_x:
-        if left_arm_angle_amp < 140:
-
-            right_arm_rep_state = False
-
-            if time.time() - start_clock < 1:
-                if left_arm_rep_state:
-
-                    return utils.get_colored_style(
-                        right_arm=utils.GREEN_STYLE,
-                        left_leg=utils.GREEN_STYLE,
-                    )
-
-            elif left_arm_rep_state:
-                return None
-
-            left_arm_style = utils.RED_STYLE
-            right_leg_style = utils.RED_STYLE
-
-            if utils.get_distance_2_points(left_wrist, right_shoulder) < utils.get_distance_2_points(left_wrist, left_shoulder):
-                left_arm_style = utils.GREEN_STYLE
-
-            if right_knee_y + 0.02 < left_knee_y and right_ankle_y + 0.02 < left_ankle_y:
-                right_leg_style = utils.GREEN_STYLE
-
-            if left_arm_style == utils.GREEN_STYLE and right_leg_style == utils.GREEN_STYLE:
-                correct_steps += 1
-                left_arm_rep_state = True
-                start_clock = time.time()
-
-            return utils.get_colored_style(
-                right_arm=left_arm_style,
-                left_leg=right_leg_style
-            )
-
-    elif right_knee_y + 0.02 > left_knee_y:
-        left_arm_rep_state = False
-
-    return None
 
 class WebsocketSignalingClient:
     def __init__(self, host, port, id):
@@ -553,11 +233,12 @@ class VideoTrack(VideoStreamTrack):
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = self.frame_count
         video_frame.time_base = fractions.Fraction(1, FPS)
-        send_times.append((self.frame_count, time.time()))
+        #send_times.append((self.frame_count, time.time()))
+        logging.debug(f"Sent frame {self.frame_count}")
         return video_frame
     
     async def process_frame(self, message):
-        arrival_time = time.time()
+        #arrival_time = time.time()
         global arms_exercise_reps, arrival_times, actual_frame, resume_display, angle
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
@@ -568,30 +249,34 @@ class VideoTrack(VideoStreamTrack):
         data = json.loads(message)
         frame_count = data.get("frame_count", -2) + 1
         frame_count //= self.frame_count_division_factor
-        arrival_times.append((frame_count, arrival_time))
+        #arrival_times.append((frame_count, arrival_time))
         if frame_count == -1 and frame_count > self.last_frame_count:
             return
         while self.frames:
             frame, pts = self.frames.pop(0)
             if pts == frame_count:
+                logging.debug(f"Received frame {frame_count}")
                 landmarks = data.get("landmarks", None)
                 if landmarks:
-                    styled_connections = arms_exercise(deepcopy(landmarks))
+                    styled_connections = data.get("style", None)
                     #styled_connections = leg_exercise(landmarks, right_leg=True)
                     #styled_connections = walk_exercise(landmarks)
                     if styled_connections:
-                        utils.new_draw_landmarks(
+                        utils.draw_from_json(
                             image=frame,
-                            landmark_list=landmarks,
-                            connections=utils._POSE_CONNECTIONS,
-                            connection_drawing_spec=styled_connections,
+                            landmark_json=landmarks,
+                            connections_style=styled_connections,
                         )
                     else:
-                        utils.new_draw_landmarks(
+                        utils.draw_from_json(
                             image=frame,
-                            landmark_list=landmarks,
-                            connections=utils._POSE_CONNECTIONS,
+                            landmark_json=landmarks,
                         )
+
+                    new_rep = data.get("new_rep", False)
+                    if new_rep:
+                        arms_exercise_reps += 1
+
                 actual_frame = frame
                 self.last_frame_count = frame_count
                 resume_display.set()  # Resume the display thread
@@ -602,17 +287,12 @@ async def run(ip_address, port):
     pc_config = RTCConfiguration(
         iceServers=[
             RTCIceServer(
-                urls="stun:192.168.1.100:3478",
-                username="gymuser",
-                credential="gym456"
+                urls=f"turn:{TURN_SERVER_HOST}:{TURN_SERVER_PORT}",
+                username=TURN_SERVER_USERNAME,
+                credential=TURN_SERVER_CREDENTIAL
             ),
             RTCIceServer(
-                urls="turn:192.168.1.100:3478",
-                username="gymuser",
-                credential="gym456"
-            ),
-            RTCIceServer(
-                urls="stun:stun.l.google.com:19302",
+                urls="stun:stun1.l.google.com:3478"
             )
         ],
     )
@@ -723,7 +403,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        #exit(0)
+        exit(0)
 
         print("Adding measurements to the test. Please wait...")
 

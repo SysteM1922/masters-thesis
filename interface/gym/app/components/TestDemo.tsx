@@ -1,24 +1,21 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, use } from 'react';
 import { WebSocketSignalingClient } from '../classes/websocket'
 import { ExerciseType } from '../utils/enums';
 import { DrawingUtils } from '@mediapipe/tasks-vision'
 import { BodyDrawer } from '../utils/bodydrawer';
 import { useVoice } from '../contexts/VoiceContext';
-import { motion, AnimatePresence } from "framer-motion";
 
 const SIGNALING_SERVER_HOST: string = process.env.SIGNALING_SERVER_HOST ?? "";
 const SIGNALING_SERVER_PORT: number = parseInt(process.env.SIGNALING_SERVER_PORT ?? "0");
-
-const maxArmReps = 5;
 
 const pc_config: RTCConfiguration = {
     bundlePolicy: "max-bundle" as RTCBundlePolicy,
     rtcpMuxPolicy: "require" as RTCRtcpMuxPolicy
 };
 
-export default function SimpleDemo() {
+export default function TestDemo() {
     // Usar refs para evitar re-renders
     const signalingRef = useRef<WebSocketSignalingClient | null>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -34,42 +31,17 @@ export default function SimpleDemo() {
     const dataChannelRef = useRef<RTCDataChannel | null>(null);
     const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
+    const { clearNoExecutionsTimeout } = useVoice();
+
     const [isCapturing, setIsCapturing] = useState(false);
 
     const [repCounter, setRepCounter] = useState(0);
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage } = useVoice();
-
-    const [showSecondVideo, setShowSecondVideo] = useState(false);
-    const timer = useRef<NodeJS.Timeout | null>(null);
-
-    const [restart, setRestart] = useState(false);
-
-    const waitTimer = 30000; // 30 segundos
-
-    const resetTimer = useCallback(() => {
-        if (timer.current) clearTimeout(timer.current);
-        const newTimer = setTimeout(() => {
-            setShowSecondVideo(true);
-        }, waitTimer);
-        timer.current = newTimer;
-    }, []);
-
-    const setNewTimer = (newTimer: number) => {
-        if (timer.current) clearTimeout(timer.current);
-        const updatedTimer = setTimeout(() => {
-            setShowSecondVideo(true);
-        }, newTimer);
-        timer.current = updatedTimer;
-    }
-
     const incrementRepCounter = useCallback(() => {
-        resetTimer();
-        setShowSecondVideo(false);
         setRepCounter((prev) => prev + 1);
-    }, [resetTimer]);
+    }, []);
 
     const stopCapture = useCallback(async () => {
         if (displayStreamRef.current) {
@@ -309,119 +281,73 @@ export default function SimpleDemo() {
         startCapture();
     }, [resizeCanvas, startCapture]);
 
-    const pauseStreaming = () => {
-        if (videoSenderRef.current) {
-            videoSenderRef.current.track!.enabled = false;
-        }
-    };
-
-    const resumeStreaming = () => {
-        if (videoSenderRef.current) {
-            videoSenderRef.current.track!.enabled = true;
-        }
-    };
-
     useEffect(() => {
-        if (repCounter >= maxArmReps) {
-            sendMessage({ type: "simple_exercise_done" });
-            resetTimer();
-            setTimeout(() => {
-                setRestart(true);
-                pauseStreaming();
-            }, 3000);
-
-            setTimeout(() => {
-                resumeStreaming();
-                setRepCounter(0);
-                setRestart(false);
-            }, 8000);
-        }
-    }, [repCounter]);
-
-    useEffect(() => {
-        if (!loading && !restart) {
-            sendMessage({ type: "lets_go" });
-            setNewTimer(3000);
-        }
-    }, [loading, restart]);
+        clearNoExecutionsTimeout();
+    }, []);
 
     return (
-        <main className="flex justify-center items-center h-screen w-full gap-5 p-15">
-            <div className="flex justify-center gap-2 relative overflow-hidden m-20">
-                <motion.div
-                    initial={{ flexBasis: "100%" }}
-                    animate={{ flexBasis: showSecondVideo ? "50%" : "100%" }}
-                    transition={{ duration: 0.8 }}
-                    className="flex items-center justify-center"
-                >
-                    <div className='flex relative w-full h-full justify-center'>
-                        <div className='flex relative justify-center'>
-                            <video
-                                // controls // Enable to record
-                                ref={webCamDisplayRef}
-                                className="max-w-full max-h-full object-contain rounded-4xl"
-                                style={{ transform: 'scaleX(-1)' }}
-                                autoPlay
-                                playsInline
-                                muted
-                            ></video>
-                            {isCapturing && (
-                                <div id="overlay" className="absolute w-full h-full object-contain pointer-events-none" style={{ zIndex: 2 }}>
-                                    <main className='w-full h-full'>
-                                        <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
-                                            {!loading && (
-                                                <div className="bg-gray-800/90 rounded-4xl text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
-                                                    <motion.div
-                                                        initial={{ scale: 1 }}
-                                                        animate={{ scale: showSecondVideo ? 0.5 : 1 }}
-                                                        transition={{ duration: 0.8 }}
-                                                        className="w-full flex h-full flex-col justify-evenly items-center">
-                                                        <p className="font-medium leading-none text-center text-3xl">{ExerciseType.ARMS}</p>
-                                                        <p className="font-semibold leading-none text-center w-full text-7xl">{repCounter}/{maxArmReps}</p>
-                                                    </motion.div>
-                                                </div>
-                                            )}
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                            <div></div>
-                                        </div>
-                                    </main>
-
-                                    {loading && (
-                                        <div>
-                                            <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70">
-                                            </div>
-                                            <div className="absolute inset-0 z-50 flex items-center justify-center">
-                                                <div className="flex flex-col items-center">
-                                                    <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
-                                                    <span className="loading loading-dots w-40"></span>
-                                                </div>
+        <main className="relative w-screen h-screen overflow-hidden">
+            <div className='absolute inset-5 flex items-center justify-center gap-5'>
+                <div className='relative inline-block'>
+                    <video
+                        // controls // Enable to record
+                        ref={webCamDisplayRef}
+                        className="block w-auto h-auto object-contain rounded-4xl scale-x-[-1] max-w-[calc(100vw-40px)] max-h-[calc(100vh-40px)]"
+                        autoPlay
+                        playsInline
+                        muted
+                    ></video>
+                    {isCapturing && (
+                        <div className="absolute inset-0 w-full h-full" style={{ zIndex: 2 }}>
+                            <main className='w-full h-full'>
+                                <div className="absolute inset-0 grid grid-cols-5 grid-rows-3 gap-1 p-2 pointer-events-none">
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    {!loading && (
+                                        <div className="bg-gray-800/90 rounded-4xl text-white pointer-events-auto w-full border-3 border-cyan-700 font-medium font-sans">
+                                            <div className="w-full flex h-full flex-col justify-evenly items-center">
+                                                <p className="font-medium leading-none text-center text-[clamp(0.8rem,2vw,1.85rem)]">{ExerciseType.ARMS}</p>
+                                                <p className="font-semibold leading-none text-center w-full text-[clamp(0.8rem,4vw,4.5rem)]">{repCounter}</p>
                                             </div>
                                         </div>
                                     )}
 
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                </div>
+                            </main>
+
+                            {loading && (
+                                <div>
+                                    <div className="absolute inset-0 z-50 flex items-center justify-center w-full h-full bg-black opacity-70">
+                                    </div>
+                                    <div className="absolute inset-0 z-50 flex items-center justify-center">
+                                        <div className="flex flex-col items-center">
+                                            <p className="mb-4 text-white text-4xl font-extrabold">CONNECTING</p>
+                                            <span className="loading loading-dots w-40"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
-                            <canvas
-                                className="absolute max-w-full max-h-full object-contain pointer-events-none"
-                                style={{ transform: 'scaleX(-1)', zIndex: 1 }}
-                                ref={outputCanvasRef}
-                            ></canvas>
+
                         </div>
-                    </div>
+                    )}
+                    <canvas
+                        className="absolute inset-0 w-full h-full"
+                        style={{ transform: 'scaleX(-1)', zIndex: 1 }}
+                        ref={outputCanvasRef}
+                    ></canvas>
                     {!loading && (
                         <div className="absolute max-h-full max-w-full bottom-0 left-0 m-5" style={{ zIndex: 3 }}>
                             <div id="buttons" className="flex flex-col justify-center items-center gap-10 flex-shrink-0">
@@ -431,37 +357,8 @@ export default function SimpleDemo() {
                             </div>
                         </div>
                     )}
-                </motion.div>
-
-                <AnimatePresence>
-                    {showSecondVideo && (
-                        <motion.div
-                            initial={{ flexBasis: 0, opacity: 0 }}
-                            animate={{ flexBasis: "50%", opacity: 1 }}
-                            exit={{ flexBasis: 0, opacity: 0 }}
-                            transition={{ duration: 0.8 }}
-                            className="flex items-center justify-center"
-                        >
-                            <video
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                                className="max-w-full max-h-full object-contain rounded-4xl"
-                            >
-                                <source src="exercise1.mp4" type="video/mp4" />
-                            </video>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-            {restart && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center w-full h-full bg-black">
-                    <p className="mb-4 text-white text-4xl font-extrabold">EXERCÍCIO COMPLETO!</p>
-                    <p className="mb-4 text-white text-2xl font-semibold">Aguarde enquanto recarregamos a sessão...</p>
-                    <span className="loading loading-dots w-40"></span>
                 </div>
-            )}
-        </main>
+            </div>
+        </main >
     );
 }

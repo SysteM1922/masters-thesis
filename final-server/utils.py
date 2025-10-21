@@ -264,71 +264,125 @@ def new_draw_landmarks(
     ] = DrawingSpec(),
     is_drawing_landmarks: bool = True,
 ):
-  """Draws the landmarks and the connections on the image.
+    """Draws the landmarks and the connections on the image.
 
-  Args:
-    image: A three channel BGR image represented as numpy ndarray.
-    landmark_list: A landmark list to be annotated on the image.
-    connections: A list of landmark index tuples that specifies how landmarks to
-      be connected in the drawing.
-    landmark_drawing_spec: Either a DrawingSpec object or a mapping from hand
-      landmarks to the DrawingSpecs that specifies the landmarks' drawing
-      settings such as color, line thickness, and circle radius. If this
-      argument is explicitly set to None, no landmarks will be drawn.
-    connection_drawing_spec: Either a DrawingSpec object or a mapping from hand
-      connections to the DrawingSpecs that specifies the connections' drawing
-      settings such as color and line thickness. If this argument is explicitly
-      set to None, no landmark connections will be drawn.
-    is_drawing_landmarks: Whether to draw landmarks. If set false, skip drawing
-      landmarks, only contours will be drawed.
+    Args:
+        image: A three channel BGR image represented as numpy ndarray.
+        landmark_list: A landmark list to be annotated on the image.
+        connections: A list of landmark index tuples that specifies how landmarks to
+            be connected in the drawing.
+        landmark_drawing_spec: Either a DrawingSpec object or a mapping from hand
+            landmarks to the DrawingSpecs that specifies the landmarks' drawing
+            settings such as color, line thickness, and circle radius. If this
+            argument is explicitly set to None, no landmarks will be drawn.
+        connection_drawing_spec: Either a DrawingSpec object or a mapping from hand
+            connections to the DrawingSpecs that specifies the connections' drawing
+            settings such as color and line thickness. If this argument is explicitly
+            set to None, no landmark connections will be drawn.
+        is_drawing_landmarks: Whether to draw landmarks. If set false, skip drawing
+            landmarks, only contours will be drawed.
 
-  Raises:
-    ValueError: If one of the followings:
-      a) If the input image is not three channel BGR.
-      b) If any connetions contain invalid landmark index.
-  """
-  if not landmark_list:
-    return
-  if image.shape[2] != _BGR_CHANNELS:
-    raise ValueError('Input image must contain three channel bgr data.')
-  image_rows, image_cols, _ = image.shape
-  idx_to_coordinates = {}
-  for idx, landmark in enumerate(landmark_list):
-    if ((landmark['visibility'] and
-         landmark['visibility'] < _VISIBILITY_THRESHOLD) or
-        (landmark['presence'] and
-         landmark['presence'] < _PRESENCE_THRESHOLD)):
-      continue
-    landmark_px = _normalized_to_pixel_coordinates(landmark['x'], landmark['y'],
-                                                   image_cols, image_rows)
-    if landmark_px:
-      idx_to_coordinates[idx] = landmark_px
-  if connections:
-    num_landmarks = len(landmark_list)
-    # Draws the connections if the start and end landmarks are both visible.
-    for connection in connections:
-      start_idx = connection[0]
-      end_idx = connection[1]
-      if not (0 <= start_idx < num_landmarks and 0 <= end_idx < num_landmarks):
-        raise ValueError(f'Landmark index is out of range. Invalid connection '
-                         f'from landmark #{start_idx} to landmark #{end_idx}.')
-      if start_idx in idx_to_coordinates and end_idx in idx_to_coordinates:
-        drawing_spec = connection_drawing_spec[connection] if isinstance(
-            connection_drawing_spec, Mapping) else connection_drawing_spec
-        cv2.line(image, idx_to_coordinates[start_idx],
-                 idx_to_coordinates[end_idx], drawing_spec.color,
-                 drawing_spec.thickness)
-  # Draws landmark points after finishing the connection lines, which is
-  # aesthetically better.
-  if is_drawing_landmarks and landmark_drawing_spec:
-    for idx, landmark_px in idx_to_coordinates.items():
-      drawing_spec = landmark_drawing_spec[idx] if isinstance(
-          landmark_drawing_spec, Mapping) else landmark_drawing_spec
-      # White circle border
-      circle_border_radius = max(drawing_spec.circle_radius + 1,
-                                 int(drawing_spec.circle_radius * 1.2))
-      cv2.circle(image, landmark_px, circle_border_radius, WHITE_COLOR,
-                 drawing_spec.thickness)
-      # Fill color into the circle
-      cv2.circle(image, landmark_px, drawing_spec.circle_radius,
-                 drawing_spec.color, drawing_spec.thickness)
+    Raises:
+        ValueError: If one of the followings:
+            a) If the input image is not three channel BGR.
+            b) If any connetions contain invalid landmark index.
+    """
+    if not landmark_list:
+        return
+    if image.shape[2] != _BGR_CHANNELS:
+        raise ValueError('Input image must contain three channel bgr data.')
+    image_rows, image_cols, _ = image.shape
+    idx_to_coordinates = {}
+    for idx, landmark in enumerate(landmark_list):
+        if ((landmark['visibility'] and
+                 landmark['visibility'] < _VISIBILITY_THRESHOLD) or
+                (landmark['presence'] and
+                 landmark['presence'] < _PRESENCE_THRESHOLD)):
+            continue
+        landmark_px = _normalized_to_pixel_coordinates(landmark['x'], landmark['y'],image_cols, image_rows)
+        if landmark_px:
+            idx_to_coordinates[idx] = landmark_px
+    if connections:
+        num_landmarks = len(landmark_list)
+        # Draws the connections if the start and end landmarks are both visible.
+        for connection in connections:
+            start_idx = connection[0]
+            end_idx = connection[1]
+            if not (0 <= start_idx < num_landmarks and 0 <= end_idx < num_landmarks):
+                raise ValueError(f'Landmark index is out of range. Invalid connection ' f'from landmark #{start_idx} to landmark #{end_idx}.')
+            if start_idx in idx_to_coordinates and end_idx in idx_to_coordinates:
+                drawing_spec = connection_drawing_spec[connection] if isinstance(connection_drawing_spec, Mapping) else connection_drawing_spec
+                cv2.line(image, idx_to_coordinates[start_idx], idx_to_coordinates[end_idx], drawing_spec.color, drawing_spec.thickness)
+    # Draws landmark points after finishing the connection lines, which is
+    # aesthetically better.
+    if is_drawing_landmarks and landmark_drawing_spec:
+        for idx, landmark_px in idx_to_coordinates.items():
+            drawing_spec = landmark_drawing_spec[idx] if isinstance(landmark_drawing_spec, Mapping) else landmark_drawing_spec
+            # White circle border
+            circle_border_radius = max(drawing_spec.circle_radius + 1, int(drawing_spec.circle_radius * 1.2))
+            cv2.circle(image, landmark_px, circle_border_radius, WHITE_COLOR, drawing_spec.thickness)
+            # Fill color into the circle
+            cv2.circle(image, landmark_px, drawing_spec.circle_radius, drawing_spec.color, drawing_spec.thickness)
+
+
+def draw_from_json(
+    image: np.ndarray,
+    landmark_json: List[dict],
+    connections_style: Optional[dict] = None
+):
+    
+    image_rows, image_cols, _ = image.shape
+    idx_to_coordinates = {}
+    connections = _DEFAULT_POSE_LANDMARK_DRAWSPEC.copy()
+    
+    if connections_style:
+        for key, value in connections_style.items():
+            match key:
+                case 'left_arm':
+                    if value == None:
+                        continue
+                    for connection in _LEFT_ARM_AND_HAND_CONNECTIONS:
+                        connections[connection] = GREEN_STYLE if value else RED_STYLE
+                case 'right_arm':
+                    if value == None:
+                        continue
+                    for connection in _RIGHT_ARM_AND_HAND_CONNECTIONS:
+                        connections[connection] = GREEN_STYLE if value else RED_STYLE
+                case 'torso':
+                    if value == None:
+                        continue
+                    for connection in _TORSO_CONNECTIONS:
+                        connections[connection] = GREEN_STYLE if value else RED_STYLE
+                case 'left_leg':
+                    if value == None:
+                        continue
+                    for connection in _LEFT_LEG_CONNECTIONS:
+                        connections[connection] = GREEN_STYLE if value else RED_STYLE
+                case 'right_leg':
+                    if value == None:
+                        continue
+                    for connection in _RIGHT_LEG_CONNECTIONS:
+                        connections[connection] = GREEN_STYLE if value else RED_STYLE
+                case _:
+                    pass
+
+    for idx, landmark in enumerate(landmark_json):
+        if ((landmark['visibility'] and landmark['visibility'] < _VISIBILITY_THRESHOLD) or (landmark['presence'] and landmark['presence'] < _PRESENCE_THRESHOLD)):
+            continue
+        
+        landmark_px = _normalized_to_pixel_coordinates(landmark['x'], landmark['y'],image_cols, image_rows)
+
+        if landmark_px:
+            idx_to_coordinates[idx] = landmark_px
+            cv2.circle(image, landmark_px, WHITE_STYLE.circle_radius + 1, WHITE_COLOR, WHITE_STYLE.thickness)
+            cv2.circle(image, landmark_px, WHITE_STYLE.circle_radius, WHITE_COLOR, WHITE_STYLE.thickness)
+
+    for connection, style in connections.items():
+        
+        start_idx = connection[0]
+        end_idx = connection[1]
+
+        if start_idx not in idx_to_coordinates or end_idx not in idx_to_coordinates:
+            continue
+        
+        cv2.line(image, idx_to_coordinates[start_idx], idx_to_coordinates[end_idx], style.color, style.thickness)
