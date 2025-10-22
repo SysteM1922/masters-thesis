@@ -26,7 +26,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const startListeningFunctionRef = useRef<(() => void) | null>(null);
     const [speaking, setSpeakingState] = useState(false);
 
-    const NO_EXECUTIONS_TIMEOUT = 30; // seconds
+    const NO_EXECUTIONS_TIMEOUT = 60; // seconds
     const noExecutionsTimer = useRef<NodeJS.Timeout | null>(null);
     const helpMessageCounter = useRef(0);
     const MAX_HELP_MESSAGES = 2;

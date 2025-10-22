@@ -71,7 +71,7 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
+    const { sendMessage, onVoiceCommand, startNoExecutionsTimeout, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
     const [confirmation, setConfirmation] = useState(false);
 
     const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
@@ -436,7 +436,7 @@ export default function SingleWorkout() {
 
     useEffect(() => {
         if (!showingExerciseModal) {
-            resetNoExecutionsTimeout();
+            startNoExecutionsTimeout();
             if (actualExercise === ExerciseType.WALK) {
                 startWalkTimer();
             } else {
