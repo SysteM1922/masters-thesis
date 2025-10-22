@@ -1,5 +1,5 @@
 class WebSocketSignalingClient {
-    
+
     websocket: WebSocket | null;
     id: string | null;
     port: number;
@@ -124,7 +124,7 @@ class WebSocketSignalingClient {
                             console.warn('Received empty ICE candidate');
                         }
                         break;
-                    
+
                     case 'signaling_disconnect':
                         console.log('Signaling server disconnected');
                         this.close();
@@ -164,9 +164,11 @@ class WebSocketSignalingClient {
             }
             catch (error) {
                 console.error('Error closing WebSocket:', error);
-            } finally {   
-                alert("Ligação com o servidor perdida. Por favor, reinicie a aplicação.");
-                window.location.reload();
+            } finally {
+                if (window.location.pathname !== "/bye") {
+                    alert("Ligação com o servidor perdida. Por favor, reinicie a aplicação.");
+                    window.location.reload();
+                }
             }
             this.websocket = null;
         }

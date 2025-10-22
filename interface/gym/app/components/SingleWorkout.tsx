@@ -16,8 +16,6 @@ const TURN_SERVER_PORT: number = parseInt(process.env.TURN_SERVER_PORT ?? "0");
 const TURN_SERVER_USERNAME: string = process.env.TURN_SERVER_USERNAME ?? "";
 const TURN_SERVER_CREDENTIAL: string = process.env.TURN_SERVER_CREDENTIAL ?? "";
 
-const NO_EXECUTIONS_TIMEOUT = 30; // segundos
-
 const maxLegReps = 10;
 const maxArmReps = 10;
 const maxWalkSeconds = 60;
@@ -73,16 +71,13 @@ export default function SingleWorkout() {
 
     const [loading, setLoading] = useState(true);
 
-    const { sendMessage, onVoiceCommand, startNoExecutionsTimeout, resetNoExecutionsTimeout } = useVoice();
+    const { sendMessage, onVoiceCommand, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
     const [confirmation, setConfirmation] = useState(false);
 
     const [waitingForConfirmation, setWaitingForConfirmation] = useState(false);
     const [waitingForListening, setWaitingForListening] = useState(false);
 
     const waitingForListeningRef = useRef<boolean>(false);
-
-    const noExecutionsTimer = useRef<NodeJS.Timeout | null>(null);
-    const helpMessageCounter = useRef<number>(0);
 
     useEffect(() => {
         waitingForListeningRef.current = waitingForListening;
@@ -109,11 +104,10 @@ export default function SingleWorkout() {
                     setWaitingForListening(true);
                 }, 1000);
             } else if (command === "do_you_need_help") {
-                startNoExecutionsTimeout();
+                
             } else if (command === "help_requested") {
-                startNoExecutionsTimeout();
+                
             } else if (command === "show_video") {
-                resetNoExecutionsTimeout();
                 if (actualExercise === ExerciseType.ARMS) {
                     videoPath.current = "/exercise1.mp4";
                     setTimeout(() => {
@@ -123,7 +117,7 @@ export default function SingleWorkout() {
                         setWaitingForListening(true);
                     }, 3000);
                 } else if (actualExercise === ExerciseType.RIGHT_LEG || actualExercise === ExerciseType.LEFT_LEG) {
-                    videoPath.current = "/exercise1.mp4";
+                    videoPath.current = "/exercise2.mp4";
                     setTimeout(() => {
                         pauseStreaming();
                         setShowingExerciseModal(true);
@@ -131,7 +125,7 @@ export default function SingleWorkout() {
                         setWaitingForListening(true);
                     }, 3000);
                 } else if (actualExercise === ExerciseType.WALK) {
-                    videoPath.current = "/exercise1.mp4";
+                    videoPath.current = "/exercise3.mp4";
                     setTimeout(() => {
                         pauseStreaming();
                         setShowingExerciseModal(true);
@@ -239,7 +233,6 @@ export default function SingleWorkout() {
 
                     if (data.new_rep) {
                         incrementRepCounter();
-                        startNoExecutionsTimeout();
                     }
 
                     // Verificar dimensões antes de copiar para o canvas de saída
@@ -442,10 +435,15 @@ export default function SingleWorkout() {
     }, [clearWalkTimer]);
 
     useEffect(() => {
-        if (actualExercise === ExerciseType.WALK && !showingExerciseModal) {
-            startWalkTimer();
+        if (!showingExerciseModal) {
+            resetNoExecutionsTimeout();
+            if (actualExercise === ExerciseType.WALK) {
+                startWalkTimer();
+            } else {
+                clearWalkTimer();
+            }
         } else {
-            clearWalkTimer();
+            clearNoExecutionsTimeout();
         }
 
         return () => {
@@ -509,11 +507,11 @@ export default function SingleWorkout() {
     useEffect(() => {
         if (confirmation) {
             if (waitingForConfirmation) {
-                resetNoExecutionsTimeout();
                 setWaitingForConfirmation(false);
+                resetNoExecutionsTimeout();
                 if (actualExercise === ExerciseType.ARMS) {
                     pauseStreaming();
-                    videoPath.current = "/exercise1.mp4";
+                    videoPath.current = "/exercise2.mp4";
                     setTimeout(() => {
                         setShowingExerciseModal(true);
                         startLegsExercise();
@@ -527,7 +525,7 @@ export default function SingleWorkout() {
                 }
                 else if (actualExercise === ExerciseType.LEFT_LEG) {
                     pauseStreaming();
-                    videoPath.current = "/exercise1.mp4";
+                    videoPath.current = "/exercise3.mp4";
                     setTimeout(() => {
                         setShowingExerciseModal(true);
                         setActualExercise(ExerciseType.WALK);
@@ -547,7 +545,6 @@ export default function SingleWorkout() {
                 startWalkExercise();
             }
             resumeStreaming();
-            startNoExecutionsTimeout();
             setShowingExerciseModal(false);
             setConfirmation(false);
         }
@@ -556,14 +553,14 @@ export default function SingleWorkout() {
     useEffect(() => {
         if ((actualExercise === ExerciseType.LEFT_LEG || actualExercise === ExerciseType.RIGHT_LEG) && repCounter >= maxLegReps) {
             if (actualExercise === ExerciseType.RIGHT_LEG) {
+                resetNoExecutionsTimeout();
                 sendMessage({ type: "change_legs" });
                 startLegsExercise();
-                resetNoExecutionsTimeout();
             } else {
+                clearNoExecutionsTimeout();
                 sendMessage({ type: "exercise_done" });
                 pauseStreaming();
-                resetNoExecutionsTimeout();
-                videoPath.current = "/exercise1.mp4";
+                videoPath.current = "/exercise3.mp4";
                 setTimeout(() => {
                     setShowingExerciseModal(true);
                     setActualExercise(ExerciseType.WALK);
@@ -573,10 +570,10 @@ export default function SingleWorkout() {
             }
         }
         else if (actualExercise === ExerciseType.ARMS && repCounter >= maxArmReps) {
+            clearNoExecutionsTimeout();
             sendMessage({ type: "exercise_done" });
             pauseStreaming();
-            resetNoExecutionsTimeout();
-            videoPath.current = "/exercise1.mp4";
+            videoPath.current = "/exercise2.mp4";
             setTimeout(() => {
                 setShowingExerciseModal(true);
                 startLegsExercise();
@@ -585,10 +582,10 @@ export default function SingleWorkout() {
             }, 3000);
         }
         else if (actualExercise === ExerciseType.WALK && walkSecondsLeft <= 0) {
-            pauseStreaming();
-            resetNoExecutionsTimeout();
+            clearNoExecutionsTimeout();
             sendMessage({ type: "goodbye" });
             setTimeout(() => {
+                pauseStreaming();
                 redirect("/bye");
             }, 5000);
         }

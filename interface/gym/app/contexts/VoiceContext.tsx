@@ -32,19 +32,22 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const MAX_HELP_MESSAGES = 2;
 
     const startNoExecutionsTimeout = () => {
+        console.log('Starting no executions timeout');
         if (noExecutionsTimer.current) {
+            helpMessageCounter.current -= 1;
             clearTimeout(noExecutionsTimer.current);
         }
         if (helpMessageCounter.current < MAX_HELP_MESSAGES) {
             noExecutionsTimer.current = setTimeout(() => {
                 sendMessage({ type: "do_you_need_help" });
                 startNoExecutionsTimeout();
+                helpMessageCounter.current += 1;
             }, NO_EXECUTIONS_TIMEOUT * 1000);
-            helpMessageCounter.current += 1;
         }
     }
 
     const clearNoExecutionsTimeout = () => {
+        console.log('Clearing no executions timeout');
         if (noExecutionsTimer.current) {
             clearTimeout(noExecutionsTimer.current);
             noExecutionsTimer.current = null;
@@ -52,8 +55,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     }
 
     const resetNoExecutionsTimeout = () => {
-        helpMessageCounter.current = 0;
-        startNoExecutionsTimeout();
+        console.log('Resetting no executions timeout');
+        if (noExecutionsTimer.current) {
+            helpMessageCounter.current = 0;
+            startNoExecutionsTimeout();
+        } else {
+            console.warn('No executions timeout not started');
+        }
     }
 
     const setWebSocket = (ws: WebSocket) => {
