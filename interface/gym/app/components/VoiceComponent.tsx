@@ -138,17 +138,17 @@ export default function VoiceComponent() {
         };
 
         ws.current.onopen = () => {
-            console.log("WebSocket connection established");
+            console.log("Gym-Service connection established");
         };
 
         ws.current.onerror = (error) => {
-            console.error("WebSocket error:", error);
+            console.error("Gym-Service error:", error);
         };
 
         ws.current.onclose = () => {
-            console.log("WebSocket connection closed");
+            console.log("Gym-Service connection closed");
             // Show an alert to the user and then reload the page
-            alert("Ligação com o serviço local perdida. Por favor, reinicie a aplicação.");
+            alert("Gym-Service not running.\nPlease start the Gym-Service and reload the page.");
             window.location.reload();
         };
 

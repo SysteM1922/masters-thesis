@@ -88,10 +88,31 @@ export default function TestDemo() {
                 "client_id"
             );
 
-            await signalingRef.current.connect();
+            let tries = 0;
+            const maxTries = 5;
+            
+            while (tries < maxTries) {
+                try {
+                    await signalingRef.current.connect();
+                    console.log(`Connected successfully on attempt ${tries + 1}`);
+                    break;
+                } catch (error) {
+                    tries++;
+                    console.error(`Connection attempt ${tries} failed:`, error);
+                    
+                    if (tries >= maxTries) {
+                        console.error('Max connection attempts reached');
+                        throw new Error('Failed to connect after maximum attempts');
+                    }
+                    
+                    // Wait 1 second before next attempt
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
 
             if (pcRef.current) {
                 dataChannelRef.current = pcRef.current.createDataChannel("data");
+                dataChannelRef.current.binaryType = "arraybuffer";
 
                 dataChannelRef.current.onopen = () => {
                     setLoading(false);
@@ -159,6 +180,8 @@ export default function TestDemo() {
                         console.log('WebRTC connection closed or failed');
                         setIsCapturing(false);
                         stopCapture();
+                        alert('Communication lost. Please refresh the page to restart the session.');
+                        window.location.reload();
                     }
                 };
 

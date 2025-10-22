@@ -19,6 +19,7 @@ const TURN_SERVER_CREDENTIAL: string = process.env.TURN_SERVER_CREDENTIAL ?? "";
 const maxLegReps = 10;
 const maxArmReps = 10;
 const maxWalkSeconds = 60;
+const maxReconnectTries = 5;
 
 const pc_config: RTCConfiguration = {
     iceServers: [
@@ -26,9 +27,6 @@ const pc_config: RTCConfiguration = {
             urls: `turn:${TURN_SERVER_HOST}:${TURN_SERVER_PORT}`,
             username: TURN_SERVER_USERNAME,
             credential: TURN_SERVER_CREDENTIAL
-        },
-        {
-            urls: `stun:${TURN_SERVER_HOST}:${TURN_SERVER_PORT}`,
         },
         {
             urls: "stun:stun1.l.google.com:3478",
@@ -104,9 +102,9 @@ export default function SingleWorkout() {
                     setWaitingForListening(true);
                 }, 1000);
             } else if (command === "do_you_need_help") {
-                
+
             } else if (command === "help_requested") {
-                
+
             } else if (command === "show_video") {
                 if (actualExercise === ExerciseType.ARMS) {
                     videoPath.current = "/exercise1.mp4";
@@ -190,7 +188,26 @@ export default function SingleWorkout() {
                 "client_id"
             );
 
-            await signalingRef.current.connect();
+            let tries = 0;
+            
+            while (tries < maxReconnectTries) {
+                try {
+                    await signalingRef.current.connect();
+                    console.log(`Connected successfully on attempt ${tries + 1}`);
+                    break;
+                } catch (error) {
+                    tries++;
+                    console.error(`Connection attempt ${tries} failed:`, error);
+                    
+                    if (tries >= maxReconnectTries) {
+                        console.error('Max connection attempts reached');
+                        throw new Error('Failed to connect after maximum attempts');
+                    }
+                    
+                    // Wait 1 second before next attempt
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
 
             if (pcRef.current) {
                 dataChannelRef.current = pcRef.current.createDataChannel("data");
@@ -267,6 +284,8 @@ export default function SingleWorkout() {
                         console.log('WebRTC connection closed or failed');
                         setIsCapturing(false);
                         stopCapture();
+                        alert('Communication lost. Please refresh the page to restart the session.');
+                        window.location.reload();
                     }
                 };
 
@@ -435,7 +454,7 @@ export default function SingleWorkout() {
     }, [clearWalkTimer]);
 
     useEffect(() => {
-        if (!showingExerciseModal) {
+        if (!showingExerciseModal && !loading) {
             startNoExecutionsTimeout();
             if (actualExercise === ExerciseType.WALK) {
                 startWalkTimer();
