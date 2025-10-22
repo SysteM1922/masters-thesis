@@ -21,7 +21,7 @@ export default function VoiceComponent() {
 
     const { landPageStep, setLandPageStep } = useLandPage();
     const { setTextColor } = useColor();
-    const { sendMessage, setWebSocket, notifyVoiceCommand, speaking, setSpeaking, setStartListeningFunction, startNoExecutionsTimeout, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
+    const { sendMessage, setWebSocket, notifyVoiceCommand, speaking, setSpeaking, setStartListeningFunction, resetNoExecutionsTimeout, clearNoExecutionsTimeout } = useVoice();
     const [listening, setListening] = useState(false);
     const speakingRef = useRef(speaking);
     const [interim, setInterim] = useState("");
@@ -31,6 +31,7 @@ export default function VoiceComponent() {
     const landPageStepRef = useRef(landPageStep);
     const managerRef = useRef<AudioStreamManager | null>(null);
     const [intent, setIntent] = useState("");
+    const lastIntentRef = useRef("");
 
     const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
@@ -70,11 +71,11 @@ export default function VoiceComponent() {
                 recognitionRef.current.start();
                 setListening(true);
                 setInterim("");
-                resetNoExecutionsTimeout();
             } catch (e) {
                 console.error("Error starting recognition:", e);
             }
         }
+        resetNoExecutionsTimeout();
     }, [listening]);
 
     useEffect(() => {
@@ -278,14 +279,16 @@ export default function VoiceComponent() {
                 setIntent("");
                 startListening();
             } else if (intent === "do_you_need_help") {
+                lastIntentRef.current = intent;
                 setIntent("");
                 startListening();
             } else if (intent === "help_requested") {
                 setIntent("");
                 startListening();
+            } else if (intent === "deny") {
+                clearNoExecutionsTimeout();
+                setIntent("");
             }
-        } else {
-            clearNoExecutionsTimeout();
         }
     }, [speaking]);
 
