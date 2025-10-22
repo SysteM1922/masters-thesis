@@ -41,11 +41,15 @@ export class BodyDrawer {
     // Initialize any necessary properties
   }
 
-  drawFromJson(json : { [key: string]: boolean | null }, landmarks: NormalizedLandmark[]) {
+  drawFromJson(json : { [key: string]: boolean | null }, landmarks: [[number, number]]) {
     // Draw the body parts based on the JSON input
 
-    this.drawingUtils.drawLandmarks(landmarks, { radius: 5, lineWidth: LINE_WIDTH, color: '#FFFFFF' });
-    this.drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: LINE_WIDTH, color: '#FFFFFF' });
+    const new_landmarks: NormalizedLandmark[] = landmarks.map((landmark) => {
+      return { x: landmark[0], y: landmark[1], z: 0, visibility: 1.0 };
+    });
+
+    this.drawingUtils.drawLandmarks(new_landmarks, { radius: 5, lineWidth: LINE_WIDTH, color: '#FFFFFF' });
+    this.drawingUtils.drawConnectors(new_landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: LINE_WIDTH, color: '#FFFFFF' });
 
     for (const key in json) {
       switch (key) {
@@ -53,31 +57,31 @@ export class BodyDrawer {
           if (json[key] === null) {
             break;
           }
-          this.drawingUtils.drawConnectors(landmarks, LEFT_ARM_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
+          this.drawingUtils.drawConnectors(new_landmarks, LEFT_ARM_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
           break;
         case 'right_arm':
           if (json[key] === null) {
             break;
           }
-          this.drawingUtils.drawConnectors(landmarks, RIGHT_ARM_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
+          this.drawingUtils.drawConnectors(new_landmarks, RIGHT_ARM_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
           break;
         case 'torso':
           if (json[key] === null) {
             break;
           }
-          this.drawingUtils.drawConnectors(landmarks, TORSO_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
+          this.drawingUtils.drawConnectors(new_landmarks, TORSO_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
           break;
         case 'left_leg':
           if (json[key] === null) {
             break;
           }
-          this.drawingUtils.drawConnectors(landmarks, LEFT_LEG_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
+          this.drawingUtils.drawConnectors(new_landmarks, LEFT_LEG_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
           break;
         case 'right_leg':
           if (json[key] === null) {
             break;
           }
-          this.drawingUtils.drawConnectors(landmarks, RIGHT_LEG_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
+          this.drawingUtils.drawConnectors(new_landmarks, RIGHT_LEG_CONNECTIONS, { lineWidth: LINE_WIDTH, color: json[key] ? HEX_GREEN : HEX_RED });
           break;
         default:
           break;

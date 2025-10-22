@@ -186,8 +186,8 @@ def display_image():
             #cv2.putText(actual_frame, f"Leg Repetitions: {leg_exercise_reps}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             #cv2.putText(actual_frame, f"Steps: {correct_steps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.imwrite("output_client.jpg", actual_frame) # if Linux is not displaying the image, save it to a file and comment the imshow line
-            #cv2.imshow("MediaPipe Pose", actual_frame)
+            #cv2.imwrite("output_client.jpg", actual_frame) # if Linux is not displaying the image, save it to a file and comment the imshow line
+            cv2.imshow("MediaPipe Pose", actual_frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 stop_display.set()
             
