@@ -12,6 +12,8 @@ import os
 from dotenv import load_dotenv
 import cv2
 import logging
+import zlib
+import base64
 
 from api_interface import TestsAPI
 from utils import get_time_offset
@@ -81,11 +83,8 @@ def handle_results(results, _, frame_pts):
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
     styled_connections, new_rep = exercise_function(landmarks, right_leg)
 
-    if len(landmarks) == 0:
-        return
-
     data = json.dumps({
-        "landmarks": landmarks,
+        "landmarks": [(round(landmark["x"],7), round(landmark["y"],7)) for landmark in landmarks], # needed to meet MTU limitations
         "style": styled_connections,
         "new_rep": new_rep,
         "frame_count": frame_pts
