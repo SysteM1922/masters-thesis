@@ -59,7 +59,7 @@ exercise_function = arms_exercise
 right_leg = True
 
 base_options = mp.tasks.BaseOptions(
-    model_asset_path="../models/pose_landmarker_lite.task", # Path to the model file
+    model_asset_path="../models/pose_landmarker_full.task", # Path to the model file
     delegate=mp.tasks.BaseOptions.Delegate.GPU if os.name == "posix" else mp.tasks.BaseOptions.Delegate.CPU,
     # Use GPU if available (only on Linux)
 )
