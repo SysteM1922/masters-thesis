@@ -12,12 +12,37 @@ class WebSocketSignalingClient {
         this.host = host;
     }
 
-    async connect() {
-        this.websocket = new WebSocket(`ws://${this.host}:${this.port}/ws`);
-        this.websocket.onopen = () => {
-            console.log(`Connected to signaling server at ${this.host}:${this.port}`);
-            this.websocket!.send(JSON.stringify({ type: 'connect', client_id: this.id }));
-        };
+    async connect(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+                    this.websocket.close();
+                    reject(new Error('Connection timeout'));
+                }
+            }, 5000);
+
+            this.websocket = new WebSocket(`ws://${this.host}:${this.port}/ws`);
+            
+            this.websocket.onopen = () => {
+                clearTimeout(timeout);
+                console.log(`Connected to signaling server at ${this.host}:${this.port}`);
+                this.websocket!.send(JSON.stringify({ type: 'connect', client_id: this.id }));
+                resolve();
+            };
+
+            this.websocket.onerror = (error) => {
+                clearTimeout(timeout);
+                console.error('WebSocket connection error:', error);
+                reject(new Error('WebSocket connection failed'));
+            };
+
+            this.websocket.onclose = () => {
+                clearTimeout(timeout);
+                if (this.websocket?.readyState !== WebSocket.OPEN) {
+                    reject(new Error('WebSocket connection closed'));
+                }
+            };
+        });
     }
 
     sendMessage(obj: RTCSessionDescription | { type: string; candidate: RTCIceCandidate } | null) {
@@ -79,7 +104,6 @@ class WebSocketSignalingClient {
     }
 
     handleMessages(pc: RTCPeerConnection) {
-        let errors = 0;
 
         this.websocket!.onmessage = (event) => {
             try {
@@ -96,11 +120,11 @@ class WebSocketSignalingClient {
                         break;
 
                     case 'connecting':
-                        console.log('Connecting to server:', message.server_id);
+                        console.log('Connecting to server:', message.unit_id);
                         break;
 
                     case 'accepted_connection':
-                        console.log('Connection accepted by server:', message.server_id);
+                        console.log('Connection accepted by server:', message.unit_id);
                         this.sendOffer(pc);
                         break;
 
@@ -137,11 +161,9 @@ class WebSocketSignalingClient {
 
                     case 'error':
                         console.error('Error from server:', message.message || 'Unknown error');
-                        errors++;
-                        if (errors > 5) {
-                            console.error('Too many errors, closing connection');
-                            this.close();
-                        }
+                        this.websocket!.close();
+                        alert(message.message + '\nPlease try again later.');
+                        window.location.reload();
                         break;
 
                     default:
@@ -166,7 +188,7 @@ class WebSocketSignalingClient {
                 console.error('Error closing WebSocket:', error);
             } finally {
                 if (window.location.pathname !== "/bye") {
-                    alert("Ligação com o servidor perdida. Por favor, reinicie a aplicação.");
+                    alert('Connection to signaling server lost.\nPlease reload the page.');
                     window.location.reload();
                 }
             }
