@@ -367,10 +367,8 @@ def draw_from_json(
                     pass
 
     for idx, landmark in enumerate(landmark_json):
-        if ((landmark['visibility'] and landmark['visibility'] < _VISIBILITY_THRESHOLD) or (landmark['presence'] and landmark['presence'] < _PRESENCE_THRESHOLD)):
-            continue
         
-        landmark_px = _normalized_to_pixel_coordinates(landmark['x'], landmark['y'],image_cols, image_rows)
+        landmark_px = _normalized_to_pixel_coordinates(landmark[0], landmark[1],image_cols, image_rows)
 
         if landmark_px:
             idx_to_coordinates[idx] = landmark_px
