@@ -196,7 +196,8 @@ class MultiServer:
             await unit.client.disconnect() if unit.client else None
 
         del self.signaling_server.servers[self.id]
-        self.signaling_server.check_multi_server_availability()
+        if not self.signaling_server.check_multi_server_availability():
+            self.signaling_server.status = SignalingServerStatus.NO_SERVERS
         logger.info(f"MultiServer disconnected.")
 
     async def signaling_shutdown(self):

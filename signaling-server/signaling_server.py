@@ -71,6 +71,7 @@ async def websocket_server_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         if server:
             logger.info(f"Server {server.id} disconnected")
+            
         else:
             logger.info("Server disconnected without registration")
     except Exception as e:
