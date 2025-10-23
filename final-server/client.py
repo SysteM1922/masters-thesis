@@ -1,7 +1,6 @@
 import asyncio
 import fractions
 import os
-import threading
 import websockets
 import cv2
 import json
@@ -16,6 +15,11 @@ from aiortc import RTCConfiguration, RTCIceCandidate, RTCIceServer, RTCPeerConne
 from av import VideoFrame
 from dotenv import load_dotenv
 import logging
+from multiprocessing import Process, Queue
+from display import start_display
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv(".env")
 
@@ -44,10 +48,11 @@ id = "client_id"
 send_times = []
 arrival_times = []
 
-resume_display = threading.Event()
-stop_display = threading.Event()
+actual_frame = None
 
 arms_exercise_reps = 0
+
+frame_queue = Queue(maxsize=10)
 
 class WebsocketSignalingClient:
     def __init__(self, host, port, id):
@@ -179,21 +184,6 @@ class WebsocketSignalingClient:
             finally:
                 self.websocket = None
 
-def display_image():
-    try:
-        while not stop_display.is_set():
-            resume_display.wait()  # Wait until the display is resumed
-            #cv2.putText(actual_frame, f"Leg Repetitions: {leg_exercise_reps}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-            #cv2.putText(actual_frame, f"Steps: {correct_steps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            #cv2.imwrite("output_client.jpg", actual_frame) # if Linux is not displaying the image, save it to a file and comment the imshow line
-            cv2.imshow("MediaPipe Pose", actual_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                stop_display.set()
-            
-    except Exception as e:
-        print(f"Error in display thread: {e}")
-
 class VideoTrack(VideoStreamTrack):
     def __init__(self, path):
         super().__init__()
@@ -240,7 +230,7 @@ class VideoTrack(VideoStreamTrack):
     
     async def process_frame(self, message):
         #arrival_time = time.time()
-        global arms_exercise_reps, arrival_times, actual_frame, resume_display, angle
+        global arms_exercise_reps, arrival_times, actual_frame
         #self.fps+=1
         #if (time.time() - self.start_time > 1):
             #print(self.fps, "fps")
@@ -280,10 +270,14 @@ class VideoTrack(VideoStreamTrack):
 
                 actual_frame = frame
                 self.last_frame_count = frame_count
-                resume_display.set()  # Resume the display thread
+                cv2.putText(actual_frame, f"Repetitions: {arms_exercise_reps}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+                frame_queue.put(actual_frame)
                 break
     
 async def run(ip_address, port):
+
+    loop = asyncio.get_event_loop()
+
     signaling = WebsocketSignalingClient(ip_address, port, id)
     pc_config = RTCConfiguration(
         iceServers=[
@@ -315,11 +309,6 @@ async def run(ip_address, port):
             "test_id": test_id
         }))
 
-    def start_display_thread():
-        process_thread = threading.Thread(target=display_image)
-        process_thread.daemon = True
-        process_thread.start()
-
     try:
         await signaling.connect()
 
@@ -328,12 +317,11 @@ async def run(ip_address, port):
         @data_channel.on("open")
         def on_open():
             print("Data channel is open")
-            start_display_thread()
             create_test(data_channel)
 
         @data_channel.on("message")
         def on_message(message):
-            asyncio.create_task(video_track.process_frame(message))
+            loop.create_task(video_track.process_frame(message))
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
@@ -341,8 +329,7 @@ async def run(ip_address, port):
             if pc.connectionState == "connected":
                 print("WebRTC connected")
             elif pc.connectionState  in ["closed", "failed", "disconnected"]:
-                print("WebRTC connection closed or failed")
-                stop_display.set()
+                print(f"WebRTC connection {pc.connectionState}")
 
         @pc.on("icecandidate")
         async def on_icecandidate(candidate):
@@ -357,20 +344,10 @@ async def run(ip_address, port):
     
     except Exception as e:
         print(e)
-
-    except KeyboardInterrupt:
-        print("Keyboard interrupt received, closing connection")
-        stop_display.set()
     
     finally:
-        print("Closing connection")
-        
         await signaling.close()
-        await pc.close()
-
-        resume_display.set()  # Ensure display thread can exit
-
-        cv2.destroyAllWindows()
+        #await pc.close()
 
 if __name__ == "__main__":
 
@@ -398,14 +375,26 @@ if __name__ == "__main__":
             sys.exit(1)"""
 
     try:
-        asyncio.run(run(SIGNALING_IP, SIGNALING_PORT))
+        display_process = Process(target=start_display, args=(frame_queue,))
+        display_process.start()
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run(SIGNALING_IP, SIGNALING_PORT))
+
     except KeyboardInterrupt:
         print("Exiting...")
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
+        if loop.is_running():
+            print("Stopping event loop...")
+            loop.stop()
+        loop.close()
+        display_process.terminate()
+        display_process.join()
+        
         exit(0)
-
         print("Adding measurements to the test. Please wait...")
 
         TestsAPI.update_test(

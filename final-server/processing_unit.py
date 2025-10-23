@@ -69,7 +69,7 @@ base_options = mp.tasks.BaseOptions(
 async def send_results(data, frame_pts):
     global data_channel, send_times
     try:
-        send_times.append((frame_pts, time.time()))
+        #send_times.append((frame_pts, time.time()))
         if data_channel:
             data_channel.send(data)
             logging.debug(f"Sent frame {frame_pts}")
@@ -78,7 +78,7 @@ async def send_results(data, frame_pts):
 
 def handle_results(results, _, frame_pts):
     global end_process_times, exercise_function
-    end_process_times.append((frame_pts, time.time()))
+    #end_process_times.append((frame_pts, time.time()))
 
     landmarks = [asdict(landmark) for landmark in results.pose_landmarks[0]] if len(results.pose_landmarks) > 0 else []
     styled_connections, new_rep = exercise_function(landmarks, right_leg)
@@ -251,7 +251,7 @@ class WebsocketSignalingServer:
                 print(f"Error closing WebSocket: {e}")
 
 def process_frame():
-    global last_frame, start_process_times, process_frame_flag
+    global last_frame, start_process_times
 
     detector = vision.PoseLandmarker.create_from_options(options)
 
@@ -262,7 +262,7 @@ def process_frame():
         with last_frame_lock:
             last_frame_pts = last_frame.pts
             logging.debug(f"Processing frame {last_frame_pts}")
-            start_process_times.append((last_frame_pts, time.time()))
+            #start_process_times.append((last_frame_pts, time.time()))
 
             try:
                 # Convert frame to numpy array for debugging
@@ -281,7 +281,7 @@ def process_frame():
     detector.close()
 
 async def handle_track(track):
-    global last_frame, arrival_times, process_frame_flag, stop_flag
+    global last_frame, arrival_times, stop_flag
     
     threading.Thread(target=process_frame, daemon=True).start()
 
@@ -294,7 +294,7 @@ async def handle_track(track):
                     last_frame = frame
                 finally:
                     last_frame_lock.release()
-            arrival_times.append((frame.pts, arrival_time))
+            #arrival_times.append((frame.pts, arrival_time))
         except TypeError as e:
             continue
         except MediaStreamError as e:
@@ -420,8 +420,9 @@ def start_processing_unit(identifier, signaling_host, signaling_port):
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        #return
+        return
 
+        
         print("Adding measurements to the test. Please wait...")
 
         TestsAPI.add_measurement_bulk(
