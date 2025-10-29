@@ -10,7 +10,6 @@ import sys
 import subprocess
 from utils import get_time_offset
 from api_interface import TestsAPI
-from copy import deepcopy
 from aiortc import RTCConfiguration, RTCIceCandidate, RTCIceServer, RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from av import VideoFrame
 from dotenv import load_dotenv

@@ -12,8 +12,6 @@ import os
 from dotenv import load_dotenv
 import cv2
 import logging
-import zlib
-import base64
 
 from api_interface import TestsAPI
 from utils import get_time_offset
@@ -288,7 +286,7 @@ async def handle_track(track):
     while not stop_flag.is_set():
         try:
             frame = await track.recv()
-            arrival_time = time.time()
+            #arrival_time = time.time()
             if last_frame_lock.acquire(blocking=False):
                 try:
                     last_frame = frame
