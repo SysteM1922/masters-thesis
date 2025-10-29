@@ -19,6 +19,13 @@ export default function LandPage() {
     const [typewritter2, setTypewritter2] = useState(true);
 
     const [onComplete, setOnComplete] = useState(false);
+    const [showIndicators, setShowIndicators] = useState(true);
+
+    useEffect(() => {
+        if (speaking) {
+            setShowIndicators(false);
+        }
+    }, [speaking]);
 
     const resetTimer = useCallback(() => {
         if (timer.current) clearTimeout(timer.current);
@@ -217,7 +224,7 @@ export default function LandPage() {
                     }
                 </div>
             </div>
-            {!speaking && landPageStep < 1 && onComplete && (
+            {showIndicators && landPageStep < 1 && onComplete && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
