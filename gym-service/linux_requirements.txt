@@ -80,6 +80,7 @@ networkx==2.6.3
 numpy==1.23.5
 oauthlib==3.3.1
 openai==2.3.0
+openwakeword==0.6.0
 opt_einsum==3.4.0
 packaging==20.9
 pamqp==3.2.1
@@ -93,6 +94,7 @@ protobuf==4.23.3
 psycopg2-binary==2.9.11
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
+pyaudio==0.2.14
 pycparser==2.23
 pydantic==1.10.9
 pydantic_core==2.41.4

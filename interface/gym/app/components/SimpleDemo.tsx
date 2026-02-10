@@ -424,7 +424,7 @@ export default function SimpleDemo() {
                     </div>
                     {!loading && (
                         <div className="absolute max-h-full max-w-full bottom-0 left-0 m-5" style={{ zIndex: 3 }}>
-                            <div id="buttons" className="flex flex-col justify-center items-center gap-10 flex-shrink-0">
+                            <div id="buttons" className="flex flex-col justify-center items-center gap-10 shrink-0">
                                 <button className="btn btn-soft" id="incrementRepButton" onClick={incrementRepCounter}>
                                     Increment Rep
                                 </button>

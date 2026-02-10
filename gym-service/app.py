@@ -1,5 +1,4 @@
 import argparse
-from asyncio.log import logger
 import logging
 import sys
 import threading
@@ -10,19 +9,43 @@ import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import openwakeword.utils
+from openwakeword.model import Model
 import os
+import pyaudio
+import numpy as np
 import tts
 from agent import Agent
 
 load_dotenv(".env")
 
+openwakeword.utils.download_models()
+
 PORT = os.getenv("PORT", 8100)
 
-client_ws = None
+TFLITE_MODEL_PATH = os.getenv("TFLITE_MODEL_PATH", "")
+ONNX_MODEL_PATH = os.getenv("ONNX_MODEL_PATH", "")
 
+FORMAT = pyaudio.paInt16    # 16-bit audio format
+CHANNELS = 1                # Mono audio
+RATE = 16000                # 16kHz is a common sample rate for wake word detection
+CHUNK = 1280                # 1280 bytes correspond to 80ms of audio at 16kHz
+
+
+loaded_models = Model(wakeword_models=[TFLITE_MODEL_PATH, ONNX_MODEL_PATH])
+print("Models loaded successfully")
+
+audio = pyaudio.PyAudio()
+
+session_client_ws = None
+wakeword_client_ws = None
+
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True
 )
 logger = logging.getLogger(__name__)
 
@@ -72,16 +95,16 @@ async def health_check():
 @app.websocket("/ws/session")
 async def websocket_session(websocket: WebSocket):
     """WebSocket endpoint for managing workout sessions."""
-    
-    global client_ws
 
-    if client_ws is not None:
+    global session_client_ws
+
+    if session_client_ws is not None:
         await websocket.close(code=1000)
         return
     
     await websocket.accept()
     try:
-        client_ws = websocket
+        session_client_ws = websocket
         while True:
             data = await websocket.receive_json()
             logger.info(f"Received message from client: {data}")
@@ -220,7 +243,65 @@ async def websocket_session(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket connection error: {e}")
     finally:
-        client_ws = None
+        session_client_ws = None
+        await websocket.close()
+        logger.info("WebSocket connection closed")
+
+@app.websocket("/ws/wakeword")
+async def websocket_wakeword(websocket: WebSocket):
+
+    global wakeword_client_ws
+    current_time = 0
+
+    if wakeword_client_ws is not None:
+        await websocket.close(code=1000)
+        return
+    
+    await websocket.accept()
+
+    logger.info("Wake word WebSocket connection accepted")
+    await websocket.send_json({"type": "wakeword_status", "status": "ready"})
+
+    try:
+        wakeword_client_ws = websocket
+        
+        logger.info("Starting wake word detection loop")
+        try:
+            stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+            logger.info("Audio stream opened for wake word detection")
+        except Exception as audio_error:
+            logger.error(f"Failed to open audio stream: {audio_error}")
+            logger.error(f"Make sure microphone is available and not in use by another application")
+            raise
+
+        while True:
+            audio_data = np.frombuffer(
+                stream.read(CHUNK, exception_on_overflow=False),
+                dtype=np.int16
+            )
+
+            prediction = loaded_models.predict(audio_data)
+            
+            ola_gym_confidence = prediction.get("ola_jim", 0.0)
+
+            if ola_gym_confidence > 0:
+                print(f"Wake word confidence: {ola_gym_confidence:.4f}", end="\r")
+
+            if ola_gym_confidence > 0.4 and (time.time() - current_time) > 2:
+                logger.info(f"Wake word detected with confidence {ola_gym_confidence:.4f}")
+                try:
+                    await websocket.send_json({"type": "wakeword_detected", "confidence": float(ola_gym_confidence)})
+                except Exception as send_error:
+                    logger.error(f"Failed to send wake word detection message: {send_error}")
+                    break
+                current_time = time.time()
+
+    except Exception as e:
+        logger.error(f"WebSocket connection error: {e}")
+    finally:
+        wakeword_client_ws = None
+        stream.stop_stream()
+        stream.close()
         await websocket.close()
         logger.info("WebSocket connection closed")
 
@@ -243,6 +324,7 @@ def start_server():
         port=8100,
         reload=args.reload,
         log_level=args.log_level,
+        access_log=True,
     )
 
 def update_icon(icon):

@@ -29,7 +29,7 @@ async def text_to_speech(text: str, intent: str):
         voice="alloy",
         input=text,
         instructions="Speak in European Portuguese",
-        response_format="mp3",
+        response_format="mp3",  
     )
     current_audio_folder_size = len(os.listdir(f"{AUDIO_FOLDER}/{intent}/"))
     filename = f"{AUDIO_FOLDER}/{intent}/{intent}_{current_audio_folder_size}.mp3"

@@ -2,20 +2,11 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { motion, useAnimation } from "framer-motion";
-import { usePorcupine } from "@picovoice/porcupine-react"
 import { useColor } from "../contexts/ColorContext";
 import { useVoice } from "../contexts/VoiceContext";
 import { useLandPage } from "../contexts/LandPageContext";
 import { redirect } from "next/navigation";
 import AudioStreamManager from "../classes/AudioStreamManager";
-
-const ACCESS_KEY = process.env.PORCUPINE_ACCESS_KEY || "";
-const modelFilePath = "/porcupine_params_pt.pv";
-const keywordFilePath = "/Ola-Jim_pt_wasm_v3_0_0.ppn";
-
-if (ACCESS_KEY === "") {
-    throw new Error("Missing Porcupine AccessKey. Please add it to your environment variables.");
-}
 
 export default function VoiceComponent() {
 
@@ -35,6 +26,8 @@ export default function VoiceComponent() {
 
     const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
+    const [keywordDetection, setKeywordDetection] = useState(false);
+
     useEffect(() => {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then((stream) => {
@@ -48,18 +41,8 @@ export default function VoiceComponent() {
         landPageStepRef.current = landPageStep;
     }, [landPageStep]);
 
-    const {
-        keywordDetection,
-        isLoaded,
-        //isListening,
-        error,
-        init,
-        start,
-        stop,
-        release,
-    } = usePorcupine();
-
     const ws = useRef<WebSocket | null>(null);
+    const openWakeWordWS = useRef<WebSocket | null>(null);
 
     useEffect(() => {
         speakingRef.current = speaking;
@@ -157,6 +140,60 @@ export default function VoiceComponent() {
         }
     }, []);
 
+
+    useEffect(() => {
+        if (openWakeWordWS.current) {
+            return;
+        }
+
+        openWakeWordWS.current = new WebSocket("ws://localhost:8100/ws/wakeword");
+
+        openWakeWordWS.current.onmessage = (event) => {
+            try {
+                console.log("Received wake word message:", event.data);
+                const data = JSON.parse(event.data);
+                switch (data.type) {
+                    case "wakeword_status":
+                        console.log("Wake word detection status:", data.status);
+                        break;
+                    case "wakeword_detected":
+                        console.log("Wake word detected with confidence:", data.confidence);
+                        
+                        if (speakingRef.current) {
+                            console.log("Already speaking, ignoring wake word detection");
+                            return;
+                        }
+
+                        if (listening) {
+                            console.log("Already listening, ignoring wake word detection");
+                            return;
+                        }
+
+                        setKeywordDetection(true);
+                        setTimeout(() => {
+                            setKeywordDetection(false);
+                        }, 2000);
+                        break;
+                }
+            } catch (e) {
+                console.error("Error parsing wake word message:", e);
+            }
+        };
+
+        openWakeWordWS.current.onopen = () => {
+            console.log("OpenWakeWord connection established");
+        };
+
+        openWakeWordWS.current.onerror = (error) => {
+            console.error("OpenWakeWord error:", error);
+        };
+
+        openWakeWordWS.current.onclose = () => {
+            console.log("OpenWakeWord connection closed");
+        };
+
+    }, []);
+
     useEffect(() => {
 
         if (typeof window === 'undefined') {
@@ -222,33 +259,6 @@ export default function VoiceComponent() {
             }
         };
     }, []);
-
-    useEffect(() => {
-        async function initPorcupine() {
-            if (!isLoaded) {
-                await init(
-                    ACCESS_KEY,
-                    { publicPath: keywordFilePath, label: "Olá Jim", sensitivity: 0.5 },
-                    { publicPath: modelFilePath }
-                ).then(
-                    async () => {
-                        console.log("Porcupine initialized");
-                        await start();
-                    }
-                );
-            }
-        }
-        initPorcupine();
-
-    }, [init, start, isLoaded]);
-
-    // Cleanup no unmount
-    useEffect(() => {
-        return () => {
-            stop();
-            release();
-        }
-    }, [stop, release]);
 
     useEffect(() => {
         if (window.location.pathname === "/") {
@@ -343,13 +353,6 @@ export default function VoiceComponent() {
             handleKeywordDetection();
         }
     }, [keywordDetection]);
-
-    useEffect(() => {
-        if (error) {
-            console.error(error);
-        }
-    }, [error]);
-
 
     // Animation
 

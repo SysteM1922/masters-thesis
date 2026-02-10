@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  reactStrictMode: false,
   env: {
     SERVICES_API_HOST: process.env.SERVICES_API_HOST,
     SERVICES_API_PORT: process.env.SERVICES_API_PORT,
