@@ -150,7 +150,6 @@ export default function VoiceComponent() {
 
         openWakeWordWS.current.onmessage = (event) => {
             try {
-                console.log("Received wake word message:", event.data);
                 const data = JSON.parse(event.data);
                 switch (data.type) {
                     case "wakeword_status":

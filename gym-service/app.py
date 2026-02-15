@@ -3,10 +3,11 @@ import logging
 import sys
 import threading
 import time
+import asyncio
 from pystray import Icon, MenuItem, Menu
 from PIL import Image
 import uvicorn
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import openwakeword.utils
@@ -29,7 +30,7 @@ ONNX_MODEL_PATH = os.getenv("ONNX_MODEL_PATH", "")
 FORMAT = pyaudio.paInt16    # 16-bit audio format
 CHANNELS = 1                # Mono audio
 RATE = 16000                # 16kHz is a common sample rate for wake word detection
-CHUNK = 1280                # 1280 bytes correspond to 80ms of audio at 16kHz
+CHUNK = 512                 # 512 bytes correspond to 32ms of audio at 16kHz
 
 
 loaded_models = Model(wakeword_models=[TFLITE_MODEL_PATH, ONNX_MODEL_PATH])
@@ -262,48 +263,133 @@ async def websocket_wakeword(websocket: WebSocket):
     logger.info("Wake word WebSocket connection accepted")
     await websocket.send_json({"type": "wakeword_status", "status": "ready"})
 
+    stream = None
+    audio_task = None
+    
     try:
         wakeword_client_ws = websocket
         
         logger.info("Starting wake word detection loop")
         try:
-            stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+            stream = audio.open(
+                format=FORMAT, 
+                channels=CHANNELS, 
+                rate=RATE, 
+                input=True, 
+                frames_per_buffer=CHUNK,
+                stream_callback=None  # Modo bloqueante mas vamos usar asyncio
+            )
             logger.info("Audio stream opened for wake word detection")
         except Exception as audio_error:
             logger.error(f"Failed to open audio stream: {audio_error}")
             logger.error(f"Make sure microphone is available and not in use by another application")
             raise
 
-        while True:
-            audio_data = np.frombuffer(
-                stream.read(CHUNK, exception_on_overflow=False),
-                dtype=np.int16
-            )
-
-            prediction = loaded_models.predict(audio_data)
-            
-            ola_gym_confidence = prediction.get("ola_jim", 0.0)
-
-            if ola_gym_confidence > 0:
-                print(f"Wake word confidence: {ola_gym_confidence:.4f}", end="\r")
-
-            if ola_gym_confidence > 0.4 and (time.time() - current_time) > 2:
-                logger.info(f"Wake word detected with confidence {ola_gym_confidence:.4f}")
+        # Flag para controlar o loop
+        running = True
+        
+        async def process_audio():
+            nonlocal current_time, running
+            while running and wakeword_client_ws is not None:
                 try:
-                    await websocket.send_json({"type": "wakeword_detected", "confidence": float(ola_gym_confidence)})
-                except Exception as send_error:
-                    logger.error(f"Failed to send wake word detection message: {send_error}")
-                    break
-                current_time = time.time()
+                    # Executar a leitura bloqueante numa thread separada
+                    loop = asyncio.get_event_loop()
+                    audio_data = await loop.run_in_executor(
+                        None,
+                        lambda: np.frombuffer(
+                            stream.read(CHUNK, exception_on_overflow=False),
+                            dtype=np.int16
+                        )
+                    )
 
+                    prediction = loaded_models.predict(audio_data)
+                    
+                    ola_gym_confidence = prediction.get("ola_jim", 0.0)
+
+                    if ola_gym_confidence > 0:
+                        print(f"Wake word confidence: {ola_gym_confidence:.4f}", end="\r")
+
+                    if ola_gym_confidence > 0.4 and (time.time() - current_time) > 2:
+                        logger.info(f"Wake word detected with confidence {ola_gym_confidence:.4f}")
+                        try:
+                            await websocket.send_json({
+                                "type": "wakeword_detected", 
+                                "confidence": float(ola_gym_confidence)
+                            })
+                        except Exception as send_error:
+                            logger.error(f"Failed to send wake word detection message: {send_error}")
+                            running = False
+                            break
+                        current_time = time.time()
+                    
+                    # Dar oportunidade ao event loop processar outras tarefas
+                    await asyncio.sleep(0.001)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing audio: {e}")
+                    running = False
+                    break
+        
+        # Criar task para processar áudio
+        audio_task = asyncio.create_task(process_audio())
+        
+        # Monitorizar a conexão WebSocket
+        try:
+            while running:
+                # Verificar se há mensagens do cliente (ping/pong)
+                try:
+                    message = await asyncio.wait_for(
+                        websocket.receive_json(),
+                        timeout=1.0
+                    )
+                    # Processar mensagens se necessário
+                    if message.get("type") == "close":
+                        logger.info("Client requested close")
+                        running = False
+                        break
+                except asyncio.TimeoutError:
+                    # Timeout é normal, continuar
+                    continue
+                except WebSocketDisconnect:
+                    logger.info("Client disconnected")
+                    running = False
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error in connection monitor: {e}")
+            running = False
+
+    except WebSocketDisconnect:
+        logger.info("Wake word client disconnected (WebSocketDisconnect)")
     except Exception as e:
         logger.error(f"WebSocket connection error: {e}")
     finally:
+        # Parar o processamento de áudio
+        running = False
+        
+        # Cancelar a task de áudio se ainda estiver a correr
+        if audio_task and not audio_task.done():
+            audio_task.cancel()
+            try:
+                await audio_task
+            except asyncio.CancelledError:
+                pass
+        
         wakeword_client_ws = None
-        stream.stop_stream()
-        stream.close()
-        await websocket.close()
-        logger.info("WebSocket connection closed")
+        
+        if stream:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception as e:
+                logger.error(f"Error closing audio stream: {e}")
+        
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+            
+        logger.info("Wake word WebSocket connection closed")
 
 def start_server():
     global app_started
@@ -374,4 +460,4 @@ if __name__ == "__main__":
     icon_thread.start()
 
     icon.run()
-    
+
